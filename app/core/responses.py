@@ -1,38 +1,137 @@
+from __future__ import annotations
+
 from pydantic import BaseModel, Field
-from typing import Any, Optional, Generic, TypeVar, List, Union
+from typing import Any, Optional, Generic, TypeVar, List
 from datetime import datetime
+
 
 T = TypeVar("T")
 
-class APIResponse(BaseModel, Generic[T]):
-    """Standard response wrapper for all API endpoints"""
-    success: bool = Field(default=True, description="Indicates if the request was successful")
-    message: str = Field(default="Operation completed successfully", description="Human-readable message")
-    data: Optional[Union[T, List[T]]] = Field(default=None, description="Response data payload")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Response timestamp")
-    error: Optional[str] = Field(default=None, description="Error message if success is False")
 
-    class Config:
-        from_attributes = True
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
+class PaginationMeta(BaseModel):
+    """Metadata untuk response yang menggunakan paginasi."""
+
+    total: int = Field(..., description="Total jumlah item yang tersedia", example=100)
+    skip: int = Field(..., description="Jumlah item yang dilewati (offset)", example=0)
+    limit: int = Field(..., description="Jumlah item per halaman", example=20)
+    page: int = Field(..., description="Halaman saat ini (1-indexed)", example=1)
+    total_pages: int = Field(..., description="Total jumlah halaman", example=5)
+    has_next: bool = Field(..., description="Apakah ada halaman berikutnya", example=True)
+    has_prev: bool = Field(..., description="Apakah ada halaman sebelumnya", example=False)
+
+    @classmethod
+    def create(cls, total: int, skip: int, limit: int) -> "PaginationMeta":
+        """
+        Buat instance PaginationMeta dari parameter paginasi.
+
+        Args:
+            total: Total item di database.
+            skip: Offset item.
+            limit: Jumlah item per halaman.
+
+        Returns:
+            PaginationMeta instance yang terisi.
+        """
+        total_pages = max(1, -(-total // limit)) if limit > 0 else 1  # ceil division
+        current_page = (skip // limit) + 1 if limit > 0 else 1
+        return cls(
+            total=total,
+            skip=skip,
+            limit=limit,
+            page=current_page,
+            total_pages=total_pages,
+            has_next=skip + limit < total,
+            has_prev=skip > 0,
+        )
+
+
+class APIResponse(BaseModel, Generic[T]):
+    """Standard response wrapper untuk semua API endpoint."""
+
+    success: bool = Field(
+        default=True,
+        description="Menunjukkan apakah request berhasil",
+        example=True,
+    )
+    message: str = Field(
+        default="Operation completed successfully",
+        description="Pesan yang bisa dibaca manusia",
+        example="Data berhasil diambil",
+    )
+    data: Optional[Any] = Field(
+        default=None,
+        description="Payload data response",
+    )
+    meta: Optional[PaginationMeta] = Field(
+        default=None,
+        description="Metadata paginasi (hanya ada di list endpoint)",
+    )
+    timestamp: datetime = Field(
+        default_factory=datetime.utcnow,
+        description="Timestamp response (UTC)",
+        example="2024-01-01T00:00:00",
+    )
+    error: Optional[str] = Field(
+        default=None,
+        description="Pesan error jika success=False",
+        example=None,
+    )
+
+    model_config = {
+        "from_attributes": True,
+        "json_encoders": {datetime: lambda v: v.isoformat()},
+    }
+
 
 class StandardJSONResponse:
-    """Custom response class to automatically wrap responses"""
-    
+    """Helper untuk membuat APIResponse yang konsisten."""
+
     @staticmethod
-    def success(data: Any = None, message: str = "Operation completed successfully"):
+    def success(
+        data: Any = None,
+        message: str = "Operation completed successfully",
+        meta: Optional[PaginationMeta] = None,
+    ) -> APIResponse:
+        """
+        Buat response sukses.
+
+        Args:
+            data: Payload data yang akan dikembalikan.
+            message: Pesan deskriptif.
+            meta: Metadata paginasi opsional.
+
+        Returns:
+            APIResponse instance.
+        """
         return APIResponse(
             success=True,
             message=message,
-            data=data
+            data=data,
+            meta=meta,
         )
-    
+
     @staticmethod
-    def error(message: str, status_code: int = 400):
-        return APIResponse(
-            success=False,
-            message=message,
-            error=message
-        ), status_code
+    def error(
+        message: str,
+        status_code: int = 400,
+        error_detail: Optional[str] = None,
+    ) -> tuple[APIResponse, int]:
+        """
+        Buat response error.
+
+        Args:
+            message: Pesan error yang akan ditampilkan.
+            status_code: HTTP status code.
+            error_detail: Detail error teknis opsional.
+
+        Returns:
+            Tuple (APIResponse, status_code).
+        """
+        return (
+            APIResponse(
+                success=False,
+                message=message,
+                error=error_detail or message,
+            ),
+            status_code,
+        )

@@ -1,6 +1,9 @@
 ```
 # Database
 app.db
+app.db-journal
+app.db-wal
+app.db-shm
 
 # Dependencies
 .venv/
