@@ -1,14 +1,15 @@
 from sqlalchemy.orm import Session
+from datetime import datetime
 from app.modules.product.models import Product
 from app.modules.product.schemas import ProductCreate, ProductUpdate
 
 
 def get_product(db: Session, product_id: int):
-    return db.query(Product).filter(Product.id == product_id).first()
+    return db.query(Product).filter(Product.id == product_id, Product.is_deleted == False).first()
 
 
 def get_products(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(Product).offset(skip).limit(limit).all()
+    return db.query(Product).filter(Product.is_deleted == False).offset(skip).limit(limit).all()
 
 
 def create_product(db: Session, product: ProductCreate):
@@ -26,7 +27,7 @@ def create_product(db: Session, product: ProductCreate):
 
 
 def update_product(db: Session, product_id: int, product_update: ProductUpdate):
-    db_product = db.query(Product).filter(Product.id == product_id).first()
+    db_product = db.query(Product).filter(Product.id == product_id, Product.is_deleted == False).first()
     if db_product:
         update_data = product_update.model_dump(exclude_unset=True)
         for key, value in update_data.items():
@@ -37,8 +38,9 @@ def update_product(db: Session, product_id: int, product_update: ProductUpdate):
 
 
 def delete_product(db: Session, product_id: int):
-    db_product = db.query(Product).filter(Product.id == product_id).first()
+    db_product = db.query(Product).filter(Product.id == product_id, Product.is_deleted == False).first()
     if db_product:
-        db.delete(db_product)
+        db_product.is_deleted = True
+        db_product.deleted_at = datetime.utcnow()
         db.commit()
     return db_product
