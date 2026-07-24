@@ -1,38 +1,60 @@
 ```
-# Database
-app.db
-
 # Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
 .Python
-env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
 venv/
+ENV/
+env.bak/
 .venv/
-.ENV
-.ENV.local
-.env.*
-.env
-.pytest_cache/
-.mypy_cache/
-.coverage
-htmlcov/
-
-# Dependencies
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Logs
-*.log
+env/
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+*.env.*
+
+# Coverage
+.coverage
+htmlcov/
+.coverage.*
+.coverage.xml
+*.cover
+
+# Testing
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
+
+# OS
+.DS_Store
+Thumbs.db
 ```

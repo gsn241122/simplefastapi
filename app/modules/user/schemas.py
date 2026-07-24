@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional
+from datetime import datetime
 
 
 class UserBase(BaseModel):
@@ -22,6 +23,8 @@ class UserUpdate(BaseModel):
 
 class UserResponse(UserBase):
     id: int
+    is_deleted: bool
+    deleted_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

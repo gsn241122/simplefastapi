@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional
 from decimal import Decimal
+from datetime import datetime
 
 
 class ProductBase(BaseModel):
@@ -25,6 +26,8 @@ class ProductUpdate(BaseModel):
 
 class ProductResponse(ProductBase):
     id: int
+    is_deleted: bool
+    deleted_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
