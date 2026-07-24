@@ -11,13 +11,13 @@ T = TypeVar("T")
 class PaginationMeta(BaseModel):
     """Metadata untuk response yang menggunakan paginasi."""
 
-    total: int = Field(..., description="Total jumlah item yang tersedia", example=100)
-    skip: int = Field(..., description="Jumlah item yang dilewati (offset)", example=0)
-    limit: int = Field(..., description="Jumlah item per halaman", example=20)
-    page: int = Field(..., description="Halaman saat ini (1-indexed)", example=1)
-    total_pages: int = Field(..., description="Total jumlah halaman", example=5)
-    has_next: bool = Field(..., description="Apakah ada halaman berikutnya", example=True)
-    has_prev: bool = Field(..., description="Apakah ada halaman sebelumnya", example=False)
+    total: int = Field(..., description="Total jumlah item yang tersedia", json_schema_extra={"example": 100})
+    skip: int = Field(..., description="Jumlah item yang dilewati (offset)", json_schema_extra={"example": 0})
+    limit: int = Field(..., description="Jumlah item per halaman", json_schema_extra={"example": 20})
+    page: int = Field(..., description="Halaman saat ini (1-indexed)", json_schema_extra={"example": 1})
+    total_pages: int = Field(..., description="Total jumlah halaman", json_schema_extra={"example": 5})
+    has_next: bool = Field(..., description="Apakah ada halaman berikutnya", json_schema_extra={"example": True})
+    has_prev: bool = Field(..., description="Apakah ada halaman sebelumnya", json_schema_extra={"example": False})
 
     @classmethod
     def create(cls, total: int, skip: int, limit: int) -> "PaginationMeta":
@@ -51,12 +51,12 @@ class APIResponse(BaseModel, Generic[T]):
     success: bool = Field(
         default=True,
         description="Menunjukkan apakah request berhasil",
-        example=True,
+        json_schema_extra={"example": True},
     )
     message: str = Field(
         default="Operation completed successfully",
         description="Pesan yang bisa dibaca manusia",
-        example="Data berhasil diambil",
+        json_schema_extra={"example": "Data berhasil diambil"},
     )
     data: Optional[Any] = Field(
         default=None,
@@ -69,12 +69,12 @@ class APIResponse(BaseModel, Generic[T]):
     timestamp: datetime = Field(
         default_factory=datetime.utcnow,
         description="Timestamp response (UTC)",
-        example="2024-01-01T00:00:00",
+        json_schema_extra={"example": "2024-01-01T00:00:00"},
     )
     error: Optional[str] = Field(
         default=None,
         description="Pesan error jika success=False",
-        example=None,
+        json_schema_extra={"example": None},
     )
 
     model_config = {
