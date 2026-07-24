@@ -17,28 +17,28 @@ from __future__ import annotations
 
 import argparse
 import getpass
-import hashlib
 import importlib
-import inspect
 import json
-import logging
 import os
 import platform
 import re
 import secrets
 import shutil
-import signal
 import socket
 import sqlite3
 import string
 import subprocess
 import sys
 import textwrap
-import time
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
-from app.core.database import SessionLocal, engine, Base
+from typing import Any
+
+# NOTE: app.core.* modules are imported lazily (inside the functions that need
+# them) rather than at module scope. Commands like `info`, `gen`, `lint`, `loc`,
+# or `clean` have nothing to do with the FastAPI app and must keep working even
+# before the app package exists or is importable (fresh checkout, wrong venv,
+# missing deps, etc).
 
 # ──────────────────────────────────────────────────────────────────
 # Konstanta & Konfigurasi
@@ -655,7 +655,7 @@ def _env_init() -> None:
     content = content.replace("demo-api-key-12345", new_api_key)
 
     ENV_FILE.write_text(content)
-    _success(f".env berhasil dibuat dari .env.example")
+    _success(".env berhasil dibuat dari .env.example")
     _success("SECRET_KEY dan API_KEY sudah di-generate secara otomatis.")
     print()
 
@@ -815,7 +815,7 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
         return
 
     module_dir.mkdir(parents=True)
-    class_name = module_name.capitalize()
+    class_name = "".join(word.capitalize() for word in module_name.split("_"))
 
     # __init__.py
     (module_dir / "__init__.py").write_text("")
@@ -1058,11 +1058,11 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
 
     print()
     _info("Langkah selanjutnya:")
-    _dim(f"    1. Register router di app/main.py:")
+    _dim("    1. Register router di app/main.py:")
     _dim(f"       from app.modules.{module_name}.routes import router as {module_name}_router")
     _dim(f"       app.include_router({module_name}_router)")
     _dim(f"    2. Buat migration: python devtoolkit.py db migrate --message \"add {module_name} table\"")
-    _dim(f"    3. Apply migration: alembic upgrade head")
+    _dim("    3. Apply migration: alembic upgrade head")
     print()
 
 
@@ -1225,6 +1225,72 @@ def cmd_routes(args: argparse.Namespace) -> None:
         _error(f"Unknown routes action: {action}")
 
 
+def _flatten_routes(routes: Any) -> list[Any]:
+    """
+    Ratakan (flatten) daftar routes secara rekursif.
+
+    Kenapa ini perlu: versi FastAPI/Starlette yang lebih baru tidak lagi
+    menaruh route hasil `include_router()` langsung di `app.routes` sebagai
+    objek `APIRoute` — mereka dibungkus dalam objek internal
+    (`_IncludedRouter`) yang TIDAK punya `.path` maupun `.routes`, hanya
+    `.original_router.routes`. Kalau kita cuma cek `hasattr(route, "path")`
+    atau `hasattr(route, "routes")` seperti sebelumnya, seluruh route yang
+    didaftarkan lewat `include_router()` akan diam-diam terlewat — yang
+    tersisa cuma route bawaan (`/docs`, `/openapi.json`, dst), route yang
+    didaftarkan langsung di `app` (`@app.get(...)`, `@app.websocket(...)`),
+    dan `Mount`.
+
+    Menangani 3 bentuk:
+      - Endpoint nyata (Route/APIRoute/WebSocketRoute/Mount): punya `.path`
+      - Router lama yang sudah flat: punya `.routes`
+      - Wrapper baru (`_IncludedRouter`): punya `.original_router.routes`
+    """
+    return [route for _prefix, route in _flatten_routes_with_prefix(routes)]
+
+
+def _flatten_routes_with_prefix(routes: Any, prefix: str = "") -> list[tuple[str, Any]]:
+    """
+    Sama seperti `_flatten_routes`, tapi juga mengembalikan path efektif
+    (prefix dari tiap router digabung) sebagai pasangan `(full_path, route)`.
+
+    Ini perlu karena pada wrapper `_IncludedRouter`, path yang tersimpan di
+    tiap route bersifat relatif terhadap router tempat ia didaftarkan —
+    prefix dari router induk (mis. `/api/v1`) disimpan terpisah di
+    `original_router.prefix` dan harus digabungkan manual untuk mendapatkan
+    path lengkap (mis. `/api/v1/invoices`), kalau tidak path yang tampil
+    akan salah/tidak lengkap.
+    """
+    flat: list[tuple[str, Any]] = []
+    for route in routes:
+        if hasattr(route, "path"):
+            # `route.path` sudah membawa prefix router yang LANGSUNG memilikinya
+            # (dibakukan sejak route didaftarkan). `prefix` di sini hanya
+            # mewakili prefix dari router LELUHUR di atasnya.
+            full_path = prefix + route.path
+            flat.append((full_path, route))
+            nested = getattr(route, "routes", None)
+            if nested:
+                flat.extend(_flatten_routes_with_prefix(nested, prefix))
+        elif hasattr(route, "original_router"):
+            own_prefix = getattr(route.original_router, "prefix", "") or ""
+            for sub in route.original_router.routes:
+                if hasattr(sub, "path"):
+                    # `sub` adalah route asli yang sudah membawa `own_prefix`
+                    # sendiri — jangan ditambahkan lagi, cukup teruskan prefix
+                    # leluhur yang sudah terkumpul sejauh ini.
+                    flat.extend(_flatten_routes_with_prefix([sub], prefix))
+                else:
+                    # `sub` adalah router bersarang lain (`_IncludedRouter`)
+                    # yang paths-nya BELUM tahu soal `own_prefix` — gabungkan
+                    # sekarang sebelum turun lebih dalam.
+                    flat.extend(_flatten_routes_with_prefix([sub], prefix + own_prefix))
+        elif hasattr(route, "routes"):
+            flat.extend(_flatten_routes_with_prefix(route.routes, prefix))
+        # else: tipe wrapper tidak dikenal — lewati agar tidak crash,
+        # tapi ini seharusnya jarang terjadi.
+    return flat
+
+
 def _routes_list(verbose: bool = False) -> None:
     """Tampilkan semua API routes yang terdaftar."""
     _header("Registered API Routes 🛣️")
@@ -1233,36 +1299,33 @@ def _routes_list(verbose: bool = False) -> None:
         from app.main import app as fastapi_app
 
         routes_info: list[dict[str, Any]] = []
-        for route in fastapi_app.routes:
-            if hasattr(route, "methods") and hasattr(route, "path"):
-                methods = ", ".join(sorted(route.methods - {"HEAD", "OPTIONS"}))
-                endpoint_name = route.endpoint.__name__ if route.endpoint else "N/A"
-                tags = getattr(route, "tags", []) or []
-                
-                # Check authentication requirements
-                requires_auth = False
-                required_roles = []
-                
-                # Check for Depends with security requirements
-                if hasattr(route, "dependencies"):
-                    for dep in route.dependencies:
-                        if hasattr(dep, "dependency"):
-                            dep_name = getattr(dep.dependency, "__name__", "")
-                            if "get_current_user" in dep_name or "require_api_key" in dep_name:
-                                requires_auth = True
-                            if "require_role" in dep_name or "check_role" in dep_name:
-                                # Extract role requirement if possible
-                                required_roles.append("role-based")
-                
-                routes_info.append({
-                    "methods": methods,
-                    "path": route.path,
-                    "name": endpoint_name,
-                    "tags": ", ".join(tags) if tags else "-",
-                    "requires_auth": requires_auth,
-                    "required_roles": required_roles,
-                })
+        for full_path, route in _flatten_routes_with_prefix(fastapi_app.routes):
+            methods = getattr(route, "methods", {"GET"}) - {"HEAD", "OPTIONS"}
+            methods = ", ".join(sorted(methods)) if methods else "MOUNT/STATIC"
+            endpoint_name = getattr(route, "endpoint", None)
+            endpoint_name = endpoint_name.__name__ if hasattr(endpoint_name, "__name__") else "N/A"
+            tags = getattr(route, "tags", []) or []
 
+            # Check authentication requirements
+            requires_auth = False
+            required_roles = []
+            if hasattr(route, "dependencies"):
+                for dep in route.dependencies:
+                    if hasattr(dep, "dependency"):
+                        dep_name = getattr(dep.dependency, "__name__", "")
+                        if "get_current_user" in dep_name or "require_api_key" in dep_name:
+                            requires_auth = True
+                        if "require_role" in dep_name or "check_role" in dep_name:
+                            required_roles.append("role-based")
+
+            routes_info.append({
+                "methods": methods,
+                "path": full_path,
+                "name": endpoint_name,
+                "tags": ", ".join(tags) if tags else "-",
+                "requires_auth": requires_auth,
+                "required_roles": required_roles,
+                })
         if not routes_info:
             _warning("Tidak ada routes yang ditemukan.")
             return
@@ -1314,71 +1377,60 @@ def _routes_list(verbose: bool = False) -> None:
 def _routes_check() -> None:
     """Periksa route yang tidak aman (tidak memerlukan autentikasi)."""
     _header("Security Audit: Route Protection Check 🔍")
-    
+
     try:
         from app.main import app as fastapi_app
 
         unprotected_routes: list[dict[str, Any]] = []
         protected_routes: list[dict[str, Any]] = []
-        
+
         # List of paths that should typically be public
         public_paths = [
             "/health", "/docs", "/redoc", "/openapi.json",
             "/api/v1/auth/register", "/api/v1/auth/login",
-            "/api/v1/auth/refresh", "/api/v1/auth/verify-email"
+            "/api/v1/auth/refresh", "/api/v1/auth/verify-email",
         ]
 
-        for route in fastapi_app.routes:
-            if hasattr(route, "methods") and hasattr(route, "path"):
-                methods = sorted(route.methods - {"HEAD", "OPTIONS"})
-                if not methods:  # Skip if no HTTP methods
-                    continue
-                    
-                path = route.path
-                endpoint_name = route.endpoint.__name__ if route.endpoint else "N/A"
-                tags = getattr(route, "tags", []) or []
-                
-                # Check authentication requirements
-                requires_auth = False
-                required_roles = []
-                
-                # Check for Depends with security requirements
-                if hasattr(route, "dependencies"):
-                    for dep in route.dependencies:
-                        if hasattr(dep, "dependency"):
-                            dep_name = getattr(dep.dependency, "__name__", "")
-                            if "get_current_user" in dep_name or "require_api_key" in dep_name:
-                                requires_auth = True
-                            if "require_role" in dep_name or "check_role" in dep_name:
-                                required_roles.append("role-based")
-                
-                route_info = {
-                    "methods": ", ".join(methods),
-                    "path": path,
-                    "name": endpoint_name,
-                    "tags": ", ".join(tags) if tags else "-",
-                    "requires_auth": requires_auth,
-                    "required_roles": required_roles,
-                }
-                
-                if requires_auth:
-                    protected_routes.append(route_info)
-                else:
-                    # Check if this is an expected public route
-                    is_expected_public = any(
-                        path.startswith(pub_path) for pub_path in public_paths
-                    )
-                    route_info["is_expected_public"] = is_expected_public
-                    unprotected_routes.append(route_info)
+        for path, route in _flatten_routes_with_prefix(fastapi_app.routes):
+            methods = getattr(route, "methods", {"GET"}) - {"HEAD", "OPTIONS"}
+            methods = ", ".join(sorted(methods)) if methods else "MOUNT/STATIC"
+            endpoint_name = getattr(route, "endpoint", None)
+            endpoint_name = endpoint_name.__name__ if hasattr(endpoint_name, "__name__") else "N/A"
+            tags = getattr(route, "tags", []) or []
+
+            # Check authentication requirements
+            requires_auth = False
+            required_roles: list[str] = []
+            for dep in getattr(route, "dependencies", []) or []:
+                dep_name = getattr(getattr(dep, "dependency", None), "__name__", "")
+                if "get_current_user" in dep_name or "require_api_key" in dep_name:
+                    requires_auth = True
+                if "require_role" in dep_name or "check_role" in dep_name:
+                    required_roles.append("role-based")
+
+            route_info = {
+                "methods": methods,
+                "path": path,
+                "name": endpoint_name,
+                "tags": ", ".join(tags) if tags else "-",
+                "requires_auth": requires_auth,
+                "required_roles": required_roles,
+                "is_expected_public": path in public_paths,
+            }
+
+            if requires_auth:
+                protected_routes.append(route_info)
+            else:
+                unprotected_routes.append(route_info)
 
         # Report unprotected routes
         print(f"\n  {_c('UNPROTECTED ROUTES (No Authentication Required)', Color.BOLD + Color.RED)}")
         print(f"  {'─' * 60}")
-        
+
         unexpected_unprotected = [
             r for r in unprotected_routes if not r.get("is_expected_public", False)
         ]
-        
+
         if unexpected_unprotected:
             _error(f"Ditemukan {len(unexpected_unprotected)} route yang TIDAK AMAN:")
             print()
@@ -1639,7 +1691,7 @@ def _get_user_session():
             pass
 
     from sqlalchemy.orm import sessionmaker  # noqa: PLC0415
-    from app.core.config import settings  # noqa: PLC0415
+    from app.core.config import settings  # noqa: PLC0415, F401 (import forces settings to resolve from the .env we just loaded)
     from app.core.database import engine  # noqa: PLC0415
 
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -1755,7 +1807,7 @@ def _user_create(
 
     # ── Konek DB & buat user ──
     try:
-        _ = _get_user_session()
+        SessionLocal, _engine = _get_user_session()
     except Exception as exc:
         _error(f"Gagal koneksi ke database: {exc}")
         return
@@ -1850,7 +1902,7 @@ def _user_reset_password(
 
     # ── Konek DB ──
     try:
-        _ = _get_user_session()
+        SessionLocal, _engine = _get_user_session()
     except Exception as exc:
         _error(f"Gagal koneksi ke database: {exc}")
         return
@@ -1902,7 +1954,7 @@ def _user_list(only_active: bool) -> None:
     _header("User List 📋")
 
     try:
-        _ = _get_user_session()
+        SessionLocal, _engine = _get_user_session()
     except Exception as exc:
         _error(f"Gagal koneksi ke database: {exc}")
         return
@@ -1922,10 +1974,10 @@ def _user_list(only_active: bool) -> None:
 
         # Header tabel
         print()
-        _c(
+        print(_c(
             f"  {'ID':<5} {'Username':<20} {'Email':<30} {'Active':<8} {'Created':<20}",
             Color.BOLD,
-        )
+        ))
         _dim("  " + "─" * 86)
         for u in users:
             created = u.created_at.strftime("%Y-%m-%d %H:%M") if u.created_at else "-"
@@ -1955,7 +2007,7 @@ def _user_delete(identifier: str | None) -> None:
         return
 
     try:
-        _ = _get_user_session()
+        SessionLocal, _engine = _get_user_session()
     except Exception as exc:
         _error(f"Gagal koneksi ke database: {exc}")
         return
@@ -2148,10 +2200,11 @@ def cmd_clean(args: argparse.Namespace) -> None:
             files = list(PROJECT_ROOT.rglob(pattern))
             files = [f for f in files if f.is_file() and ".venv" not in str(f)]
             for f in files:
-                total_size += f.stat().st_size
+                size = f.stat().st_size
+                total_size += size
                 if not args.dry_run:
                     f.unlink()
-                cleaned.append(f"{f.relative_to(PROJECT_ROOT)} ({f.stat().st_size / 1024:.1f} KB)")
+                cleaned.append(f"{f.relative_to(PROJECT_ROOT)} ({size / 1024:.1f} KB)")
 
     if cleaned:
         prefix = "[DRY RUN] " if args.dry_run else ""

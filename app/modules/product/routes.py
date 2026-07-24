@@ -43,7 +43,7 @@ def read_product(product_id: int, db: Session = Depends(get_db)):
     return StandardJSONResponse.success(data=response_data, message="Product retrieved successfully")
 
 
-@router.put("/{product_id}")
+@router.put("/{product_id}", dependencies=[Depends(get_current_user)])
 def update_product(
     product_id: int,
     product_update: schemas.ProductUpdate,
@@ -63,7 +63,7 @@ def update_product(
     return StandardJSONResponse.success(data=response_data, message="Product updated successfully")
 
 
-@router.delete("/{product_id}")
+@router.delete("/{product_id}", dependencies=[Depends(get_current_user)])
 def delete_product(
     product_id: int, 
     current_user: User = Depends(get_current_user),
