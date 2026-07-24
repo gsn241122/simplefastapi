@@ -4,12 +4,24 @@ from typing import List
 from app.core.database import get_db
 from app.core.responses import StandardJSONResponse
 from app.modules.product import crud, schemas
+from app.modules.auth.routes import get_current_user
+from app.modules.user.models import User
 
 router = APIRouter(prefix="/products", tags=["Product Management"])
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
-def create_product(product: schemas.ProductCreate, db: Session = Depends(get_db)):
+@router.post("/", dependencies=[Depends(get_current_user)])
+def create_product(
+    product: schemas.ProductCreate, 
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Hanya admin yang bisa membuat produk
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions. Admin access required to create products."
+        )
     created_product = crud.create_product(db=db, product=product)
     response_data = schemas.ProductResponse.model_validate(created_product)
     return StandardJSONResponse.success(data=response_data, message="Product created successfully")
@@ -35,8 +47,15 @@ def read_product(product_id: int, db: Session = Depends(get_db)):
 def update_product(
     product_id: int,
     product_update: schemas.ProductUpdate,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    # Hanya admin yang bisa mengupdate produk
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions. Admin access required to update products."
+        )
     db_product = crud.update_product(db, product_id=product_id, product_update=product_update)
     if db_product is None:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -44,8 +63,18 @@ def update_product(
     return StandardJSONResponse.success(data=response_data, message="Product updated successfully")
 
 
-@router.delete("/{product_id}", status_code=status.HTTP_200_OK)
-def delete_product(product_id: int, db: Session = Depends(get_db)):
+@router.delete("/{product_id}")
+def delete_product(
+    product_id: int, 
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Hanya admin yang bisa menghapus produk
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions. Admin access required to delete products."
+        )
     db_product = crud.delete_product(db, product_id=product_id)
     if db_product is None:
         raise HTTPException(status_code=404, detail="Product not found")

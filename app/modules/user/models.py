@@ -1,6 +1,13 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Enum
 from datetime import datetime
+import enum
 from app.core.database import Base
+
+
+class UserRole(str, enum.Enum):
+    """Enum untuk role pengguna."""
+    USER = "user"
+    ADMIN = "admin"
 
 
 class User(Base):
@@ -11,6 +18,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     full_name = Column(String, nullable=True)
     hashed_password = Column(String, nullable=False)
+    role = Column(String, default=UserRole.USER, nullable=False)
     is_active = Column(Boolean, default=True)
     is_deleted = Column(Boolean, default=False)
     deleted_at = Column(DateTime, nullable=True)

@@ -62,6 +62,11 @@ class UserCreate(UserBase):
         ),
         example="S3cur3P@ss!",
     )
+    role: Optional[str] = Field(
+        default="user",
+        description="Role pengguna (user atau admin)",
+        example="user",
+    )
 
     @field_validator("username")
     @classmethod
@@ -70,6 +75,14 @@ class UserCreate(UserBase):
         import re
         if not re.match(r"^[a-zA-Z0-9_]+$", v):
             raise ValueError("Username hanya boleh mengandung huruf, angka, dan underscore (_).")
+        return v
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: Optional[str]) -> Optional[str]:
+        """Validasi role hanya boleh 'user' atau 'admin'."""
+        if v is not None and v not in ["user", "admin"]:
+            raise ValueError("Role hanya boleh 'user' atau 'admin'.")
         return v
 
 
@@ -92,12 +105,26 @@ class UserUpdate(BaseModel):
         description="Password baru. Kosongkan jika tidak ingin diubah.",
         example="NewS3cur3P@ss!",
     )
+    role: Optional[str] = Field(
+        None,
+        description="Role pengguna (user atau admin)",
+        example="admin",
+    )
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: Optional[str]) -> Optional[str]:
+        """Validasi role hanya boleh 'user' atau 'admin'."""
+        if v is not None and v not in ["user", "admin"]:
+            raise ValueError("Role hanya boleh 'user' atau 'admin'.")
+        return v
 
 
 class UserResponse(UserBase):
     """Schema untuk response data user (tidak termasuk password)."""
 
     id: int = Field(..., description="ID unik pengguna", example=1)
+    role: str = Field(default="user", description="Role pengguna", example="user")
     created_at: Optional[datetime] = Field(None, description="Waktu pembuatan akun")
     updated_at: Optional[datetime] = Field(None, description="Waktu terakhir diperbarui")
     is_deleted: bool = Field(False, description="Apakah akun sudah dihapus (soft delete)")
