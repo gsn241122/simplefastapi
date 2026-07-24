@@ -1215,6 +1215,18 @@ def cmd_lint(args: argparse.Namespace) -> None:
 
 def cmd_routes(args: argparse.Namespace) -> None:
     """Tampilkan semua API routes yang terdaftar."""
+    action = getattr(args, "action", "list")
+    
+    if action == "list":
+        _routes_list(verbose=getattr(args, "verbose", False))
+    elif action == "check":
+        _routes_check()
+    else:
+        _error(f"Unknown routes action: {action}")
+
+
+def _routes_list(verbose: bool = False) -> None:
+    """Tampilkan semua API routes yang terdaftar."""
     _header("Registered API Routes 🛣️")
 
     try:
@@ -1226,11 +1238,29 @@ def cmd_routes(args: argparse.Namespace) -> None:
                 methods = ", ".join(sorted(route.methods - {"HEAD", "OPTIONS"}))
                 endpoint_name = route.endpoint.__name__ if route.endpoint else "N/A"
                 tags = getattr(route, "tags", []) or []
+                
+                # Check authentication requirements
+                requires_auth = False
+                required_roles = []
+                
+                # Check for Depends with security requirements
+                if hasattr(route, "dependencies"):
+                    for dep in route.dependencies:
+                        if hasattr(dep, "dependency"):
+                            dep_name = getattr(dep.dependency, "__name__", "")
+                            if "get_current_user" in dep_name or "require_api_key" in dep_name:
+                                requires_auth = True
+                            if "require_role" in dep_name or "check_role" in dep_name:
+                                # Extract role requirement if possible
+                                required_roles.append("role-based")
+                
                 routes_info.append({
                     "methods": methods,
                     "path": route.path,
                     "name": endpoint_name,
                     "tags": ", ".join(tags) if tags else "-",
+                    "requires_auth": requires_auth,
+                    "required_roles": required_roles,
                 })
 
         if not routes_info:
@@ -1257,12 +1287,132 @@ def cmd_routes(args: argparse.Namespace) -> None:
                 method_str = _c(r['methods'].ljust(8), method_color)
                 path_str = r['path'].ljust(30)
                 name_str = _c(r['name'], Color.DIM)
-                print(f"    {method_str} {path_str} → {name_str}")
+                
+                # Add auth indicator
+                auth_indicator = ""
+                if r["requires_auth"]:
+                    auth_indicator = _c(" 🔒", Color.YELLOW)
+                if r["required_roles"]:
+                    auth_indicator += _c(" 👤", Color.MAGENTA)
+                
+                print(f"    {method_str} {path_str}{auth_indicator} → {name_str}")
+                
+                if verbose:
+                    _dim(f"        Auth Required: {r['requires_auth']}")
+                    if r["required_roles"]:
+                        _dim(f"        Roles: {', '.join(r['required_roles'])}")
 
         _info(f"\nTotal: {len(routes_info)} routes")
 
     except Exception as e:
         _error(f"Gagal memuat routes: {e}")
+        _dim("Pastikan aplikasi bisa diimport tanpa error.")
+
+    print()
+
+
+def _routes_check() -> None:
+    """Periksa route yang tidak aman (tidak memerlukan autentikasi)."""
+    _header("Security Audit: Route Protection Check 🔍")
+    
+    try:
+        from app.main import app as fastapi_app
+
+        unprotected_routes: list[dict[str, Any]] = []
+        protected_routes: list[dict[str, Any]] = []
+        
+        # List of paths that should typically be public
+        public_paths = [
+            "/health", "/docs", "/redoc", "/openapi.json",
+            "/api/v1/auth/register", "/api/v1/auth/login",
+            "/api/v1/auth/refresh", "/api/v1/auth/verify-email"
+        ]
+
+        for route in fastapi_app.routes:
+            if hasattr(route, "methods") and hasattr(route, "path"):
+                methods = sorted(route.methods - {"HEAD", "OPTIONS"})
+                if not methods:  # Skip if no HTTP methods
+                    continue
+                    
+                path = route.path
+                endpoint_name = route.endpoint.__name__ if route.endpoint else "N/A"
+                tags = getattr(route, "tags", []) or []
+                
+                # Check authentication requirements
+                requires_auth = False
+                required_roles = []
+                
+                # Check for Depends with security requirements
+                if hasattr(route, "dependencies"):
+                    for dep in route.dependencies:
+                        if hasattr(dep, "dependency"):
+                            dep_name = getattr(dep.dependency, "__name__", "")
+                            if "get_current_user" in dep_name or "require_api_key" in dep_name:
+                                requires_auth = True
+                            if "require_role" in dep_name or "check_role" in dep_name:
+                                required_roles.append("role-based")
+                
+                route_info = {
+                    "methods": ", ".join(methods),
+                    "path": path,
+                    "name": endpoint_name,
+                    "tags": ", ".join(tags) if tags else "-",
+                    "requires_auth": requires_auth,
+                    "required_roles": required_roles,
+                }
+                
+                if requires_auth:
+                    protected_routes.append(route_info)
+                else:
+                    # Check if this is an expected public route
+                    is_expected_public = any(
+                        path.startswith(pub_path) for pub_path in public_paths
+                    )
+                    route_info["is_expected_public"] = is_expected_public
+                    unprotected_routes.append(route_info)
+
+        # Report unprotected routes
+        print(f"\n  {_c('UNPROTECTED ROUTES (No Authentication Required)', Color.BOLD + Color.RED)}")
+        print(f"  {'─' * 60}")
+        
+        unexpected_unprotected = [
+            r for r in unprotected_routes if not r.get("is_expected_public", False)
+        ]
+        
+        if unexpected_unprotected:
+            _error(f"Ditemukan {len(unexpected_unprotected)} route yang TIDAK AMAN:")
+            print()
+            for r in unexpected_unprotected:
+                method_color = {
+                    "GET": Color.GREEN,
+                    "POST": Color.BLUE,
+                    "PUT": Color.YELLOW,
+                    "DELETE": Color.RED,
+                    "PATCH": Color.CYAN,
+                }.get(r["methods"], Color.WHITE)
+                method_str = _c(r['methods'].ljust(8), method_color)
+                print(f"    {method_str} {r['path']}")
+                _dim(f"           → {r['name']} [{r['tags']}]")
+        else:
+            _success("Semua route yang sensitif sudah dilindungi!")
+        
+        # Summary
+        print(f"\n  {_c('SUMMARY', Color.BOLD + Color.CYAN)}")
+        print(f"  {'─' * 60}")
+        _info(f"Total routes         : {len(protected_routes) + len(unprotected_routes)}")
+        _success(f"Protected routes     : {len(protected_routes)}")
+        _warning(f"Unprotected routes   : {len(unprotected_routes)}")
+        _error(f"Unexpected unprotected: {len(unexpected_unprotected)}")
+        
+        if unexpected_unprotected:
+            print(f"\n  {_c('RECOMMENDATION:', Color.BOLD + Color.YELLOW)}")
+            _dim("  Tambahkan dependency authentication ke route yang tidak aman:")
+            _dim("  dependencies=[Depends(get_current_user)]")
+            _dim("  Atau untuk role-based access:")
+            _dim("  dependencies=[Depends(require_role('admin'))]")
+
+    except Exception as e:
+        _error(f"Gagal memeriksa routes: {e}")
         _dim("Pastikan aplikasi bisa diimport tanpa error.")
 
     print()
@@ -2291,7 +2441,10 @@ def _build_parser() -> argparse.ArgumentParser:
     sp_lint.add_argument("--path", help="Path target (default: app/)")
 
     # routes
-    subparsers.add_parser("routes", help="Tampilkan semua API routes")
+    sp_routes = subparsers.add_parser("routes", help="Tampilkan semua API routes")
+    sp_routes.add_argument("action", choices=["list", "check"], nargs="?", default="list",
+                          help="list: tampilkan semua routes, check: cek route yang tidak aman")
+    sp_routes.add_argument("--verbose", "-v", action="store_true", help="Tampilkan detail lengkap")
 
     # deps
     sp_deps = subparsers.add_parser("deps", help="Dependency management")
