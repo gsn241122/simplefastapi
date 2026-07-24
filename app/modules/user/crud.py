@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from datetime import datetime
+from typing import Dict, Any
 from app.modules.user.models import User
-from app.modules.user.schemas import UserCreate, UserUpdate
 
 
 def get_user(db: Session, user_id: int):
@@ -20,25 +20,18 @@ def get_users(db: Session, skip: int = 0, limit: int = 100):
     return db.query(User).filter(User.is_deleted == False).offset(skip).limit(limit).all()
 
 
-def create_user(db: Session, user: UserCreate):
-    db_user = User(
-        username=user.username,
-        email=user.email,
-        full_name=user.full_name,
-        password=user.password,  # In production, hash the password!
-        is_active=user.is_active,
-    )
+def create_user(db: Session, user_data: Dict[str, Any]):
+    db_user = User(**user_data)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
     return db_user
 
 
-def update_user(db: Session, user_id: int, user_update: UserUpdate):
+def update_user(db: Session, user_id: int, user_update_data: Dict[str, Any]):
     db_user = db.query(User).filter(User.id == user_id, User.is_deleted == False).first()
     if db_user:
-        update_data = user_update.model_dump(exclude_unset=True)
-        for key, value in update_data.items():
+        for key, value in user_update_data.items():
             setattr(db_user, key, value)
         db.commit()
         db.refresh(db_user)
@@ -52,3 +45,4 @@ def delete_user(db: Session, user_id: int):
         db_user.deleted_at = datetime.utcnow()
         db.commit()
     return db_user
+

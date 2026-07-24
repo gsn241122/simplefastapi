@@ -1,8 +1,19 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from datetime import datetime
 
 
+# Token Schemas
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+class TokenData(BaseModel):
+    username: Optional[str] = None
+
+
+# User Schemas
 class UserBase(BaseModel):
     username: str
     email: str
@@ -11,7 +22,7 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    password: str
+    password: str = Field(..., min_length=6, description="Password must be at least 6 characters")
 
 
 class UserUpdate(BaseModel):
@@ -19,11 +30,14 @@ class UserUpdate(BaseModel):
     email: Optional[str] = None
     full_name: Optional[str] = None
     is_active: Optional[bool] = None
+    password: Optional[str] = Field(None, min_length=6)
 
 
 class UserResponse(UserBase):
     id: int
-    is_deleted: bool
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    is_deleted: bool = False
     deleted_at: Optional[datetime] = None
 
     class Config:
