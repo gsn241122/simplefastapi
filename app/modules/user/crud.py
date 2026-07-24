@@ -21,6 +21,9 @@ def get_users(db: Session, skip: int = 0, limit: int = 100):
 
 
 def create_user(db: Session, user_data: Dict[str, Any]):
+    # Set default role if not provided
+    if "role" not in user_data or user_data["role"] is None:
+        user_data["role"] = "user"
     db_user = User(**user_data)
     db.add(db_user)
     db.commit()

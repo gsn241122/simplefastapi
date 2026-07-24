@@ -68,3 +68,85 @@ def validate_password_strength(password: str) -> list[str]:
         errors.append("Password harus mengandung minimal satu karakter spesial (!@#$%^&* dll.).")
 
     return errors
+
+
+async def get_current_user_from_token(token: str, db) -> "User":
+    """
+    Dependency untuk mendapatkan user saat ini dari token JWT.
+    
+    Args:
+        token: JWT access token.
+        db: Database session.
+        
+    Returns:
+        User object.
+        
+    Raises:
+        HTTPException: Jika token tidak valid atau user tidak ditemukan.
+    """
+    from fastapi import HTTPException, status
+    from jose import JWTError, jwt
+    from app.core.config import settings
+    from app.modules.user import crud, schemas
+    
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+        token_data = schemas.TokenData(username=username)
+    except JWTError:
+        raise credentials_exception
+    
+    user = crud.get_user_by_username(db, username=token_data.username)
+    if user is None:
+        raise credentials_exception
+    
+    if user.is_deleted or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is inactive or deleted"
+        )
+    
+    return user
+
+
+def require_auth(current_user: "User") -> "User":
+    """
+    Dependency untuk memastikan user sudah terautentikasi.
+    
+    Args:
+        current_user: User yang sedang login (dari get_current_user).
+        
+    Returns:
+        User object.
+    """
+    return current_user
+
+
+def require_admin(current_user: "User") -> "User":
+    """
+    Dependency untuk memastikan user adalah admin.
+    
+    Args:
+        current_user: User yang sedang login (dari get_current_user).
+        
+    Returns:
+        User object.
+        
+    Raises:
+        HTTPException: Jika user bukan admin.
+    """
+    from fastapi import HTTPException, status
+    
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions. Admin access required."
+        )
+    return current_user

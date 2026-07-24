@@ -68,6 +68,13 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     if db_email:
         raise HTTPException(status_code=400, detail="Email already registered")
     
+    # Hanya admin yang bisa mendaftarkan user dengan role admin
+    if hasattr(user, 'role') and user.role == "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot register as admin. Admin must be created by existing admin."
+        )
+    
     # Hash password before storing
     user_data = user.model_dump()
     user_data["hashed_password"] = get_password_hash(user.password)
