@@ -3,12 +3,13 @@ from sqlalchemy.orm import Session
 from typing import List
 from app.core.database import get_db
 from app.core.responses import StandardJSONResponse, APIResponse
+from app.core.security import get_password_hash
 from app.modules.user import crud, schemas
 
 router = APIRouter(prefix="/users", tags=["User Management"])
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("/register", status_code=status.HTTP_201_CREATED)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db_user = crud.get_user_by_username(db, username=user.username)
     if db_user:
@@ -16,7 +17,13 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db_email = crud.get_user_by_email(db, email=user.email)
     if db_email:
         raise HTTPException(status_code=400, detail="Email already registered")
-    created_user = crud.create_user(db=db, user=user)
+    
+    # Hash password before storing
+    user_data = user.model_dump()
+    user_data["hashed_password"] = get_password_hash(user.password)
+    del user_data["password"]
+    
+    created_user = crud.create_user(db=db, user_data=user_data)
     response_data = schemas.UserResponse.model_validate(created_user)
     return StandardJSONResponse.success(data=response_data, message="User created successfully")
 
@@ -43,9 +50,15 @@ def update_user(
     user_update: schemas.UserUpdate,
     db: Session = Depends(get_db)
 ):
-    db_user = crud.update_user(db, user_id=user_id, user_update=user_update)
+    db_user = crud.get_user(db, user_id=user_id)
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    update_data = user_update.model_dump(exclude_unset=True)
+    if "password" in update_data and update_data["password"] is not None:
+        update_data["hashed_password"] = get_password_hash(update_data.pop("password"))
+    
+    db_user = crud.update_user(db, user_id=user_id, user_update_data=update_data)
     response_data = schemas.UserResponse.model_validate(db_user)
     return StandardJSONResponse.success(data=response_data, message="User updated successfully")
 

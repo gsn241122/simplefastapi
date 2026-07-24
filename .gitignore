@@ -1,45 +1,36 @@
 ```
-# Python
+# Database
+app.db
+
+# Dependencies
+.venv/
+venv/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.Python
-env/
-venv/
-.venv/
-.ENV
-.python-version
-
-# Build and distribution artifacts
-build/
-dist/
-*.egg
-*.egg-info/
-*.so
-*.whl
 
 # Testing
+.pytest_cache/
 .coverage
+coverage/
 htmlcov/
-.coverage.*
-.noserc
-.tox/
 
-# Logs
-*.log
+# Environment
+.env
+.env.local
+*.env.*
 
-# IDE
+# Editors
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
+
+# Logs
+*.log
+
+# OS
 .DS_Store
 Thumbs.db
-
-# Environment variables
-.env
-.env.local
-*.env*
 ```
