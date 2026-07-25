@@ -36,4 +36,7 @@ coverage/
 htmlcov/
 
 .simple/*
-app.db*
+app.db
+app.db-shm
+app.db-wal
+test.db
