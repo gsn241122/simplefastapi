@@ -15,6 +15,10 @@ from app.core.logging_config import setup_logging
 from app.modules.user.routes import router as user_router
 from app.modules.product.routes import router as product_router
 from app.modules.auth.routes import router as auth_router
+from app.modules.order.routes import router as order_router
+from app.modules.invoice.routes import router as invoice_router
+
+from scalar_fastapi import get_scalar_api_reference
 
 # Setup logging sebelum apapun
 setup_logging()
@@ -36,8 +40,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 app = FastAPI(
     title=settings.APP_NAME,
     description=(
-        "API lengkap untuk manajemen User dan Product, dilengkapi dengan "
-        "autentikasi JWT, soft delete, dan paginasi."
+        "SimpleFastAPI APP"
     ),
     version=settings.APP_VERSION,
     docs_url="/docs",
@@ -64,7 +67,19 @@ async def log_and_rate_limit(request: Request, call_next):
 app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(product_router)
+app.include_router(order_router)
+app.include_router(invoice_router)
 
+@app.get("/scalar", include_in_schema=False)
+async def scalar_html():
+    """
+    Menyediakan halamanScalar UI untuk API di module ini.
+    """
+    return get_scalar_api_reference(
+        openapi_url="/openapi.json",
+        title="SimpleFastAPI Application API",
+        show_sidebar=True
+    )
 
 @app.get("/", tags=["General"], summary="Welcome message")
 def read_root():

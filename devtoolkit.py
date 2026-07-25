@@ -16,6 +16,7 @@ Run `python devtoolkit.py --help` untuk melihat semua command.
 from __future__ import annotations
 
 import argparse
+import configparser
 import getpass
 import importlib
 import json
@@ -71,8 +72,31 @@ class Color:
     BG_BLUE = "\033[44m"
 
 
+def _color_enabled() -> bool:
+    """
+    Tentukan apakah output berwarna boleh dipakai.
+
+    Menghormati konvensi NO_COLOR (https://no-color.org/): kalau env var
+    NO_COLOR di-set (apa pun isinya), warna dimatikan. FORCE_COLOR bisa
+    dipakai untuk memaksa warna tetap nyala meski output di-pipe (mis. di
+    CI yang tetap ingin render warna). Default: ikuti apakah stdout adalah
+    TTY interaktif — kalau output di-pipe ke file/`jq`/CI, kode ANSI
+    mentah cuma bikin berantakan.
+    """
+    if os.environ.get("NO_COLOR") is not None:
+        return False
+    if os.environ.get("FORCE_COLOR") is not None:
+        return True
+    return sys.stdout.isatty()
+
+
+_COLOR_ENABLED = _color_enabled()
+
+
 def _c(text: str, color: str) -> str:
-    """Wrap teks dengan ANSI color code."""
+    """Wrap teks dengan ANSI color code (no-op jika warna dimatikan)."""
+    if not _COLOR_ENABLED:
+        return text
     return f"{color}{text}{Color.RESET}"
 
 
@@ -207,8 +231,34 @@ def cmd_doctor(args: argparse.Namespace) -> None:
     )
 
     # 4. Required dirs
-    for d in [APP_DIR, TESTS_DIR, ALEMBIC_DIR]:
+    for d in [APP_DIR, TESTS_DIR]:
         _check(f"Direktori {d.name}/ ada", d.is_dir())
+
+    # 4b. Alembic sudah ter-init & terkonfigurasi dengan benar (bukan cuma
+    #     folder alembic/ ada — script_location harus valid juga, karena
+    #     ini penyebab paling umum `db migrate`/`upgrade` gagal).
+    alembic_ok, alembic_detail = _alembic_status()
+    _check(
+        f"Alembic ter-setup dengan benar ({alembic_detail})",
+        alembic_ok,
+        "Jalankan: alembic init migrations, lalu isi script_location di alembic.ini",
+    )
+
+    # 4c. target_metadata di env.py — non-blocking (autogenerate tidak
+    #     error kalau ini salah, cuma diam-diam menghasilkan migration
+    #     kosong), tapi tetap dicek terpisah karena penyebabnya beda dan
+    #     gampang kelewat.
+    if alembic_ok:
+        meta_status = _alembic_target_metadata_status()
+        if meta_status is not None:
+            meta_ok, meta_detail = meta_status
+            _check(
+                f"target_metadata di env.py sudah di-wire ({meta_detail})",
+                meta_ok,
+                "Di migrations/env.py: import Base dari app.core.database (dan "
+                "pastikan model-modelnya sudah ke-import), lalu set "
+                "target_metadata = Base.metadata",
+            )
 
     # 5. Cek secret key aman
     if ENV_FILE.exists():
@@ -322,7 +372,7 @@ def cmd_db(args: argparse.Namespace) -> None:
     elif action == "tables":
         _db_tables()
     elif action == "query":
-        _db_query(args.sql)
+        _db_query(args.sql, fmt=getattr(args, "format", "table"), output=getattr(args, "output", None))
     elif action == "reset":
         _db_reset(args.force)
     elif action == "backup":
@@ -331,6 +381,14 @@ def cmd_db(args: argparse.Namespace) -> None:
         _db_vacuum()
     elif action == "migrate":
         _db_migrate(args.message)
+    elif action == "upgrade":
+        _db_upgrade(getattr(args, "revision", None))
+    elif action == "downgrade":
+        _db_downgrade(getattr(args, "revision", None))
+    elif action == "current":
+        _db_current()
+    elif action == "history":
+        _db_history()
     else:
         _error(f"Unknown db action: {action}")
 
@@ -390,21 +448,42 @@ def _db_tables() -> None:
     print()
 
 
-def _db_query(sql: str | None) -> None:
-    """Eksekusi SQL query ad-hoc."""
-    _header("Database Query")
+def _db_query(sql: str | None, fmt: str = "table", output: str | None = None) -> None:
+    """
+    Eksekusi SQL query ad-hoc.
+
+    fmt: "table" (default, tampilan warna di terminal, dipotong 50 baris),
+         "json" (list of objects, semua baris), atau
+         "csv" (semua baris). json/csv full-dump, cocok untuk dipipe atau
+         disimpan lewat --output.
+    output: kalau di-set, hasil json/csv ditulis ke file ini alih-alih stdout.
+            Diabaikan untuk fmt="table".
+    """
+    is_dump = fmt in ("json", "csv")
+    if not is_dump:
+        _header("Database Query")
     if not sql:
-        _error("SQL query tidak boleh kosong. Gunakan: --sql \"SELECT ...\"")
+        if is_dump:
+            print("Error: SQL query tidak boleh kosong. Gunakan: --sql \"SELECT ...\"", file=sys.stderr)
+        else:
+            _error("SQL query tidak boleh kosong. Gunakan: --sql \"SELECT ...\"")
         return
     if not DB_FILE.exists():
-        _warning("Database file belum ada.")
+        if is_dump:
+            print("Error: database file belum ada.", file=sys.stderr)
+        else:
+            _warning("Database file belum ada.")
         return
 
     # Safety check — hanya izinkan SELECT
     normalized = sql.strip().upper()
     if not normalized.startswith("SELECT") and not normalized.startswith("PRAGMA"):
-        _error("Hanya query SELECT dan PRAGMA yang diizinkan via toolkit.")
-        _dim("Untuk operasi DML/DDL, gunakan alat database khusus.")
+        msg = "Hanya query SELECT dan PRAGMA yang diizinkan via toolkit."
+        if is_dump:
+            print(f"Error: {msg}", file=sys.stderr)
+        else:
+            _error(msg)
+            _dim("Untuk operasi DML/DDL, gunakan alat database khusus.")
         return
 
     try:
@@ -412,26 +491,57 @@ def _db_query(sql: str | None) -> None:
         conn.row_factory = sqlite3.Row
         cursor = conn.execute(sql)
         rows = cursor.fetchall()
-
-        if not rows:
-            _info("Query berhasil, 0 rows returned.")
-        else:
-            columns = rows[0].keys()
-            # Print header
-            header = " | ".join(f"{col:<20}" for col in columns)
-            print(f"\n  {_c(header, Color.BOLD)}")
-            print(f"  {'─' * len(header)}")
-            # Print rows (max 50)
-            for i, row in enumerate(rows[:50]):
-                vals = " | ".join(f"{str(row[col]):<20}" for col in columns)
-                print(f"  {vals}")
-            if len(rows) > 50:
-                _dim(f"    ... dan {len(rows) - 50} rows lainnya (total: {len(rows)})")
-            print(f"\n  {_c(f'{len(rows)} rows returned', Color.GREEN)}")
-
         conn.close()
     except Exception as e:
-        _error(f"Query error: {e}")
+        if is_dump:
+            print(f"Error: Query error: {e}", file=sys.stderr)
+        else:
+            _error(f"Query error: {e}")
+            print()
+        return
+
+    if fmt == "json":
+        payload = [dict(row) for row in rows]
+        text = json.dumps(payload, indent=2, default=str, ensure_ascii=False)
+        if output:
+            Path(output).write_text(text + "\n")
+            _success(f"{len(rows)} rows ditulis ke {output} (JSON).")
+        else:
+            print(text)
+        return
+
+    if fmt == "csv":
+        import csv
+        import io
+
+        buf = io.StringIO()
+        if rows:
+            writer = csv.writer(buf)
+            writer.writerow(rows[0].keys())
+            for row in rows:
+                writer.writerow([row[col] for col in row.keys()])
+        text = buf.getvalue()
+        if output:
+            Path(output).write_text(text)
+            _success(f"{len(rows)} rows ditulis ke {output} (CSV).")
+        else:
+            sys.stdout.write(text)
+        return
+
+    # fmt == "table" (perilaku lama, ke terminal)
+    if not rows:
+        _info("Query berhasil, 0 rows returned.")
+    else:
+        columns = rows[0].keys()
+        header = " | ".join(f"{col:<20}" for col in columns)
+        print(f"\n  {_c(header, Color.BOLD)}")
+        print(f"  {'─' * len(header)}")
+        for row in rows[:50]:
+            vals = " | ".join(f"{str(row[col]):<20}" for col in columns)
+            print(f"  {vals}")
+        if len(rows) > 50:
+            _dim(f"    ... dan {len(rows) - 50} rows lainnya (total: {len(rows)})")
+        print(f"\n  {_c(f'{len(rows)} rows returned', Color.GREEN)}")
     print()
 
 
@@ -517,11 +627,181 @@ def _db_vacuum() -> None:
     print()
 
 
+def _alembic_env_script_dir() -> Path | None:
+    """
+    Resolve direktori migrations (`script_location`) dari alembic.ini,
+    tanpa melakukan validasi lain. Return None kalau alembic.ini tidak
+    ada, tidak bisa dibaca, atau script_location tidak diset. Dipakai
+    bersama oleh `_alembic_status` dan cek `target_metadata`, supaya
+    logic parsing/interpolasi `%(here)s`-nya tidak diduplikasi.
+    """
+    ini_path = PROJECT_ROOT / "alembic.ini"
+    if not ini_path.exists():
+        return None
+    try:
+        config = configparser.ConfigParser()
+        config.read(ini_path)
+        script_location = config.get("alembic", "script_location", fallback="", raw=True).strip()
+    except Exception:
+        return None
+    if not script_location:
+        return None
+    script_location = script_location.replace("%(here)s", str(ini_path.parent))
+    script_dir = Path(script_location)
+    if not script_dir.is_absolute():
+        script_dir = PROJECT_ROOT / script_dir
+    return script_dir
+
+
+def _alembic_status() -> tuple[bool, str]:
+    """
+    Cek apakah Alembic sudah ter-*init* dengan benar di project ini.
+
+    Kasus paling umum yang bikin `alembic revision`/`upgrade`/dll gagal
+    dengan pesan generik adalah: `alembic.ini` belum ada sama sekali
+    (belum pernah `alembic init`), `script_location` kosong/menunjuk ke
+    folder yang sudah dihapus/dipindah, atau `sqlalchemy.url` masih
+    placeholder default dari template (`driver://user:pass@localhost/dbname`,
+    yang gagal dengan `NoSuchModuleError: Can't load plugin:
+    sqlalchemy.dialects:driver`).
+
+    Catatan: Alembic (sejak ~1.9) menulis template default dengan
+    `script_location = %(here)s/migrations`, di mana `%(here)s` adalah
+    variabel interpolasi KHUSUS yang cuma dikenali oleh loader Config
+    milik Alembic sendiri (di-resolve ke folder tempat alembic.ini
+    berada) — bukan fitur `configparser` biasa. Kalau dibaca pakai
+    interpolasi default `configparser`, ini meledak dengan
+    InterpolationMissingOptionError meski konfigurasinya sendiri valid
+    dan Alembic bisa jalan normal. Makanya di sini kita baca RAW (tanpa
+    interpolasi) lalu resolve `%(here)s` secara manual sama seperti yang
+    dilakukan Alembic.
+
+    Returns:
+        (ok, detail) — ok=True kalau alembic.ini ada, script_location
+        terisi, dan folder migrations-nya benar-benar ada. `detail`
+        berisi keterangan singkat (alasan gagal, atau script_location
+        yang terpakai kalau sukses).
+    """
+    ini_path = PROJECT_ROOT / "alembic.ini"
+    if not ini_path.exists():
+        return False, f"{ini_path.name} tidak ditemukan di {PROJECT_ROOT}"
+
+    try:
+        config = configparser.ConfigParser()
+        config.read(ini_path)
+        script_location = config.get("alembic", "script_location", fallback="", raw=True).strip()
+    except Exception as e:
+        return False, f"Gagal membaca {ini_path.name}: {e}"
+
+    if not script_location:
+        return False, "script_location kosong/tidak diset di alembic.ini"
+
+    script_dir = _alembic_env_script_dir()
+    if script_dir is None:
+        return False, "Gagal me-resolve script_location dari alembic.ini"
+    if not script_dir.is_dir():
+        return False, f"script_location='{script_location}' tapi direktori tidak ditemukan"
+
+    if not (script_dir / "env.py").exists():
+        return False, f"'{script_location}/env.py' tidak ditemukan (migrations folder tidak lengkap)"
+
+    # sqlalchemy.url placeholder check — penyebab umum kedua setelah
+    # script_location: template default `alembic init` menulis
+    # `sqlalchemy.url = driver://user:pass@localhost/dbname`. "driver"
+    # bukan nama dialect SQLAlchemy apa pun, jadi kalau baris ini tidak
+    # diganti, error yang muncul saat autogenerate/upgrade adalah
+    # `NoSuchModuleError: Can't load plugin: sqlalchemy.dialects:driver`
+    # — pesan yang membingungkan kalau tidak tahu asal-usulnya. Kalau
+    # baris ini kosong/tidak ada, itu WAJAR (banyak project sengaja
+    # override URL di migrations/env.py lewat `config.set_main_option`,
+    # supaya tidak hardcode credential di alembic.ini) — jadi cuma
+    # placeholder literal yang kita tolak, bukan "url kosong".
+    raw_url = config.get("alembic", "sqlalchemy.url", fallback="", raw=True).strip()
+    placeholder_prefixes = ("driver://",)
+    if raw_url and raw_url.startswith(placeholder_prefixes):
+        return False, (
+            f"sqlalchemy.url di alembic.ini masih placeholder default ('{raw_url}') — "
+            "ganti dengan URL asli, atau kosongkan baris ini dan override "
+            "lewat config.set_main_option(...) di migrations/env.py"
+        )
+
+    return True, f"script_location={script_location}"
+
+
+def _alembic_target_metadata_status() -> tuple[bool, str] | None:
+    """
+    Cek heuristik: apakah `target_metadata` di `env.py` sudah di-wire ke
+    metadata model aplikasi, atau masih `None` (default template).
+
+    Kalau masih `None`, `alembic revision --autogenerate` TIDAK error —
+    dia cuma diam-diam menghasilkan migration KOSONG (autogenerate
+    membandingkan skema database dengan "tidak ada model apa pun"),
+    yang gampang bikin bingung karena command-nya "berhasil" tapi
+    migration-nya tidak berisi perubahan tabel apa pun.
+
+    Ini heuristik regex sederhana di source `env.py`, BUKAN eksekusi
+    Python — sengaja begitu supaya devtoolkit tidak perlu mengimpor
+    project aplikasi orang lain hanya untuk `doctor`. Jadi false
+    negative mungkin terjadi (mis. assignment ditulis dengan gaya aneh);
+    ini murni untuk menangkap kasus paling umum: baris `target_metadata
+    = None` dibiarkan apa adanya dari template `alembic init`.
+
+    Returns:
+        None kalau env.py tidak ditemukan/tidak bisa dibaca (tidak
+        relevan untuk dicek — biarkan `_alembic_status` yang melaporkan
+        itu). Selain itu, (ok, detail) seperti `_alembic_status`.
+    """
+    script_dir = _alembic_env_script_dir()
+    if script_dir is None:
+        return None
+    env_py = script_dir / "env.py"
+    if not env_py.exists():
+        return None
+
+    try:
+        content = env_py.read_text()
+    except Exception:
+        return None
+
+    # Ambil assignment `target_metadata = ...` TERAKHIR yang tidak
+    # di-comment, karena template default menulis contoh yang
+    # di-comment duluan lalu baris aktifnya di bawah.
+    matches = re.findall(r"^[ \t]*target_metadata\s*=\s*(.+?)\s*$", content, re.MULTILINE)
+    if not matches:
+        return False, "Tidak menemukan baris 'target_metadata = ...' di env.py"
+
+    last_value = matches[-1].split("#", 1)[0].strip()
+    if last_value == "None":
+        return False, (
+            "target_metadata masih 'None' di migrations/env.py — autogenerate "
+            "tidak akan mendeteksi tabel apa pun (migration akan selalu kosong)"
+        )
+
+    return True, f"target_metadata = {last_value}"
+
+
+
+
+def _alembic_not_configured_hint() -> None:
+    """Cetak instruksi perbaikan standar saat Alembic belum ter-setup."""
+    _dim("    Fix: jalankan `alembic init migrations` di root project,")
+    _dim("    lalu pastikan alembic.ini punya baris `script_location = migrations`")
+    _dim("    dan migrations/env.py sudah di-set target_metadata ke Base.metadata kalian")
+    _dim("    (dan sqlalchemy.url mengarah ke DATABASE_URL kalian).")
+
+
 def _db_migrate(message: str | None) -> None:
     """Buat alembic migration baru."""
     _header("Database Migration")
     if not message:
         _error("Pesan migrasi diperlukan. Gunakan: --message \"deskripsi\"")
+        return
+
+    ok, detail = _alembic_status()
+    if not ok:
+        _error(f"Alembic belum ter-setup dengan benar di project ini ({detail}).")
+        _alembic_not_configured_hint()
+        print()
         return
 
     try:
@@ -538,6 +818,48 @@ def _db_migrate(message: str | None) -> None:
     except subprocess.CalledProcessError as e:
         _error(f"Migration gagal: {e}")
     print()
+
+
+def _run_alembic(args: list[str], header: str) -> None:
+    """Helper tipis untuk memanggil `alembic <args>` dari root project."""
+    _header(header)
+
+    ok, detail = _alembic_status()
+    if not ok:
+        _error(f"Alembic belum ter-setup dengan benar di project ini ({detail}).")
+        _alembic_not_configured_hint()
+        print()
+        return
+
+    try:
+        subprocess.run(["alembic", *args], cwd=str(PROJECT_ROOT), check=True)
+    except FileNotFoundError:
+        _error("Alembic tidak ditemukan. Install: pip install alembic")
+    except subprocess.CalledProcessError as e:
+        _error(f"Perintah alembic gagal (exit {e.returncode}).")
+    print()
+
+
+def _db_upgrade(revision: str | None) -> None:
+    """Terapkan migration hingga revision tertentu (default: head)."""
+    target = revision or "head"
+    _run_alembic(["upgrade", target], f"Database Upgrade → {target}")
+
+
+def _db_downgrade(revision: str | None) -> None:
+    """Rollback migration ke revision tertentu (default: mundur 1 langkah)."""
+    target = revision or "-1"
+    _run_alembic(["downgrade", target], f"Database Downgrade → {target}")
+
+
+def _db_current() -> None:
+    """Tampilkan revision Alembic yang sedang aktif di database."""
+    _run_alembic(["current", "--verbose"], "Current Migration")
+
+
+def _db_history() -> None:
+    """Tampilkan riwayat migration Alembic."""
+    _run_alembic(["history", "--verbose"], "Migration History")
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1218,7 +1540,12 @@ def cmd_routes(args: argparse.Namespace) -> None:
     action = getattr(args, "action", "list")
     
     if action == "list":
-        _routes_list(verbose=getattr(args, "verbose", False))
+        _routes_list(
+            verbose=getattr(args, "verbose", False),
+            fmt=getattr(args, "format", "table"),
+            method_filter=getattr(args, "method", None),
+            tag_filter=getattr(args, "tag", None),
+        )
     elif action == "check":
         _routes_check()
     else:
@@ -1291,17 +1618,25 @@ def _flatten_routes_with_prefix(routes: Any, prefix: str = "") -> list[tuple[str
     return flat
 
 
-def _routes_list(verbose: bool = False) -> None:
+def _routes_list(
+    verbose: bool = False,
+    fmt: str = "table",
+    method_filter: str | None = None,
+    tag_filter: str | None = None,
+) -> None:
     """Tampilkan semua API routes yang terdaftar."""
-    _header("Registered API Routes 🛣️")
+    is_json = fmt == "json"
+    if not is_json:
+        _header("Registered API Routes 🛣️")
 
     try:
         from app.main import app as fastapi_app
 
         routes_info: list[dict[str, Any]] = []
         for full_path, route in _flatten_routes_with_prefix(fastapi_app.routes):
-            methods = getattr(route, "methods", {"GET"}) - {"HEAD", "OPTIONS"}
-            methods = ", ".join(sorted(methods)) if methods else "MOUNT/STATIC"
+            methods_set = getattr(route, "methods", {"GET"}) - {"HEAD", "OPTIONS"}
+            methods_list = sorted(methods_set)
+            methods_str = ", ".join(methods_list) if methods_list else "MOUNT/STATIC"
             endpoint_name = getattr(route, "endpoint", None)
             endpoint_name = endpoint_name.__name__ if hasattr(endpoint_name, "__name__") else "N/A"
             tags = getattr(route, "tags", []) or []
@@ -1319,15 +1654,45 @@ def _routes_list(verbose: bool = False) -> None:
                             required_roles.append("role-based")
 
             routes_info.append({
-                "methods": methods,
+                "methods": methods_str,
+                "methods_list": methods_list,
                 "path": full_path,
                 "name": endpoint_name,
                 "tags": ", ".join(tags) if tags else "-",
+                "tags_list": tags,
                 "requires_auth": requires_auth,
                 "required_roles": required_roles,
                 })
+
+        # Terapkan filter --method / --tag
+        if method_filter:
+            wanted = method_filter.strip().upper()
+            routes_info = [r for r in routes_info if wanted in r["methods_list"]]
+        if tag_filter:
+            wanted_tag = tag_filter.strip().lower()
+            routes_info = [
+                r for r in routes_info
+                if any(wanted_tag in t.lower() for t in r["tags_list"])
+            ]
+
+        if is_json:
+            json_out = [
+                {
+                    "methods": r["methods_list"],
+                    "path": r["path"],
+                    "name": r["name"],
+                    "tags": r["tags_list"],
+                    "requires_auth": r["requires_auth"],
+                    "required_roles": r["required_roles"],
+                }
+                for r in routes_info
+            ]
+            print(json.dumps(json_out, indent=2, ensure_ascii=False))
+            return
+
         if not routes_info:
-            _warning("Tidak ada routes yang ditemukan.")
+            _warning("Tidak ada routes yang ditemukan (cek filter --method/--tag).")
+            print()
             return
 
         # Group by tag
@@ -1368,8 +1733,13 @@ def _routes_list(verbose: bool = False) -> None:
         _info(f"\nTotal: {len(routes_info)} routes")
 
     except Exception as e:
+        if is_json:
+            print(json.dumps({"error": str(e)}, indent=2), file=sys.stderr)
+            return
         _error(f"Gagal memuat routes: {e}")
         _dim("Pastikan aplikasi bisa diimport tanpa error.")
+        print()
+        return
 
     print()
 
@@ -2360,6 +2730,242 @@ def cmd_api(args: argparse.Namespace) -> None:
 
 
 # ══════════════════════════════════════════════════════════════════
+#  COMMAND: status — Cek apakah dev server sedang berjalan
+# ══════════════════════════════════════════════════════════════════
+
+def cmd_status(args: argparse.Namespace) -> None:
+    """Cek apakah server sedang jalan di host:port tertentu, dan seberapa sehat."""
+    import time
+    import urllib.error
+    import urllib.request
+
+    host = args.host
+    port = args.port
+    _header(f"Server Status — {host}:{port} 🔎")
+
+    # 1. Cek apakah port terbuka
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(1.5)
+    port_open = False
+    try:
+        result = sock.connect_ex((host, port))
+        port_open = result == 0
+    except socket.gaierror:
+        _error(f"Host tidak valid: {host}")
+        print()
+        return
+    finally:
+        sock.close()
+
+    if not port_open:
+        _warning(f"Tidak ada yang listen di {host}:{port}.")
+        _dim("    Jalankan: python devtoolkit.py serve")
+        print()
+        return
+
+    _success(f"Port {port} terbuka di {host}.")
+
+    # 2. Cari PID yang menempati port (best-effort, tergantung OS/tooling tersedia)
+    pid = _find_pid_on_port(port)
+    if pid:
+        _info(f"PID          : {pid}")
+    else:
+        _dim("    PID: tidak terdeteksi (butuh `lsof`/`ss`/`fuser` di PATH)")
+
+    # 3. Hit /health dan ukur response time
+    health_url = f"http://{host}:{port}/health"
+    try:
+        start = time.monotonic()
+        with urllib.request.urlopen(health_url, timeout=3) as resp:  # noqa: S310
+            elapsed_ms = (time.monotonic() - start) * 1000
+            status_code = resp.status
+            raw = resp.read(2000)
+        color = Color.GREEN if status_code < 400 else Color.RED
+        _info(f"GET /health  : {_c(str(status_code), color)} ({elapsed_ms:.0f}ms)")
+        try:
+            parsed = json.loads(raw)
+            _dim(f"    {json.dumps(parsed)}")
+        except json.JSONDecodeError:
+            _dim(f"    {raw[:200]!r}")
+    except urllib.error.HTTPError as e:
+        _warning(f"GET /health  : HTTP {e.code}")
+    except urllib.error.URLError as e:
+        _warning(f"Port terbuka tapi /health tidak merespons via HTTP: {e.reason}")
+    except Exception as e:
+        _warning(f"Tidak bisa memanggil /health: {e}")
+
+    print()
+
+
+def _find_pid_on_port(port: int) -> str | None:
+    """Cari PID proses yang listen di port tertentu, best-effort lintas tool."""
+    probes = [
+        ["lsof", "-t", f"-i:{port}"],
+        ["fuser", f"{port}/tcp"],
+    ]
+    for cmd in probes:
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=3)
+            out = result.stdout.strip()
+            if out:
+                return out.split()[0]
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            continue
+    # Fallback: `ss -ltnp` output parsing
+    try:
+        result = subprocess.run(["ss", "-ltnp"], capture_output=True, text=True, timeout=3)
+        for line in result.stdout.splitlines():
+            if f":{port} " in line or line.rstrip().endswith(f":{port}"):
+                m = re.search(r"pid=(\d+)", line)
+                if m:
+                    return m.group(1)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    return None
+
+
+# ══════════════════════════════════════════════════════════════════
+#  COMMAND: openapi — Export OpenAPI schema
+# ══════════════════════════════════════════════════════════════════
+
+def cmd_openapi(args: argparse.Namespace) -> None:
+    """Export OpenAPI schema aplikasi ke file (json atau yaml)."""
+    action = args.action
+    if action != "export":
+        _error(f"Unknown openapi action: {action}")
+        return
+
+    _header("OpenAPI Schema Export 📄")
+
+    try:
+        from app.main import app as fastapi_app
+    except Exception as e:
+        _error(f"Gagal mengimport aplikasi: {e}")
+        _dim("Pastikan aplikasi bisa diimport tanpa error.")
+        print()
+        return
+
+    try:
+        schema = fastapi_app.openapi()
+    except Exception as e:
+        _error(f"Gagal generate OpenAPI schema: {e}")
+        print()
+        return
+
+    fmt = args.format
+    out_path = Path(args.out) if args.out else PROJECT_ROOT / f"openapi.{fmt}"
+
+    if fmt == "yaml":
+        try:
+            import yaml  # type: ignore
+        except ImportError:
+            _error("Package 'PyYAML' belum terinstall. Install: pip install pyyaml")
+            _dim("Atau gunakan --format json (default).")
+            print()
+            return
+        out_path.write_text(yaml.dump(schema, sort_keys=False, allow_unicode=True))
+    else:
+        out_path.write_text(json.dumps(schema, indent=2, ensure_ascii=False))
+
+    size_kb = out_path.stat().st_size / 1024
+    n_paths = len(schema.get("paths", {}))
+    _success(f"Schema ditulis ke {out_path} ({size_kb:.1f} KB, {n_paths} paths).")
+    print()
+
+
+# ══════════════════════════════════════════════════════════════════
+#  COMMAND: shell — Python REPL preloaded dengan db/models/settings
+# ══════════════════════════════════════════════════════════════════
+
+def cmd_shell(args: argparse.Namespace) -> None:
+    """
+    Buka REPL Python interaktif yang sudah di-preload dengan session
+    database, model-model aplikasi, dan settings — mirip `flask shell`.
+    """
+    _header("Interactive Shell 🐚")
+
+    project_root = str(PROJECT_ROOT)
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
+    if ENV_FILE.exists():
+        try:
+            from dotenv import load_dotenv  # type: ignore
+            load_dotenv(ENV_FILE, override=False)
+        except ImportError:
+            pass
+
+    namespace: dict[str, Any] = {}
+    loaded: list[str] = []
+
+    try:
+        from sqlalchemy.orm import sessionmaker
+
+        from app.core.database import Base, engine  # noqa: PLC0415
+
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        db = SessionLocal()
+        namespace.update({"engine": engine, "Base": Base, "SessionLocal": SessionLocal, "db": db})
+        loaded.append("engine, Base, SessionLocal, db (session terbuka)")
+    except Exception as e:
+        _warning(f"Tidak bisa memuat app.core.database: {e}")
+        db = None
+
+    try:
+        from app.core.config import settings  # noqa: PLC0415
+        namespace["settings"] = settings
+        loaded.append("settings")
+    except Exception as e:
+        _warning(f"Tidak bisa memuat app.core.config: {e}")
+
+    # Import model-model dari tiap module di app/modules/*/models.py (best-effort)
+    modules_dir = APP_DIR / "modules"
+    model_names: list[str] = []
+    if modules_dir.exists():
+        for mod_dir in sorted(modules_dir.iterdir()):
+            if not mod_dir.is_dir() or mod_dir.name.startswith("_"):
+                continue
+            for candidate in (f"app.modules.{mod_dir.name}.models", f"app.modules.{mod_dir.name}.model"):
+                try:
+                    mod = importlib.import_module(candidate)
+                except ImportError:
+                    continue
+                for attr_name in dir(mod):
+                    if attr_name.startswith("_"):
+                        continue
+                    attr = getattr(mod, attr_name)
+                    if isinstance(attr, type) and getattr(attr, "__module__", "") == candidate:
+                        namespace[attr_name] = attr
+                        model_names.append(attr_name)
+                break
+
+    if model_names:
+        loaded.append(f"models: {', '.join(sorted(set(model_names)))}")
+
+    if loaded:
+        for line in loaded:
+            _success(line)
+    else:
+        _warning("Tidak ada yang berhasil dimuat — shell akan dibuka sebagai Python biasa.")
+    print()
+
+    try:
+        import code
+        banner = (
+            "Devtoolkit interactive shell. Ketik exit() atau Ctrl-D untuk keluar.\n"
+            f"Variabel tersedia: {', '.join(sorted(namespace.keys())) or '(tidak ada)'}"
+        )
+        code.InteractiveConsole(locals=namespace).interact(banner=banner, exitmsg="")
+    finally:
+        if db is not None:
+            try:
+                db.close()
+            except Exception:
+                pass
+    print()
+
+
+# ══════════════════════════════════════════════════════════════════
 #  COMMAND: profile — Profil konfigurasi app
 # ══════════════════════════════════════════════════════════════════
 
@@ -2442,6 +3048,12 @@ def _build_parser() -> argparse.ArgumentParser:
               python devtoolkit.py api GET /health            # Panggil API
               python devtoolkit.py env init                   # Setup .env
               python devtoolkit.py security                   # Audit keamanan
+              python devtoolkit.py shell                       # REPL dengan db/models
+              python devtoolkit.py status                      # Cek server jalan?
+              python devtoolkit.py routes list --format json    # Routes sebagai JSON
+              python devtoolkit.py db query --sql "..." --format csv -o out.csv
+              python devtoolkit.py db upgrade                   # alembic upgrade head
+              python devtoolkit.py openapi export --out api.json
         """),
     )
 
@@ -2462,10 +3074,21 @@ def _build_parser() -> argparse.ArgumentParser:
 
     # db
     sp_db = subparsers.add_parser("db", help="Database operations")
-    sp_db.add_argument("action", choices=["info", "tables", "query", "reset", "backup", "vacuum", "migrate"])
+    sp_db.add_argument(
+        "action",
+        choices=[
+            "info", "tables", "query", "reset", "backup", "vacuum",
+            "migrate", "upgrade", "downgrade", "current", "history",
+        ],
+    )
     sp_db.add_argument("--sql", help="SQL query (untuk action 'query')")
     sp_db.add_argument("--force", action="store_true", help="Force operasi (bypass konfirmasi)")
     sp_db.add_argument("--message", "-m", help="Pesan migration (untuk action 'migrate')")
+    sp_db.add_argument("--format", choices=["table", "json", "csv"], default="table",
+                      help="Format output (untuk action 'query', default: table)")
+    sp_db.add_argument("--output", "-o", help="Tulis hasil ke file, bukan ke stdout (untuk action 'query')")
+    sp_db.add_argument("--revision", help="Target revision (untuk 'upgrade'/'downgrade'; "
+                                          "default: head/-1)")
 
     # gen
     sp_gen = subparsers.add_parser("gen", help="Generator (secret, apikey, hash, uuid)")
@@ -2498,6 +3121,10 @@ def _build_parser() -> argparse.ArgumentParser:
     sp_routes.add_argument("action", choices=["list", "check"], nargs="?", default="list",
                           help="list: tampilkan semua routes, check: cek route yang tidak aman")
     sp_routes.add_argument("--verbose", "-v", action="store_true", help="Tampilkan detail lengkap")
+    sp_routes.add_argument("--format", choices=["table", "json"], default="table",
+                          help="Format output untuk 'list' (default: table)")
+    sp_routes.add_argument("--method", help="Filter berdasarkan HTTP method (GET, POST, dst) untuk 'list'")
+    sp_routes.add_argument("--tag", help="Filter berdasarkan tag (substring, case-insensitive) untuk 'list'")
 
     # deps
     sp_deps = subparsers.add_parser("deps", help="Dependency management")
@@ -2543,6 +3170,21 @@ def _build_parser() -> argparse.ArgumentParser:
     # profile
     subparsers.add_parser("profile", help="Tampilkan konfigurasi aktif")
 
+    # status
+    sp_status = subparsers.add_parser("status", help="Cek apakah dev server sedang berjalan")
+    sp_status.add_argument("--host", default="127.0.0.1", help="Host yang dicek (default: 127.0.0.1)")
+    sp_status.add_argument("--port", type=int, default=8000, help="Port yang dicek (default: 8000)")
+
+    # openapi
+    sp_openapi = subparsers.add_parser("openapi", help="Export OpenAPI schema")
+    sp_openapi.add_argument("action", choices=["export"], nargs="?", default="export")
+    sp_openapi.add_argument("--out", help="Path file output (default: openapi.<format>)")
+    sp_openapi.add_argument("--format", choices=["json", "yaml"], default="json",
+                           help="Format output (default: json)")
+
+    # shell
+    subparsers.add_parser("shell", help="Buka Python REPL preloaded dengan db/models/settings")
+
     return parser
 
 
@@ -2582,12 +3224,19 @@ COMMAND_MAP = {
     "loc": cmd_loc,
     "api": cmd_api,
     "profile": cmd_profile,
+    "status": cmd_status,
+    "openapi": cmd_openapi,
+    "shell": cmd_shell,
 }
 
 
 def main() -> None:
     """Entry point utama Developer Toolkit."""
-    _print_banner()
+    # Banner cuma untuk sesi interaktif — kalau stdout di-pipe (mis. ke
+    # `jq`, file, atau proses lain), banner ASCII-art akan merusak output
+    # yang harusnya murni JSON/CSV.
+    if sys.stdout.isatty():
+        _print_banner()
 
     parser = _build_parser()
     args = parser.parse_args()

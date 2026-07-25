@@ -6,7 +6,11 @@ pydantic
 pydantic[email]
 pydantic-settings
 python-jose[cryptography]
+bcrypt
 passlib[bcrypt]
 pytest
 httpx
 python-multipart
+redis
+python-dotenv
+scalar-fastapi

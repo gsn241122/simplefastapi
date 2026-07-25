@@ -24,6 +24,15 @@ class Settings(BaseSettings):
     # Database Settings
     DATABASE_URL: str = "sqlite:///./app.db"
 
+    # Redis Settings
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_PASSWORD: Optional[str] = None
+    REDIS_DB: int = 0
+    REDIS_PREFIX: str = "fastapi-cache"
+    REDIS_DEFAULT_TTL: int = 300  # 5 minutes
+    REDIS_ENABLE: bool = True
+
     # Security Settings
     SECRET_KEY: str = "your-super-secret-key-change-this-in-production"
     ALGORITHM: str = "HS256"

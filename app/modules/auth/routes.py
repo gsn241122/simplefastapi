@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from typing import Optional
 from jose import JWTError, jwt
+import redis
+
 from app.core.database import get_db
 from app.core.security import verify_password, get_password_hash
 from app.core.config import settings
@@ -11,110 +13,237 @@ from app.core.responses import StandardJSONResponse
 from app.modules.user import crud, schemas
 from app.modules.user.models import User
 
+# ─── Redis Client ────────────────────────────────────────────────────────────────
+redis_client = redis.Redis(
+    host=settings.REDIS_HOST,
+    port=settings.REDIS_PORT,
+    password=settings.REDIS_PASSWORD,
+    db=settings.REDIS_DB,
+)
+
+# ─── Router & OAuth2 Scheme ──────────────────────────────────────────────────────
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="auth/login-swagger",
+    auto_error=True,
+    scheme_name="bearer",
+    description="JWT Bearer Token",
+    scopes={
+        "read": "Read access",
+        "write": "Write access",
+    },
+)
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+# ─── Helpers ──────────────────────────────────────────────────────────────────────
+def _get_client_ip(request: Request) -> str:
+    """Extract the real client IP, respecting proxy headers."""
+    x_forwarded_for = request.headers.get("x-forwarded-for")
+    if x_forwarded_for:
+        return x_forwarded_for.split(",")[0].strip()
+    return request.client.host
+
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(timezone.utc) + (
+        expires_delta
+        if expires_delta
+        else timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    return encoded_jwt
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
+def _store_token_in_redis(ip_address: str, token: str, username: str) -> None:
+    """Persist token ↔ IP binding in Redis with TTL."""
+    redis_client.set(
+        f"{settings.REDIS_PREFIX}:ip:{ip_address}:token:{token}",
+        username,
+        ex=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
+
+
+def _remove_token_from_redis(ip_address: str, token: str) -> None:
+    """Remove a token from Redis (logout)."""
+    redis_client.delete(f"{settings.REDIS_PREFIX}:ip:{ip_address}:token:{token}")
+
+
+# ─── Dependencies ─────────────────────────────────────────────────────────────────
 async def get_current_user(
+    request: Request,
     token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    # 1. Verify token exists in Redis (bound to client IP)
+    ip_address = _get_client_ip(request)
+    if not redis_client.exists(f"{settings.REDIS_PREFIX}:ip:{ip_address}:token:{token}"):
+        raise credentials_exception
+
+    # 2. Decode & validate JWT payload
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        username: str = payload.get("sub")
+        username: Optional[str] = payload.get("sub")
         if username is None:
             raise credentials_exception
-        token_data = schemas.TokenData(username=username)
     except JWTError:
         raise credentials_exception
-    
-    user = crud.get_user_by_username(db, username=token_data.username)
+
+    # 3. Fetch user from DB
+    user = crud.get_user_by_username(db, username=username)
     if user is None:
         raise credentials_exception
-    
+
     if user.is_deleted or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is inactive or deleted"
+            detail="User account is inactive or deleted",
         )
-    
+
     return user
+
+
+async def get_current_user_with_token(
+    request: Request,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+) -> tuple[User, str]:
+    """Same as get_current_user but also returns the raw token (needed for logout)."""
+    user = await get_current_user(request=request, token=token, db=db)
+    return user, token
+
+
+# ─── Public Endpoints ─────────────────────────────────────────────────────────────
+@router.get("/get-real-ip")
+async def get_real_ip(request: Request):
+    """Return the detected client IP (useful for debugging proxy setups)."""
+    return {"real_client_ip": _get_client_ip(request)}
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     """Register a new user."""
-    db_user = crud.get_user_by_username(db, username=user.username)
-    if db_user:
+    if crud.get_user_by_username(db, username=user.username):
         raise HTTPException(status_code=400, detail="Username already registered")
-    db_email = crud.get_user_by_email(db, email=user.email)
-    if db_email:
+
+    if crud.get_user_by_email(db, email=user.email):
         raise HTTPException(status_code=400, detail="Email already registered")
-    
-    # Hanya admin yang bisa mendaftarkan user dengan role admin
-    if hasattr(user, 'role') and user.role == "admin":
+
+    # Prevent self-registration as admin
+    if getattr(user, "role", None) == "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Cannot register as admin. Admin must be created by existing admin."
+            detail="Cannot register as admin. Admin must be created by an existing admin.",
         )
-    
-    # Hash password before storing
+
     user_data = user.model_dump()
-    user_data["hashed_password"] = get_password_hash(user.password)
-    del user_data["password"]
-    
+    user_data["hashed_password"] = get_password_hash(user_data.pop("password"))
+
     created_user = crud.create_user(db=db, user_data=user_data)
     response_data = schemas.UserResponse.model_validate(created_user)
-    return StandardJSONResponse.success(data=response_data, message="User registered successfully")
+
+    return StandardJSONResponse.success(
+        data=response_data, message="User registered successfully"
+    )
 
 
 @router.post("/login")
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    """Login and get access token."""
+def login(
+    request: Request,
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+):
+    """Authenticate with username/password and receive a JWT access token."""
     user = crud.get_user_by_username(db, username=form_data.username)
+
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     if user.is_deleted or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is inactive or deleted"
+            detail="User account is inactive or deleted",
         )
-    
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+
     access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+        data={"sub": user.username},
+        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
-    
+
+    _store_token_in_redis(_get_client_ip(request), access_token, user.username)
+
     return StandardJSONResponse.success(
         data={"access_token": access_token, "token_type": "bearer"},
-        message="Login successful"
+        message="Login successful",
     )
 
 
+@router.post("/login-swagger")
+async def login_for_swagger(
+    request: Request,
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+):
+    """
+    Login endpoint tailored for Swagger UI (expects x-www-form-urlencoded).
+    Returns access_token with scope for OpenAPI compatibility.
+    """
+    user = crud.get_user_by_username(db, username=form_data.username)
+
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if user.is_deleted or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is inactive or deleted",
+        )
+
+    access_token = create_access_token(
+        data={"sub": user.username},
+        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+
+    _store_token_in_redis(_get_client_ip(request), access_token, user.username)
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "scope": "read write",
+    }
+
+
+# ─── Protected Endpoints ──────────────────────────────────────────────────────────
 @router.get("/me")
 def read_users_me(current_user: User = Depends(get_current_user)):
-    """Get current user information."""
+    """Get the currently authenticated user's profile."""
     response_data = schemas.UserResponse.model_validate(current_user)
-    return StandardJSONResponse.success(data=response_data, message="Current user retrieved successfully")
+    return StandardJSONResponse.success(
+        data=response_data, message="Current user retrieved successfully"
+    )
+
+
+@router.post("/logout")
+async def logout(
+    request: Request,
+    auth: tuple[User, str] = Depends(get_current_user_with_token),
+):
+    """Invalidate the current token (logout)."""
+    _, token = auth
+    _remove_token_from_redis(_get_client_ip(request), token)
+    return StandardJSONResponse.success(data=None, message="Logout successful")
