@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List
 from app.core.database import get_db
-from app.core.responses import StandardJSONResponse
+from app.core.config import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
+from app.core.responses import APIResponse, PaginationMeta, StandardJSONResponse
 from app.modules.product import crud, schemas
 from app.modules.auth.routes import get_current_user
 from app.modules.user.models import User
@@ -31,7 +32,11 @@ def create_product(
 def read_products(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     products = crud.get_products(db, skip=skip, limit=limit)
     response_data = [schemas.ProductResponse.model_validate(product) for product in products]
-    return StandardJSONResponse.success(data=response_data, message="Products retrieved successfully")
+    return StandardJSONResponse.success(
+        data=response_data, 
+        message="Products retrieved successfully",
+        # meta=PaginationMeta.create(total=total, skip=skip, limit=limit),
+    )
 
 
 @router.get("/{product_id}")

@@ -290,7 +290,7 @@ def cmd_doctor(args: argparse.Namespace) -> None:
                 f"pip install {pkg}",
             )
 
-    # 7. Database connectivity
+    # 7.a. Database connectivity
     if DB_FILE.exists():
         try:
             conn = sqlite3.connect(str(DB_FILE))
@@ -300,14 +300,37 @@ def cmd_doctor(args: argparse.Namespace) -> None:
         except Exception as e:
             _check("Database SQLite bisa diakses", False, str(e))
 
-    # 8. Port 8000 availability
+    # 7.b. Redis available
+    try:
+        import redis
+        _check("Redis tersedia", True)
+    except ImportError:
+        _check(
+            "Redis tersedia",
+            False,
+            "pip install redis",
+        )
+
+    # 8. Port 8002 availability
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        port_free = s.connect_ex(("127.0.0.1", 8000)) != 0
+        port_free = s.connect_ex(("127.0.0.1", 8002)) != 0
     _check(
-        "Port 8000 tersedia",
+        "Port 8002 tersedia",
         port_free,
-        "Port 8000 sudah dipakai. Kill proses atau gunakan port lain.",
+        "Port 8002 sudah dipakai. Kill proses atau gunakan port lain.",
     )
+
+    # 9. Cek Scalar available
+    try:
+        import scalar_fastapi
+        _check("Scalar tersedia", True)
+    except ImportError:
+        _check(
+            "Scalar tersedia",
+            False,
+            "pip install scalar-fastapi",
+        )
+
 
     # Summary
     print()
@@ -3068,7 +3091,7 @@ def _build_parser() -> argparse.ArgumentParser:
     # serve
     sp_serve = subparsers.add_parser("serve", help="Jalankan development server")
     sp_serve.add_argument("--host", default="127.0.0.1", help="Bind host (default: 127.0.0.1)")
-    sp_serve.add_argument("--port", type=int, default=8000, help="Bind port (default: 8000)")
+    sp_serve.add_argument("--port", type=int, default=8002, help="Bind port (default: 8002)")
     sp_serve.add_argument("--workers", type=int, default=1, help="Jumlah workers (default: 1)")
     sp_serve.add_argument("--no-reload", action="store_true", help="Disable auto-reload")
 
@@ -3162,7 +3185,7 @@ def _build_parser() -> argparse.ArgumentParser:
     sp_api = subparsers.add_parser("api", help="Panggil API endpoint")
     sp_api.add_argument("method", choices=["GET", "POST", "PUT", "DELETE", "PATCH"], help="HTTP method")
     sp_api.add_argument("endpoint", help="API endpoint path (contoh: /health)")
-    sp_api.add_argument("--base", default="http://127.0.0.1:8000", help="Base URL")
+    sp_api.add_argument("--base", default="http://127.0.0.1:8002", help="Base URL")
     sp_api.add_argument("--data", "-d", help="Request body JSON")
     sp_api.add_argument("--token", help="Bearer token")
     sp_api.add_argument("--apikey", help="API Key")
@@ -3173,7 +3196,7 @@ def _build_parser() -> argparse.ArgumentParser:
     # status
     sp_status = subparsers.add_parser("status", help="Cek apakah dev server sedang berjalan")
     sp_status.add_argument("--host", default="127.0.0.1", help="Host yang dicek (default: 127.0.0.1)")
-    sp_status.add_argument("--port", type=int, default=8000, help="Port yang dicek (default: 8000)")
+    sp_status.add_argument("--port", type=int, default=8002, help="Port yang dicek (default: 8002)")
 
     # openapi
     sp_openapi = subparsers.add_parser("openapi", help="Export OpenAPI schema")

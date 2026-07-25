@@ -4,7 +4,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -12,11 +12,15 @@ from app.core.config import settings
 from app.core.database import Base, engine, check_db_connection
 from app.core.dependencies import request_logger
 from app.core.logging_config import setup_logging
+from app.modules.role.routes import router as role_router
 from app.modules.user.routes import router as user_router
 from app.modules.product.routes import router as product_router
-from app.modules.auth.routes import router as auth_router
+from app.modules.auth.routes import router as auth_router, get_current_user
 from app.modules.order.routes import router as order_router
 from app.modules.invoice.routes import router as invoice_router
+from app.modules.provider.routes import router as provider_router
+from app.modules.model.routes import router as model_router
+from app.modules.conversation.routes import router as conversation_router
 
 from scalar_fastapi import get_scalar_api_reference
 
@@ -48,6 +52,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+
 # --- CORS Middleware ---
 app.add_middleware(
     CORSMiddleware,
@@ -65,11 +71,16 @@ async def log_and_rate_limit(request: Request, call_next):
 
 # --- Routers ---
 app.include_router(auth_router)
+app.include_router(role_router)
 app.include_router(user_router)
 app.include_router(product_router)
 app.include_router(order_router)
 app.include_router(invoice_router)
+app.include_router(provider_router)
+app.include_router(model_router)
+app.include_router(conversation_router)
 
+# Scalar Docs
 @app.get("/scalar", include_in_schema=False)
 async def scalar_html():
     """

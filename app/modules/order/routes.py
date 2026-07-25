@@ -12,8 +12,9 @@ from app.modules.order.schemas import (
     OrderResponse,
     OrderUpdate,
 )
+from app.modules.auth.routes import get_current_user
 
-router = APIRouter(prefix="/orders", tags=["Orders"])
+router = APIRouter(prefix="/orders", tags=["Orders"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("", response_model=APIResponse, summary="List semua order")

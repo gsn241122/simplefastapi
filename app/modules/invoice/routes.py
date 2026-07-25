@@ -12,8 +12,9 @@ from app.modules.invoice.schemas import (
     InvoiceResponse,
     InvoiceUpdate,
 )
+from app.modules.auth.routes import get_current_user
 
-router = APIRouter(prefix="/invoices", tags=["Invoices"])
+router = APIRouter(prefix="/invoices", tags=["Invoices"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("", response_model=APIResponse, summary="List semua invoice")

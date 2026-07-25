@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List
 from app.core.database import get_db
-from app.core.responses import StandardJSONResponse, APIResponse
+from app.core.config import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
+from app.core.responses import APIResponse, PaginationMeta, StandardJSONResponse
 from app.core.security import get_password_hash, require_admin
 from app.modules.user import crud, schemas
 from app.modules.auth.routes import get_current_user
@@ -31,10 +32,19 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/", dependencies=[Depends(get_current_user)])
-def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    users = crud.get_users(db, skip=skip, limit=limit)
-    response_data = [schemas.UserResponse.model_validate(user) for user in users]
-    return StandardJSONResponse.success(data=response_data, message="Users retrieved successfully")
+def read_users(
+    skip: int = Query(0, ge=0, description="Offset"),
+    limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE, description="Items per page"),
+    search: str | None = Query(None, description="Search by name"),
+    db: Session = Depends(get_db),
+):
+    items = crud.get_users(db, skip=skip, limit=limit)
+    response_data = [schemas.UserResponse.model_validate(user) for user in items]
+    return StandardJSONResponse.success(
+        data=response_data, 
+        message="Users retrieved successfully",
+        # meta=PaginationMeta.create(total=total, skip=skip, limit=limit),
+    )
 
 
 @router.get("/{user_id}", dependencies=[Depends(get_current_user)])
