@@ -12,8 +12,9 @@ from app.modules.role.schemas import (
     RoleResponse,
     RoleUpdate,
 )
+from app.modules.auth.routes import get_current_user
 
-router = APIRouter(prefix="/roles", tags=["Roles"])
+router = APIRouter(prefix="/roles", tags=["Roles"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("", response_model=APIResponse, summary="List semua role")

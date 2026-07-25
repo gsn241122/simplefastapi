@@ -9,10 +9,10 @@ from app.modules.user import crud, schemas
 from app.modules.auth.routes import get_current_user
 from app.modules.user.models import User
 
-router = APIRouter(prefix="/users", tags=["User Management"])
+router = APIRouter(prefix="/users", tags=["User Management"], dependencies=[Depends(get_current_user)])
 
 
-@router.post("/register", status_code=status.HTTP_201_CREATED, dependencies=[Depends(get_current_user)])
+@router.post("/register", status_code=status.HTTP_201_CREATED)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db_user = crud.get_user_by_username(db, username=user.username)
     if db_user:
@@ -31,7 +31,7 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     return StandardJSONResponse.success(data=response_data, message="User created successfully")
 
 
-@router.get("/", dependencies=[Depends(get_current_user)])
+@router.get("/")
 def read_users(
     skip: int = Query(0, ge=0, description="Offset"),
     limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE, description="Items per page"),
@@ -47,7 +47,7 @@ def read_users(
     )
 
 
-@router.get("/{user_id}", dependencies=[Depends(get_current_user)])
+@router.get("/{user_id}")
 def read_user(user_id: int, db: Session = Depends(get_db)):
     db_user = crud.get_user(db, user_id=user_id)
     if db_user is None:
@@ -56,7 +56,7 @@ def read_user(user_id: int, db: Session = Depends(get_db)):
     return StandardJSONResponse.success(data=response_data, message="User retrieved successfully")
 
 
-@router.put("/{user_id}", dependencies=[Depends(get_current_user)])
+@router.put("/{user_id}")
 def update_user(
     user_id: int,
     user_update: schemas.UserUpdate,
@@ -90,7 +90,7 @@ def update_user(
     return StandardJSONResponse.success(data=response_data, message="User updated successfully")
 
 
-@router.delete("/{user_id}", dependencies=[Depends(get_current_user)])
+@router.delete("/{user_id}")
 def delete_user(
     user_id: int, 
     current_user: User = Depends(get_current_user),

@@ -8,10 +8,10 @@ from app.modules.product import crud, schemas
 from app.modules.auth.routes import get_current_user
 from app.modules.user.models import User
 
-router = APIRouter(prefix="/products", tags=["Product Management"])
+router = APIRouter(prefix="/products", tags=["Product Management"], dependencies=[Depends(get_current_user)])
 
 
-@router.post("/", dependencies=[Depends(get_current_user)])
+@router.post("/")
 def create_product(
     product: schemas.ProductCreate, 
     current_user: User = Depends(get_current_user),
@@ -48,7 +48,7 @@ def read_product(product_id: int, db: Session = Depends(get_db)):
     return StandardJSONResponse.success(data=response_data, message="Product retrieved successfully")
 
 
-@router.put("/{product_id}", dependencies=[Depends(get_current_user)])
+@router.put("/{product_id}")
 def update_product(
     product_id: int,
     product_update: schemas.ProductUpdate,
@@ -68,7 +68,7 @@ def update_product(
     return StandardJSONResponse.success(data=response_data, message="Product updated successfully")
 
 
-@router.delete("/{product_id}", dependencies=[Depends(get_current_user)])
+@router.delete("/{product_id}")
 def delete_product(
     product_id: int, 
     current_user: User = Depends(get_current_user),

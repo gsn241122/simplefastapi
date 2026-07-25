@@ -21,8 +21,7 @@ from app.modules.invoice.routes import router as invoice_router
 from app.modules.provider.routes import router as provider_router
 from app.modules.model.routes import router as model_router
 from app.modules.conversation.routes import router as conversation_router
-
-from scalar_fastapi import get_scalar_api_reference
+from app.modules.doc.routes import router as doc_router
 
 # Setup logging sebelum apapun
 setup_logging()
@@ -47,8 +46,10 @@ app = FastAPI(
         "SimpleFastAPI APP"
     ),
     version=settings.APP_VERSION,
-    docs_url="/docs",
-    redoc_url="/redoc",
+    # docs_url="/docs",
+    # redoc_url="/redoc",
+    docs_url=None,
+    redoc_url=None,
     lifespan=lifespan,
 )
 
@@ -79,18 +80,8 @@ app.include_router(invoice_router)
 app.include_router(provider_router)
 app.include_router(model_router)
 app.include_router(conversation_router)
+app.include_router(doc_router)
 
-# Scalar Docs
-@app.get("/scalar", include_in_schema=False)
-async def scalar_html():
-    """
-    Menyediakan halamanScalar UI untuk API di module ini.
-    """
-    return get_scalar_api_reference(
-        openapi_url="/openapi.json",
-        title="SimpleFastAPI Application API",
-        show_sidebar=True
-    )
 
 @app.get("/", tags=["General"], summary="Welcome message")
 def read_root():
@@ -116,3 +107,11 @@ def health_check():
     }
     http_status = 200 if db_ok else 503
     return JSONResponse(content=payload, status_code=http_status)
+
+@app.on_event("startup")
+def startup_event():
+    logger.info("Starting up %s v%s [env=%s]", settings.APP_NAME, settings.APP_VERSION, settings.ENVIRONMENT)
+
+@app.on_event("shutdown")
+def shutdown_event():
+    logger.info("Shutting down %s.", settings.APP_NAME)

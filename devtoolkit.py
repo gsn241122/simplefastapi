@@ -21,6 +21,7 @@ import getpass
 import importlib
 import json
 import os
+import psutil
 import platform
 import re
 import secrets
@@ -3046,6 +3047,39 @@ def cmd_profile(args: argparse.Namespace) -> None:
     print()
 
 
+# ──────────────────────────────────────────────────────────────────
+# Kill port
+# ──────────────────────────────────────────────────────────────────
+
+def cmd_kill_port(args: argparse.Namespace) -> None:
+    """Kill process di port tertentu."""
+    port = args.port
+
+    try:
+        result = subprocess.check_output(
+            ["lsof", "-t", f"-i:{port}"],
+            stderr=subprocess.DEVNULL
+        ).decode().strip()
+
+        if not result:
+            print(f"✓ No process found on port {port}")
+            return
+
+        pids = result.splitlines()
+
+        for pid in pids:
+            subprocess.run(
+                ["kill", "-9", pid],
+                check=True
+            )
+            print(f"✓ Killed PID {pid} on port {port}")
+
+    except subprocess.CalledProcessError:
+        print(f"✓ No process found on port {port}")
+
+    except Exception as e:
+        print(f"✗ Error: {e}")
+
 # ══════════════════════════════════════════════════════════════════
 #  CLI Parser — Main entry point
 # ══════════════════════════════════════════════════════════════════
@@ -3077,6 +3111,7 @@ def _build_parser() -> argparse.ArgumentParser:
               python devtoolkit.py db query --sql "..." --format csv -o out.csv
               python devtoolkit.py db upgrade                   # alembic upgrade head
               python devtoolkit.py openapi export --out api.json
+              python devtoolkit.py kill 8080                   # Kill port 8080
         """),
     )
 
@@ -3208,6 +3243,9 @@ def _build_parser() -> argparse.ArgumentParser:
     # shell
     subparsers.add_parser("shell", help="Buka Python REPL preloaded dengan db/models/settings")
 
+    # Kill port
+    sp_kill = subparsers.add_parser("kill", help="Kill process di port tertentu")
+    sp_kill.add_argument("--port", type=int, default=8002, help="Port yang akan di-kill (default: 8002)")
     return parser
 
 
@@ -3250,6 +3288,7 @@ COMMAND_MAP = {
     "status": cmd_status,
     "openapi": cmd_openapi,
     "shell": cmd_shell,
+    "kill": cmd_kill_port,
 }
 
 
