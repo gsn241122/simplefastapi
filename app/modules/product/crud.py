@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Optional
 from app.modules.product.models import Product
 from app.modules.product.schemas import ProductCreate, ProductUpdate
 
@@ -8,8 +11,19 @@ def get_product(db: Session, product_id: int):
     return db.query(Product).filter(Product.id == product_id, Product.is_deleted == False).first()
 
 
-def get_products(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(Product).filter(Product.is_deleted == False).offset(skip).limit(limit).all()
+def get_products(
+    db: Session,
+    skip: int = 0,
+    limit: int = 100,
+    search: Optional[str] = None,
+) -> tuple[list, int]:
+    """Get paginated list of available products with optional search filter."""
+    query = db.query(Product).filter(Product.is_deleted == False)  # noqa: E712
+    if search:
+        query = query.filter(Product.name.ilike(f"%{search}%"))
+    total = query.count()
+    items = query.offset(skip).limit(limit).all()
+    return items, total
 
 
 def create_product(db: Session, product: ProductCreate):
@@ -41,6 +55,6 @@ def delete_product(db: Session, product_id: int):
     db_product = db.query(Product).filter(Product.id == product_id, Product.is_deleted == False).first()
     if db_product:
         db_product.is_deleted = True
-        db_product.deleted_at = datetime.utcnow()
+        db_product.deleted_at = datetime.now(timezone.utc)
         db.commit()
     return db_product

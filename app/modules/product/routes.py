@@ -11,7 +11,7 @@ from app.modules.user.models import User
 router = APIRouter(prefix="/products", tags=["Product Management"], dependencies=[Depends(get_current_user)])
 
 
-@router.post("/")
+@router.post("/", response_model=APIResponse, summary="Create product")
 def create_product(
     product: schemas.ProductCreate, 
     current_user: User = Depends(get_current_user),
@@ -28,18 +28,23 @@ def create_product(
     return StandardJSONResponse.success(data=response_data, message="Product created successfully")
 
 
-@router.get("/")
-def read_products(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    products = crud.get_products(db, skip=skip, limit=limit)
+@router.get("/", response_model=APIResponse, summary="List products")
+def read_products(
+    skip: int = Query(0, ge=0, description="Offset"),
+    limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE, description="Items per page"),
+    search: str | None = Query(None, description="Search by product name"),
+    db: Session = Depends(get_db),
+):
+    products, total = crud.get_products(db, skip=skip, limit=limit, search=search)
     response_data = [schemas.ProductResponse.model_validate(product) for product in products]
     return StandardJSONResponse.success(
-        data=response_data, 
+        data=response_data,
         message="Products retrieved successfully",
-        # meta=PaginationMeta.create(total=total, skip=skip, limit=limit),
+        meta=PaginationMeta.create(total=total, skip=skip, limit=limit),
     )
 
 
-@router.get("/{product_id}")
+@router.get("/{product_id}", response_model=APIResponse, summary="Get product by ID")
 def read_product(product_id: int, db: Session = Depends(get_db)):
     db_product = crud.get_product(db, product_id=product_id)
     if db_product is None:
@@ -48,7 +53,7 @@ def read_product(product_id: int, db: Session = Depends(get_db)):
     return StandardJSONResponse.success(data=response_data, message="Product retrieved successfully")
 
 
-@router.put("/{product_id}")
+@router.put("/{product_id}", response_model=APIResponse, summary="Update product")
 def update_product(
     product_id: int,
     product_update: schemas.ProductUpdate,
@@ -68,7 +73,7 @@ def update_product(
     return StandardJSONResponse.success(data=response_data, message="Product updated successfully")
 
 
-@router.delete("/{product_id}")
+@router.delete("/{product_id}", response_model=APIResponse, summary="Delete product")
 def delete_product(
     product_id: int, 
     current_user: User = Depends(get_current_user),

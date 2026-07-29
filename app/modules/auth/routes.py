@@ -14,12 +14,33 @@ from app.modules.user import crud, schemas
 from app.modules.user.models import User
 
 # ─── Redis Client ────────────────────────────────────────────────────────────────
-redis_client = redis.Redis(
-    host=settings.REDIS_HOST,
-    port=settings.REDIS_PORT,
-    password=settings.REDIS_PASSWORD,
-    db=settings.REDIS_DB,
-)
+_redis_client: redis.Redis | None = None
+
+
+def _get_redis() -> redis.Redis | None:
+    """Lazily create and return the Redis client, or None if disabled/unavailable."""
+    global _redis_client
+    if not settings.REDIS_ENABLE:
+        return None
+    if _redis_client is None:
+        try:
+            _redis_client = redis.Redis(
+                host=settings.REDIS_HOST,
+                port=settings.REDIS_PORT,
+                password=settings.REDIS_PASSWORD,
+                db=settings.REDIS_DB,
+                socket_connect_timeout=2,
+                socket_timeout=2,
+                decode_responses=True,
+            )
+            _redis_client.ping()  # verify connectivity
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning(
+                "Redis unavailable — token IP-binding disabled: %s", exc
+            )
+            _redis_client = None
+    return _redis_client
 
 # ─── Router & OAuth2 Scheme ──────────────────────────────────────────────────────
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -57,17 +78,31 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 
 def _store_token_in_redis(ip_address: str, token: str, username: str) -> None:
-    """Persist token ↔ IP binding in Redis with TTL."""
-    redis_client.set(
-        f"{settings.REDIS_PREFIX}:ip:{ip_address}:token:{token}",
-        username,
-        ex=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-    )
+    """Persist token ↔ IP binding in Redis with TTL (no-op if Redis is unavailable)."""
+    client = _get_redis()
+    if client is None:
+        return
+    try:
+        client.set(
+            f"{settings.REDIS_PREFIX}:ip:{ip_address}:token:{token}",
+            username,
+            ex=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        )
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning("Redis set failed: %s", exc)
 
 
 def _remove_token_from_redis(ip_address: str, token: str) -> None:
-    """Remove a token from Redis (logout)."""
-    redis_client.delete(f"{settings.REDIS_PREFIX}:ip:{ip_address}:token:{token}")
+    """Remove a token from Redis (logout). No-op if Redis is unavailable."""
+    client = _get_redis()
+    if client is None:
+        return
+    try:
+        client.delete(f"{settings.REDIS_PREFIX}:ip:{ip_address}:token:{token}")
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning("Redis delete failed: %s", exc)
 
 
 # ─── Dependencies ─────────────────────────────────────────────────────────────────
@@ -83,9 +118,18 @@ async def get_current_user(
     )
 
     # 1. Verify token exists in Redis (bound to client IP)
+    #    If Redis is unavailable, skip IP binding check and rely on JWT alone.
     ip_address = _get_client_ip(request)
-    if not redis_client.exists(f"{settings.REDIS_PREFIX}:ip:{ip_address}:token:{token}"):
-        raise credentials_exception
+    client = _get_redis()
+    if client is not None:
+        try:
+            if not client.exists(f"{settings.REDIS_PREFIX}:ip:{ip_address}:token:{token}"):
+                raise credentials_exception
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning(
+                "Redis check failed (falling back to JWT-only auth): %s", exc
+            )
 
     # 2. Decode & validate JWT payload
     try:

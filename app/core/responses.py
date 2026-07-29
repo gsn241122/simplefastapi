@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 from typing import Any, Optional, Generic, TypeVar, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 T = TypeVar("T")
@@ -67,9 +67,9 @@ class APIResponse(BaseModel, Generic[T]):
         description="Metadata paginasi (hanya ada di list endpoint)",
     )
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp response (UTC)",
-        json_schema_extra={"example": "2024-01-01T00:00:00"},
+        json_schema_extra={"example": "2024-01-01T00:00:00Z"},
     )
     error: Optional[str] = Field(
         default=None,

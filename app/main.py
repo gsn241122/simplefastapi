@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import logging
+import json
+import urllib.request
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -15,7 +17,7 @@ from app.core.logging_config import setup_logging
 from app.modules.role.routes import router as role_router
 from app.modules.user.routes import router as user_router
 from app.modules.product.routes import router as product_router
-from app.modules.auth.routes import router as auth_router, get_current_user
+from app.modules.auth.routes import router as auth_router
 from app.modules.order.routes import router as order_router
 from app.modules.invoice.routes import router as invoice_router
 from app.modules.provider.routes import router as provider_router
@@ -40,17 +42,49 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Shutting down %s.", settings.APP_NAME)
 
 
+def get_active_ngrok_url() -> str | None:
+    """Mengambil URL tunnel ngrok yang sedang aktif secara otomatis."""
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:4040/api/tunnels", timeout=1.0) as response:
+            if response.status == 200:
+                data = json.loads(response.read().decode())
+                tunnels = data.get("tunnels", [])
+                for tunnel in tunnels:
+                    public_url = tunnel.get("public_url", "")
+                    if public_url.startswith("https://"):
+                        return public_url
+    except Exception:
+        pass
+    return None
+
+
+servers_list = [
+    {
+        "url": "http://localhost:8080",
+        "description": "Development Server"
+    }
+]
+
+ngrok_url = get_active_ngrok_url()
+if ngrok_url:
+    servers_list.append({
+        "url": ngrok_url,
+        "description": "Development Server (ngrok tunnel)"
+    })
+
+
 app = FastAPI(
     title=settings.APP_NAME,
     description=(
-        "SimpleFastAPI APP"
+        "A modular, production-ready FastAPI backend with JWT authentication, "
+        "Redis token binding, role-based access control, pagination, and soft-delete "
+        "across multiple resource modules (users, products, orders, invoices, etc.)."
     ),
     version=settings.APP_VERSION,
-    # docs_url="/docs",
-    # redoc_url="/redoc",
     docs_url=None,
     redoc_url=None,
     lifespan=lifespan,
+    servers=servers_list
 )
 
 
@@ -66,7 +100,7 @@ app.add_middleware(
 
 # --- Request Logging & Rate Limiting Middleware ---
 @app.middleware("http")
-async def log_and_rate_limit(request: Request, call_next):
+async def log_and_rate_limit(request, call_next):
     """Middleware untuk logging terstruktur dan rate limiting."""
     return await request_logger(request, call_next)
 
@@ -108,10 +142,3 @@ def health_check():
     http_status = 200 if db_ok else 503
     return JSONResponse(content=payload, status_code=http_status)
 
-@app.on_event("startup")
-def startup_event():
-    logger.info("Starting up %s v%s [env=%s]", settings.APP_NAME, settings.APP_VERSION, settings.ENVIRONMENT)
-
-@app.on_event("shutdown")
-def shutdown_event():
-    logger.info("Shutting down %s.", settings.APP_NAME)

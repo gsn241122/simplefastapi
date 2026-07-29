@@ -1,0 +1,62 @@
+[
+  {
+    "id": 1,
+    "name": "Widget Pro",
+    "description": "Premium quality widget",
+    "price": 29900,
+    "stock": 100,
+    "is_available": 1,
+    "is_deleted": 0,
+    "deleted_at": null,
+    "created_at": "2026-07-28 18:25:50.225690",
+    "updated_at": "2026-07-28 18:25:50.225699"
+  },
+  {
+    "id": 2,
+    "name": "Gadget Lite",
+    "description": "Compact everyday gadget",
+    "price": 15500,
+    "stock": 250,
+    "is_available": 1,
+    "is_deleted": 0,
+    "deleted_at": null,
+    "created_at": "2026-07-28 18:25:50.225705",
+    "updated_at": "2026-07-28 18:25:50.225708"
+  },
+  {
+    "id": 3,
+    "name": "SuperTool X",
+    "description": "All-in-one tool kit",
+    "price": 79000,
+    "stock": 50,
+    "is_available": 1,
+    "is_deleted": 0,
+    "deleted_at": null,
+    "created_at": "2026-07-28 18:25:50.225711",
+    "updated_at": "2026-07-28 18:25:50.225713"
+  },
+  {
+    "id": 4,
+    "name": "Basic Bundle",
+    "description": "Starter pack bundle",
+    "price": 9900,
+    "stock": 500,
+    "is_available": 1,
+    "is_deleted": 0,
+    "deleted_at": null,
+    "created_at": "2026-07-28 18:25:50.225716",
+    "updated_at": "2026-07-28 18:25:50.225718"
+  },
+  {
+    "id": 5,
+    "name": "Premium Pack",
+    "description": "Everything you need",
+    "price": 149000,
+    "stock": 30,
+    "is_available": 1,
+    "is_deleted": 0,
+    "deleted_at": null,
+    "created_at": "2026-07-28 18:25:50.225720",
+    "updated_at": "2026-07-28 18:25:50.225722"
+  }
+]

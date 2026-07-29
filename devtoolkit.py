@@ -21,7 +21,6 @@ import getpass
 import importlib
 import json
 import os
-import psutil
 import platform
 import re
 import secrets
@@ -301,13 +300,30 @@ def cmd_doctor(args: argparse.Namespace) -> None:
         except Exception as e:
             _check("Database SQLite bisa diakses", False, str(e))
 
-    # 7.b. Redis available
+    # 7.b. Redis available & reachable
     try:
-        import redis
-        _check("Redis tersedia", True)
+        import redis as _redis_mod
+        try:
+            from app.core.config import settings as _settings
+            _r = _redis_mod.Redis(
+                host=_settings.REDIS_HOST,
+                port=_settings.REDIS_PORT,
+                password=_settings.REDIS_PASSWORD,
+                db=_settings.REDIS_DB,
+                socket_connect_timeout=2,
+                socket_timeout=2,
+            )
+            _r.ping()
+            _check(f"Redis bisa dijangkau ({_settings.REDIS_HOST}:{_settings.REDIS_PORT})", True)
+        except Exception as _re:
+            _check(
+                f"Redis bisa dijangkau (REDIS_ENABLE={getattr(_settings, 'REDIS_ENABLE', '?')})",
+                False,
+                f"Pastikan Redis berjalan atau set REDIS_ENABLE=False di .env ({_re})",
+            )
     except ImportError:
         _check(
-            "Redis tersedia",
+            "Redis package tersedia",
             False,
             "pip install redis",
         )
@@ -388,7 +404,7 @@ def cmd_serve(args: argparse.Namespace) -> None:
 # ══════════════════════════════════════════════════════════════════
 
 def cmd_db(args: argparse.Namespace) -> None:
-    """Operasi database: info, tables, query, reset, backup, vacuum."""
+    """Operasi database: info, tables, query, reset, backup, vacuum, seed, export, import, truncate."""
     action = args.action
 
     if action == "info":
@@ -413,6 +429,24 @@ def cmd_db(args: argparse.Namespace) -> None:
         _db_current()
     elif action == "history":
         _db_history()
+    elif action == "seed":
+        _db_seed(truncate=getattr(args, "truncate", False), force=getattr(args, "force", False))
+    elif action == "export":
+        _db_export(
+            table=getattr(args, "table", None),
+            fmt=getattr(args, "format", "json"),
+            output=getattr(args, "output", None),
+        )
+    elif action == "import":
+        _db_import(
+            table=getattr(args, "table", None),
+            file=getattr(args, "file", None),
+            mode=getattr(args, "mode", "append"),
+        )
+    elif action == "truncate":
+        _db_truncate(table=getattr(args, "table", None), force=getattr(args, "force", False))
+    elif action == "diff":
+        _db_diff()
     else:
         _error(f"Unknown db action: {action}")
 
@@ -428,17 +462,17 @@ def _db_info() -> None:
     _info(f"File     : {DB_FILE}")
     _info(f"Size     : {size_kb:.1f} KB")
 
+    # Reuse a single connection for all table queries
     conn = sqlite3.connect(str(DB_FILE))
-    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
-    tables = [row[0] for row in cursor.fetchall()]
-    conn.close()
-
-    _info(f"Tables   : {len(tables)}")
-    for t in tables:
-        conn = sqlite3.connect(str(DB_FILE))
-        count = conn.execute(f"SELECT COUNT(*) FROM [{t}]").fetchone()[0]  # noqa: S608
+    try:
+        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+        tables = [row[0] for row in cursor.fetchall()]
+        _info(f"Tables   : {len(tables)}")
+        for t in tables:
+            count = conn.execute(f"SELECT COUNT(*) FROM [{t}]").fetchone()[0]  # noqa: S608
+            _dim(f"    → {t} ({count} rows)")
+    finally:
         conn.close()
-        _dim(f"    → {t} ({count} rows)")
     print()
 
 
@@ -887,11 +921,286 @@ def _db_history() -> None:
 
 
 # ══════════════════════════════════════════════════════════════════
+#  DB helpers baru: seed, export, import, truncate
+# ══════════════════════════════════════════════════════════════════
+
+def _db_seed(truncate: bool = False, force: bool = False) -> None:
+    """Seed database dengan data demo untuk development."""
+    _header("Database Seed 🌱")
+
+    if not force and not _confirm("Ini akan menambahkan data demo ke database. Lanjutkan?", default=True):
+        _info("Dibatalkan.")
+        return
+
+    try:
+        SessionLocal, _ = _get_user_session()
+    except Exception as exc:
+        _error(f"Gagal koneksi ke database: {exc}")
+        return
+
+    db = SessionLocal()
+    try:
+        from app.core.security import get_password_hash  # noqa: PLC0415
+        from app.modules.user.crud import create_user, get_user_by_username  # noqa: PLC0415
+
+        demo_users = [
+            {"username": "admin",  "email": "admin@example.com",  "full_name": "Administrator", "role": "admin", "password": "Admin@1234"},
+            {"username": "demo",   "email": "demo@example.com",   "full_name": "Demo User",      "role": "user",  "password": "Demo@1234"},
+            {"username": "alice",  "email": "alice@example.com",  "full_name": "Alice Tan",       "role": "user",  "password": "Alice@1234"},
+        ]
+        for u in demo_users:
+            if get_user_by_username(db, u["username"]):
+                _warning(f"User '{u['username']}' sudah ada, skip.")
+            else:
+                new = create_user(db, {
+                    "username": u["username"], "email": u["email"],
+                    "full_name": u["full_name"], "role": u["role"],
+                    "hashed_password": get_password_hash(u["password"]),
+                    "is_active": True,
+                })
+                _success(f"User [{new.role:5s}] {new.username!r:10s} — password: {u['password']}")
+    except Exception as exc:
+        db.rollback()
+        _error(f"Seed user gagal: {exc}")
+    finally:
+        db.close()
+
+    # Seed products (best-effort, skip jika model tidak ada)
+    db2 = SessionLocal()
+    try:
+        from app.modules.product.models import Product  # noqa: PLC0415
+        if truncate:
+            db2.query(Product).delete()
+            db2.commit()
+            _info("Tabel products dikosongkan (--truncate).")
+
+        existing = db2.query(Product).count()
+        if existing >= 3:
+            _warning(f"Products sudah ada ({existing} rows), skip.")
+        else:
+            from decimal import Decimal  # noqa: PLC0415
+            samples = [
+                {"name": "Widget Pro",     "description": "Premium quality widget",  "price": Decimal("29900"), "stock": 100},
+                {"name": "Gadget Lite",    "description": "Compact everyday gadget", "price": Decimal("15500"), "stock": 250},
+                {"name": "SuperTool X",    "description": "All-in-one tool kit",     "price": Decimal("79000"), "stock": 50},
+                {"name": "Basic Bundle",   "description": "Starter pack bundle",     "price": Decimal("9900"),  "stock": 500},
+                {"name": "Premium Pack",   "description": "Everything you need",     "price": Decimal("149000"),"stock": 30},
+            ]
+            for s in samples:
+                p = Product(**s)
+                db2.add(p)
+            db2.commit()
+            _success(f"{len(samples)} sample products ditambahkan.")
+    except ImportError:
+        _dim("    Modul product tidak ditemukan, skip.")
+    except Exception as exc:
+        db2.rollback()
+        _warning(f"Seed product gagal: {exc}")
+    finally:
+        db2.close()
+
+    print()
+    _success("Seed selesai! 🎉")
+    print()
+
+
+def _db_export(table: str | None, fmt: str = "json", output: str | None = None) -> None:
+    """Export isi tabel ke JSON atau CSV."""
+    _header("Database Export 📤")
+    if not DB_FILE.exists():
+        _warning("Database file belum ada."); return
+
+    conn = sqlite3.connect(str(DB_FILE))
+    conn.row_factory = sqlite3.Row
+    try:
+        all_tables = [r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+        ).fetchall()]
+
+        if not table:
+            _error("Nama tabel wajib diisi. Gunakan --table <nama>")
+            _info(f"Tersedia: {', '.join(all_tables)}"); return
+
+        if table not in all_tables:
+            _error(f"Tabel '{table}' tidak ditemukan.")
+            _info(f"Tersedia: {', '.join(all_tables)}"); return
+
+        rows = conn.execute(f"SELECT * FROM [{table}]").fetchall()  # noqa: S608
+        if not rows:
+            _warning(f"Tabel '{table}' kosong."); return
+
+        if fmt == "json":
+            text = json.dumps([dict(r) for r in rows], indent=2, default=str, ensure_ascii=False)
+        else:
+            import csv, io  # noqa: PLC0415
+            buf = io.StringIO()
+            writer = csv.DictWriter(buf, fieldnames=rows[0].keys())
+            writer.writeheader()
+            for r in rows:
+                writer.writerow(dict(r))
+            text = buf.getvalue()
+
+        if output:
+            Path(output).write_text(text, encoding="utf-8")
+            _success(f"{len(rows)} rows dari '{table}' → {output} ({fmt.upper()}).")
+        else:
+            print(text)
+    finally:
+        conn.close()
+    print()
+
+
+def _db_import(table: str | None, file: str | None, mode: str = "append") -> None:
+    """Import data dari JSON atau CSV ke tabel database."""
+    _header("Database Import 📥")
+    if not table or not file:
+        _error("Gunakan: db import --table <nama> --file <path>"); return
+    if not DB_FILE.exists():
+        _warning("Database file belum ada."); return
+
+    fp = Path(file)
+    if not fp.exists():
+        _error(f"File '{file}' tidak ditemukan."); return
+
+    ext = fp.suffix.lower()
+    try:
+        if ext == ".json":
+            data: list[dict] = json.loads(fp.read_text(encoding="utf-8"))
+        elif ext in (".csv", ".tsv"):
+            import csv  # noqa: PLC0415
+            with fp.open(newline="", encoding="utf-8") as f:
+                data = list(csv.DictReader(f))
+        else:
+            _error(f"Format '{ext}' tidak didukung. Gunakan .json atau .csv"); return
+    except Exception as exc:
+        _error(f"Gagal membaca file: {exc}"); return
+
+    if not data:
+        _warning("File kosong."); return
+
+    conn = sqlite3.connect(str(DB_FILE))
+    try:
+        exists = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)
+        ).fetchone()
+        if not exists:
+            _error(f"Tabel '{table}' tidak ditemukan."); return
+
+        if mode == "replace":
+            conn.execute(f"DELETE FROM [{table}]")  # noqa: S608
+            _info(f"Tabel '{table}' dikosongkan (mode: replace).")
+
+        cols = list(data[0].keys())
+        ph = ", ".join("?" for _ in cols)
+        cn = ", ".join(f"[{c}]" for c in cols)
+        sql = f"INSERT OR IGNORE INTO [{table}] ({cn}) VALUES ({ph})"  # noqa: S608
+        ok = 0
+        for row in data:
+            try:
+                conn.execute(sql, [row.get(c) for c in cols]); ok += 1
+            except Exception:
+                pass
+        conn.commit()
+        _success(f"{ok}/{len(data)} rows diimport ke '{table}'.")
+    except Exception as exc:
+        conn.rollback(); _error(f"Import gagal: {exc}")
+    finally:
+        conn.close()
+    print()
+
+
+def _db_truncate(table: str | None, force: bool = False) -> None:
+    """Hapus semua baris di tabel tertentu (dev only)."""
+    _header("Database Truncate ⚠️")
+    if not DB_FILE.exists():
+        _warning("Database file belum ada."); return
+
+    conn = sqlite3.connect(str(DB_FILE))
+    try:
+        all_tables = [r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+        ).fetchall()]
+
+        if not table:
+            _error("Gunakan --table <nama>")
+            _info(f"Tersedia: {', '.join(all_tables)}"); return
+
+        if table not in all_tables:
+            _error(f"Tabel '{table}' tidak ditemukan."); return
+
+        count = conn.execute(f"SELECT COUNT(*) FROM [{table}]").fetchone()[0]  # noqa: S608
+        if not force and not _confirm(
+            f"Hapus {count} baris dari '{table}'? Tindakan ini tidak bisa dibatalkan.",
+            default=False,
+        ):
+            _info("Dibatalkan."); return
+
+        conn.execute(f"DELETE FROM [{table}]")  # noqa: S608
+        conn.commit()
+        _success(f"{count} baris dari '{table}' dihapus.")
+    finally:
+        conn.close()
+    print()
+
+
+def _db_diff() -> None:
+    """Inspeksi perbedaan (drift) antara SQLAlchemy Models vs Tabel fisik Database."""
+    _header("Database Schema Drift Inspector 🔍")
+    if not DB_FILE.exists():
+        _warning("Database file belum ada."); return
+
+    try:
+        from app.core.database import Base  # noqa: PLC0415
+        import app.main  # noqa: F401, PLC0415
+    except Exception as exc:
+        _error(f"Gagal mengimport SQLAlchemy models: {exc}"); return
+
+    conn = sqlite3.connect(str(DB_FILE))
+    try:
+        db_tables = {
+            r[0]: set(c[1] for c in conn.execute(f"PRAGMA table_info([{r[0]}])").fetchall())  # noqa: S608
+            for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        }
+
+        model_tables: dict[str, set[str]] = {}
+        for mapper in Base.registry.mappers:
+            tname = mapper.mapped_table.name
+            cols = set(c.name for c in mapper.mapped_table.columns)
+            model_tables[tname] = cols
+
+        drifts = 0
+        for tname, m_cols in model_tables.items():
+            if tname not in db_tables:
+                _error(f"Tabel Model '{tname}' TIDAK ADA di Database fisik!")
+                drifts += 1
+            else:
+                db_cols = db_tables[tname]
+                missing_in_db = m_cols - db_cols
+                extra_in_db = db_cols - m_cols
+
+                if missing_in_db:
+                    _warning(f"Tabel '{tname}': Kolom Model belum ter-migrate ke DB → {', '.join(missing_in_db)}")
+                    drifts += 1
+                if extra_in_db:
+                    _dim(f"    Tabel '{tname}': Kolom di DB tidak ada di Model → {', '.join(extra_in_db)}")
+
+        if drifts == 0:
+            _success("Semua SQLAlchemy Models cocok dengan struktur Database fisik! ✨")
+        else:
+            print()
+            _info("Saran: Jalankan `python devtoolkit.py db migrate -m 'update schema'` lalu `python devtoolkit.py db upgrade`.")
+    finally:
+        conn.close()
+    print()
+
+
+
+# ══════════════════════════════════════════════════════════════════
 #  COMMAND: gen — Generator utilitas
 # ══════════════════════════════════════════════════════════════════
 
 def cmd_gen(args: argparse.Namespace) -> None:
-    """Generator: secret key, API key, password hash, UUID."""
+    """Generator: secret key, API key, password hash, UUID, mock data."""
     action = args.action
 
     if action == "secret":
@@ -902,6 +1211,8 @@ def cmd_gen(args: argparse.Namespace) -> None:
         _gen_hash(args.password)
     elif action == "uuid":
         _gen_uuid(args.count)
+    elif action == "mock":
+        _gen_mock(count=getattr(args, "count", 10), output=getattr(args, "output", None))
     else:
         _error(f"Unknown gen action: {action}")
 
@@ -951,6 +1262,37 @@ def _gen_uuid(count: int = 1) -> None:
     _header(f"Generate UUID ({count}x)")
     for _ in range(count):
         print(f"  {_c(str(uuid_mod.uuid4()), Color.GREEN)}")
+    print()
+
+
+def _gen_mock(count: int = 10, output: str | None = None) -> None:
+    """Generate dummy mock users data (JSON)."""
+    _header("Generate Mock Data 🎲")
+    import random
+
+    first_names = ["Budi", "Siti", "Agus", "Dewi", "Eko", "Rina", "Rudi", "Maya", "Fajar", "Nia"]
+    last_names = ["Santoso", "Wijaya", "Pratama", "Lestari", "Nugroho", "Saputra", "Kusuma", "Handayani"]
+
+    mock_list = []
+    for i in range(1, count + 1):
+        fn = random.choice(first_names)
+        ln = random.choice(last_names)
+        username = f"{fn.lower()}{random.randint(10, 99)}"
+        mock_list.append({
+            "id": i,
+            "username": username,
+            "email": f"{username}@example.com",
+            "full_name": f"{fn} {ln}",
+            "role": "admin" if i == 1 else "user",
+            "is_active": True,
+        })
+
+    text = json.dumps(mock_list, indent=2)
+    if output:
+        Path(output).write_text(text, encoding="utf-8")
+        _success(f"{count} mock users berhasil ditulis ke '{output}'.")
+    else:
+        print(text)
     print()
 
 
@@ -1332,7 +1674,13 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
             {class_name}Update,
         )
 
-        router = APIRouter(prefix="/{module_name}s", tags=["{class_name}s"])
+        from app.modules.auth.routes import get_current_user
+
+        router = APIRouter(
+            prefix="/{module_name}s",
+            tags=["{class_name}s"],
+            dependencies=[Depends(get_current_user)],
+        )
 
 
         @router.get("", response_model=APIResponse, summary="List semua {module_name}")
@@ -1560,18 +1908,20 @@ def cmd_lint(args: argparse.Namespace) -> None:
 # ══════════════════════════════════════════════════════════════════
 
 def cmd_routes(args: argparse.Namespace) -> None:
-    """Tampilkan semua API routes yang terdaftar."""
-    action = getattr(args, "action", "list")
-    
+    """Tampilkan atau audit API routes."""
+    action = args.action
+
     if action == "list":
         _routes_list(
-            verbose=getattr(args, "verbose", False),
+            verbose=args.verbose,
             fmt=getattr(args, "format", "table"),
             method_filter=getattr(args, "method", None),
             tag_filter=getattr(args, "tag", None),
         )
     elif action == "check":
         _routes_check()
+    elif action == "diagram":
+        _routes_diagram(output=getattr(args, "output", None))
     else:
         _error(f"Unknown routes action: {action}")
 
@@ -1864,6 +2214,51 @@ def _routes_check() -> None:
     print()
 
 
+def _routes_diagram(output: str | None = None) -> None:
+    """Generate Mermaid diagram yang memvisualisasikan seluruh API routes berdasarkan Tag."""
+    _header("API Routes Mermaid Diagram 🎨")
+
+    try:
+        from app.main import app as fastapi_app
+    except Exception as exc:
+        _error(f"Gagal mengimport aplikasi: {exc}")
+        return
+
+    routes = _flatten_routes_with_prefix(fastapi_app.routes)
+    grouped: dict[str, list[tuple[str, str]]] = {}
+
+    for full_path, route in routes:
+        methods_set = getattr(route, "methods", {"GET"}) - {"HEAD", "OPTIONS"}
+        methods_str = "/".join(sorted(methods_set)) if methods_set else "MOUNT"
+        tags = getattr(route, "tags", []) or ["Core System"]
+        tag_name = tags[0] if tags else "Core System"
+        if tag_name not in grouped:
+            grouped[tag_name] = []
+        grouped[tag_name].append((methods_str, full_path))
+
+    mermaid_lines = ["graph TD", '    root["FastAPI App Architecture"]']
+
+    for tag, endpoints in grouped.items():
+        node_id = tag.replace(" ", "_").replace("-", "_")
+        mermaid_lines.append(f'    root --> {node_id}["Tag: {tag}"]')
+        for i, (method, path) in enumerate(endpoints):
+            ep_id = f"{node_id}_{i}"
+            mermaid_lines.append(f'    {node_id} --> {ep_id}["{method} {path}"]')
+
+    mermaid_content = "\n".join(mermaid_lines)
+
+    if output:
+        out_path = Path(output)
+        out_path.write_text(f"```mermaid\n{mermaid_content}\n```\n", encoding="utf-8")
+        _success(f"Diagram Mermaid berhasil ditulis ke {output} 📝")
+    else:
+        print(_c("```mermaid", Color.CYAN))
+        print(mermaid_content)
+        print(_c("```", Color.CYAN))
+
+    print()
+
+
 # ══════════════════════════════════════════════════════════════════
 #  COMMAND: deps — Dependency management
 # ══════════════════════════════════════════════════════════════════
@@ -2035,7 +2430,7 @@ def _deps_install() -> None:
 # ══════════════════════════════════════════════════════════════════
 
 def cmd_user(args: argparse.Namespace) -> None:
-    """Manajemen user: create, reset-password, list, delete."""
+    """Manajemen user: create, reset-password, list, delete, promote, demote."""
     action = args.action
 
     if action == "create":
@@ -2044,6 +2439,7 @@ def cmd_user(args: argparse.Namespace) -> None:
             email=args.email,
             full_name=args.full_name,
             password=args.password,
+            role=getattr(args, "role", None),
             inactive=args.inactive,
         )
     elif action == "reset-password":
@@ -2056,6 +2452,10 @@ def cmd_user(args: argparse.Namespace) -> None:
         _user_list(only_active=args.active_only)
     elif action == "delete":
         _user_delete(args.identifier)
+    elif action == "promote":
+        _user_set_role(args.identifier, role="admin")
+    elif action == "demote":
+        _user_set_role(args.identifier, role="user")
     else:
         _error(f"Unknown user action: {action}")
 
@@ -2143,6 +2543,7 @@ def _user_create(
     email: str | None,
     full_name: str | None,
     password: str | None,
+    role: str | None,
     inactive: bool,
 ) -> None:
     """Buat user baru. Jika field kosong & bukan --no-input, akan prompt interaktif."""
@@ -2228,6 +2629,7 @@ def _user_create(
                 "email": email,
                 "full_name": full_name or None,
                 "hashed_password": get_password_hash(password),
+                "role": role or "user",
                 "is_active": not inactive,
             },
         )
@@ -2237,6 +2639,7 @@ def _user_create(
         _dim(f"    Username    : {new_user.username}")
         _dim(f"    Email       : {new_user.email}")
         _dim(f"    Full name   : {new_user.full_name or '-'}")
+        _dim(f"    Role        : {new_user.role}")
         _dim(f"    Active      : {new_user.is_active}")
         _dim(f"    Created at  : {new_user.created_at}")
         print()
@@ -2357,7 +2760,8 @@ def _user_list(only_active: bool) -> None:
 
     db = SessionLocal()
     try:
-        users = get_users(db, skip=0, limit=500)
+        # get_users returns (list, total) since the search/pagination refactor
+        users, _total = get_users(db, skip=0, limit=500)
         if not users:
             _info("Belum ada user di database.")
             return
@@ -2369,16 +2773,17 @@ def _user_list(only_active: bool) -> None:
         # Header tabel
         print()
         print(_c(
-            f"  {'ID':<5} {'Username':<20} {'Email':<30} {'Active':<8} {'Created':<20}",
+            f"  {'ID':<5} {'Username':<20} {'Email':<30} {'Role':<8} {'Active':<8} {'Created':<20}",
             Color.BOLD,
         ))
-        _dim("  " + "─" * 86)
+        _dim("  " + "─" * 97)
         for u in users:
             created = u.created_at.strftime("%Y-%m-%d %H:%M") if u.created_at else "-"
             active_mark = _c("✔", Color.GREEN) if u.is_active else _c("✘", Color.RED)
             deleted_mark = _c(" [deleted]", Color.RED) if u.is_deleted else ""
+            role_str = _c(u.role or "user", Color.MAGENTA if (u.role == "admin") else Color.DIM)
             print(
-                f"  {u.id:<5} {u.username:<20} {u.email:<30} {active_mark:<15} {created:<20}{deleted_mark}"
+                f"  {u.id:<5} {u.username:<20} {u.email:<30} {role_str:<17} {active_mark:<15} {created:<20}{deleted_mark}"
             )
         print()
         _info(f"Total: {len(users)} user")
@@ -2445,6 +2850,58 @@ def _user_delete(identifier: str | None) -> None:
     except Exception as exc:
         db.rollback()
         _error(f"Gagal menghapus user: {exc}")
+    finally:
+        db.close()
+
+
+def _user_set_role(identifier: str | None, role: str) -> None:
+    """Ubah role user (promote -> admin, demote -> user)."""
+    _header(f"User Role Update → {role.upper()} 🔑")
+
+    if not identifier:
+        identifier = _prompt("Identifier (id / username / email)")
+
+    if not identifier:
+        _error("Identifier wajib diisi.")
+        return
+
+    try:
+        SessionLocal, _engine = _get_user_session()
+    except Exception as exc:
+        _error(f"Gagal koneksi ke database: {exc}")
+        return
+
+    from app.modules.user.crud import (  # noqa: PLC0415
+        get_user,
+        get_user_by_username,
+        get_user_by_email,
+        update_user,
+    )
+
+    db = SessionLocal()
+    try:
+        user = None
+        if identifier.isdigit():
+            user = get_user(db, int(identifier))
+        if not user:
+            user = get_user_by_username(db, identifier)
+        if not user and "@" in identifier:
+            user = get_user_by_email(db, identifier)
+
+        if not user:
+            _error(f"User '{identifier}' tidak ditemukan.")
+            return
+
+        if user.role == role:
+            _warning(f"User '{user.username}' sudah memiliki role '{role}'.")
+            return
+
+        update_user(db, user.id, {"role": role})
+        _success(f"Role user '{user.username}' berhasil diubah menjadi '{role}'.")
+        print()
+    except Exception as exc:
+        db.rollback()
+        _error(f"Gagal mengubah role user: {exc}")
     finally:
         db.close()
 
@@ -2639,10 +3096,10 @@ def cmd_loc(args: argparse.Namespace) -> None:
             content = filepath.read_text(errors="ignore")
             lines = content.splitlines()
             total = len(lines)
-            blank = sum(1 for l in lines if not l.strip())
+            blank = sum(1 for ln in lines if not ln.strip())
             comment = sum(
-                1 for l in lines
-                if l.strip().startswith(("#", "//", "/*", "*", "'''", '"""'))
+                1 for ln in lines
+                if ln.strip().startswith(("#", "//", "/*", "*", "'''", '"""'))
             )
             code = total - blank - comment
         except Exception:
@@ -3047,38 +3504,330 @@ def cmd_profile(args: argparse.Namespace) -> None:
     print()
 
 
+# ══════════════════════════════════════════════════════════════════
+#  COMMAND: token — Generate JWT Access Token untuk user
+# ══════════════════════════════════════════════════════════════════
+
+def cmd_token(args: argparse.Namespace) -> None:
+    """Manajemen & Inspeksi JWT Token: create, decode."""
+    action = getattr(args, "action", "create") or "create"
+    if action == "decode":
+        _token_decode(args.raw_token)
+    else:
+        _token_create(args.user)
+
+
+def _token_create(identifier: str | None) -> None:
+    """Generate JWT Access Token langsung untuk user."""
+    _header("JWT Token Generator 🔑")
+
+    if not identifier:
+        identifier = _prompt("User identifier (id / username / email)", default="admin")
+
+    try:
+        SessionLocal, _engine = _get_user_session()
+    except Exception as exc:
+        _error(f"Gagal koneksi ke database: {exc}")
+        return
+
+    from app.modules.auth.routes import create_access_token  # noqa: PLC0415
+    from app.modules.user.crud import get_user, get_user_by_username, get_user_by_email  # noqa: PLC0415
+
+    db = SessionLocal()
+    try:
+        user = None
+        if identifier.isdigit():
+            user = get_user(db, int(identifier))
+        if not user:
+            user = get_user_by_username(db, identifier)
+        if not user and "@" in identifier:
+            user = get_user_by_email(db, identifier)
+
+        if not user:
+            _error(f"User '{identifier}' tidak ditemukan.")
+            return
+
+        token_data = {"sub": str(user.id), "username": user.username, "role": user.role}
+        token = create_access_token(data=token_data)
+
+        _success(f"Access Token berhasil dibuat untuk user '{user.username}' ({user.role}):")
+        print()
+        print(f"  {_c(token, Color.GREEN)}")
+        print()
+        _dim("  Gunakan pada Header:")
+        _dim(f"    Authorization: Bearer {token}")
+        print()
+    except Exception as exc:
+        _error(f"Gagal membuat token: {exc}")
+    finally:
+        db.close()
+
+
+def _token_decode(raw_token: str | None) -> None:
+    """Decode JWT Token dan tampilkan payload serta status validasinya."""
+    _header("JWT Token Decoder 🔍")
+
+    if not raw_token:
+        raw_token = _prompt("Masukkan JWT Token")
+
+    if not raw_token:
+        _error("Token wajib diisi.")
+        return
+
+    # Pembersihan prefix "Bearer " jika disertakan
+    if raw_token.lower().startswith("bearer "):
+        raw_token = raw_token[7:].strip()
+
+    try:
+        try:
+            from jose import jwt  # type: ignore # noqa: PLC0415
+        except ImportError:
+            import jwt  # type: ignore # noqa: PLC0415
+        from app.core.config import settings  # noqa: PLC0415
+
+        payload = jwt.decode(raw_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        _success("Token Valid! Payload:")
+        print()
+        for k, v in payload.items():
+            if k in ("exp", "iat"):
+                from datetime import datetime, timezone  # noqa: PLC0415
+                dt = datetime.fromtimestamp(v, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                print(f"  {_c(k, Color.CYAN):<15} {v} ({dt})")
+            else:
+                print(f"  {_c(k, Color.CYAN):<15} {v}")
+        print()
+    except ImportError:
+        # Fallback decode tanpa verifikasi signature jika PyJWT tidak terinstall
+        try:
+            parts = raw_token.split(".")
+            if len(parts) != 3:
+                _error("Format JWT Token tidak valid (harus 3 bagian terpisah titik).")
+                return
+            import base64  # noqa: PLC0415
+            padding = "=" * (-len(parts[1]) % 4)
+            decoded_bytes = base64.urlsafe_b64decode(parts[1] + padding)
+            payload = json.loads(decoded_bytes.decode("utf-8"))
+            _warning("Decoder Fallback (Signature Tidak Diverifikasi - PyJWT Tidak Tersedia):")
+            print()
+            for k, v in payload.items():
+                print(f"  {_c(k, Color.CYAN):<15} {v}")
+            print()
+        except Exception as exc:
+            _error(f"Gagal membedah payload JWT: {exc}")
+    except Exception as exc:
+        _error(f"Token Invalid atau Expired: {exc}")
+    print()
+
+
+# ══════════════════════════════════════════════════════════════════
+#  COMMAND: format — Format codebase menggunakan ruff / black
+# ══════════════════════════════════════════════════════════════════
+
+def cmd_format(args: argparse.Namespace) -> None:
+    """Format & fix auto-fixable issues pada codebase."""
+    _header("Format Codebase 🎨")
+
+    target = args.path or "app"
+    _info(f"Merapikan kode di '{target}'...")
+
+    # 1. Coba ruff format & fix
+    has_ruff = shutil.which("ruff") is not None
+    if has_ruff:
+        _info("Menjalankan `ruff format` & `ruff check --fix`...")
+        subprocess.run(["ruff", "format", target], cwd=str(PROJECT_ROOT))
+        subprocess.run(["ruff", "check", "--fix", target], cwd=str(PROJECT_ROOT))
+        _success("Formatting dengan Ruff selesai! ✨")
+        print()
+        return
+
+    # 2. Fallback black
+    has_black = shutil.which("black") is not None
+    if has_black:
+        _info("Menjalankan `black`...")
+        subprocess.run(["black", target], cwd=str(PROJECT_ROOT))
+        _success("Formatting dengan Black selesai! ✨")
+        print()
+        return
+
+    _error("Tidak ada formatter ('ruff' atau 'black') yang terinstall.")
+    _info("Install ruff: pip install ruff")
+    print()
+
+
+# ══════════════════════════════════════════════════════════════════
+#  COMMAND: watch — Continuous Auto-test & Linting Runner
+# ══════════════════════════════════════════════════════════════════
+
+def cmd_watch(args: argparse.Namespace) -> None:
+    """Watch perubahan file di `app/` dan jalankan lint / test secara otomatis."""
+    import time
+
+    _header("Automated File Watcher 👁️")
+    _info("Memantau perubahan file .py di 'app/' (Tekan Ctrl+C untuk keluar)...")
+    print()
+
+    def _get_mtimes() -> dict[Path, float]:
+        mtimes: dict[Path, float] = {}
+        for p in APP_DIR.rglob("*.py"):
+            if "__pycache__" not in str(p):
+                try:
+                    mtimes[p] = p.stat().st_mtime
+                except Exception:
+                    pass
+        return mtimes
+
+    last_mtimes = _get_mtimes()
+    run_lint = not args.tests_only
+    run_test = not args.lint_only
+
+    try:
+        while True:
+            time.sleep(1.5)
+            current_mtimes = _get_mtimes()
+            changed = False
+            for path, mtime in current_mtimes.items():
+                if path not in last_mtimes or mtime > last_mtimes[path]:
+                    _warning(f"File terdeteksi berubah: {path.relative_to(PROJECT_ROOT)}")
+                    changed = True
+                    break
+
+            if changed:
+                last_mtimes = current_mtimes
+                if run_lint:
+                    _info("Menjalankan Linter...")
+                    subprocess.run([sys.executable, "devtoolkit.py", "lint"], cwd=str(PROJECT_ROOT))
+                if run_test:
+                    _info("Menjalankan Test Suite...")
+                    subprocess.run([sys.executable, "devtoolkit.py", "test"], cwd=str(PROJECT_ROOT))
+                print()
+                _dim("Mendengarkan perubahan berikutnya...")
+    except KeyboardInterrupt:
+        print()
+        _info("Watcher dihentikan.")
+        print()
+
+
+# ══════════════════════════════════════════════════════════════════
+#  COMMAND: bench — HTTP Benchmark Sederhana
+# ══════════════════════════════════════════════════════════════════
+
+def cmd_bench(args: argparse.Namespace) -> None:
+    """HTTP Benchmark & Latency Profiler sederhana."""
+    import time
+    import urllib.request
+    import urllib.error
+
+    _header("HTTP Load Benchmarking 🏎️")
+
+    base = args.base.rstrip("/")
+    endpoint = args.endpoint if args.endpoint.startswith("/") else f"/{args.endpoint}"
+    url = f"{base}{endpoint}"
+    requests_count = args.requests
+    token = args.token
+
+    _info(f"Target URL   : {_c(url, Color.CYAN)}")
+    _info(f"Total Request: {requests_count}")
+    if token:
+        _info("Auth Header  : Bearer Token disertakan")
+    print()
+
+    headers = {"User-Agent": "devtoolkit-bench/1.0"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    latencies: list[float] = []
+    status_codes: dict[int, int] = {}
+    errors = 0
+
+    start_total = time.monotonic()
+
+    for i in range(1, requests_count + 1):
+        req = urllib.request.Request(url, headers=headers)
+        t0 = time.monotonic()
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
+                elapsed_ms = (time.monotonic() - t0) * 1000
+                code = resp.status
+                latencies.append(elapsed_ms)
+                status_codes[code] = status_codes.get(code, 0) + 1
+        except urllib.error.HTTPError as exc:
+            elapsed_ms = (time.monotonic() - t0) * 1000
+            latencies.append(elapsed_ms)
+            status_codes[exc.code] = status_codes.get(exc.code, 0) + 1
+        except Exception:
+            errors += 1
+
+        if i % max(1, requests_count // 10) == 0 or i == requests_count:
+            _dim(f"    Progress: {i}/{requests_count} requests finished...")
+
+    total_time_sec = time.monotonic() - start_total
+    rps = requests_count / total_time_sec if total_time_sec > 0 else 0
+
+    print()
+    _header("Hasil Benchmark")
+    _info(f"Total Waktu   : {total_time_sec:.2f} s")
+    _info(f"Throughput    : {_c(f'{rps:.2f} req/s', Color.GREEN + Color.BOLD)}")
+
+    if latencies:
+        latencies.sort()
+        avg_lat = sum(latencies) / len(latencies)
+        min_lat = latencies[0]
+        max_lat = latencies[-1]
+        p95_idx = int(len(latencies) * 0.95)
+        p95_lat = latencies[p95_idx if p95_idx < len(latencies) else -1]
+
+        _dim(f"    Min Latency : {min_lat:.2f} ms")
+        _dim(f"    Avg Latency : {avg_lat:.2f} ms")
+        _dim(f"    P95 Latency : {p95_lat:.2f} ms")
+        _dim(f"    Max Latency : {max_lat:.2f} ms")
+
+    print()
+    _info("Status Code Breakdown:")
+    for code, count in sorted(status_codes.items()):
+        color = Color.GREEN if code < 400 else Color.RED
+        print(f"    HTTP {code} : {_c(str(count), color)} request")
+
+    if errors > 0:
+        _error(f"Gagal Terhubung: {errors} request")
+
+    print()
+
+
 # ──────────────────────────────────────────────────────────────────
 # Kill port
 # ──────────────────────────────────────────────────────────────────
 
 def cmd_kill_port(args: argparse.Namespace) -> None:
-    """Kill process di port tertentu."""
-    port = args.port
+    """Kill process yang menempati port tertentu."""
+    # Resolve port: positional arg takes precedence, then --port flag, then default 8002
+    port: int | None = getattr(args, "port", None) or getattr(args, "port_flag", None)
+    if port is None:
+        port = 8002
+        _warning(f"Port tidak ditentukan. Menggunakan default: {port}")
+        _dim("    Gunakan: python devtoolkit.py kill 8080  atau  kill --port 8080")
+        print()
 
+    _header(f"Kill Port {port} ⚡")
+
+    # Cari PID menggunakan helper yang sudah ada (lsof / fuser / ss)
+    pid = _find_pid_on_port(port)
+
+    if not pid:
+        _success(f"Tidak ada proses yang ditemukan di port {port}.")
+        print()
+        return
+
+    _info(f"PID {pid} ditemukan di port {port} — mengirim SIGKILL...")
     try:
-        result = subprocess.check_output(
-            ["lsof", "-t", f"-i:{port}"],
-            stderr=subprocess.DEVNULL
-        ).decode().strip()
-
-        if not result:
-            print(f"✓ No process found on port {port}")
-            return
-
-        pids = result.splitlines()
-
-        for pid in pids:
-            subprocess.run(
-                ["kill", "-9", pid],
-                check=True
-            )
-            print(f"✓ Killed PID {pid} on port {port}")
-
-    except subprocess.CalledProcessError:
-        print(f"✓ No process found on port {port}")
-
-    except Exception as e:
-        print(f"✗ Error: {e}")
+        subprocess.run(["kill", "-9", pid], check=True)
+        _success(f"PID {pid} berhasil di-kill.")
+    except subprocess.CalledProcessError as exc:
+        _error(f"Gagal meng-kill PID {pid}: {exc}")
+    except FileNotFoundError:
+        _error("`kill` tidak ditemukan. Platform ini mungkin tidak mendukung perintah ini.")
+    except Exception as exc:
+        _error(f"Error: {exc}")
+    print()
 
 # ══════════════════════════════════════════════════════════════════
 #  CLI Parser — Main entry point
@@ -3137,23 +3886,29 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=[
             "info", "tables", "query", "reset", "backup", "vacuum",
             "migrate", "upgrade", "downgrade", "current", "history",
+            "seed", "export", "import", "truncate", "diff",
         ],
     )
     sp_db.add_argument("--sql", help="SQL query (untuk action 'query')")
+    sp_db.add_argument("--table", help="Nama tabel (untuk action 'export', 'import', 'truncate')")
+    sp_db.add_argument("--file", help="File input (untuk action 'import')")
+    sp_db.add_argument("--mode", choices=["append", "replace"], default="append",
+                      help="Mode import: append (default) atau replace (kosongkan tabel dulu)")
+    sp_db.add_argument("--truncate", action="store_true", help="Kosongkan data lama sebelum seed (untuk action 'seed')")
     sp_db.add_argument("--force", action="store_true", help="Force operasi (bypass konfirmasi)")
     sp_db.add_argument("--message", "-m", help="Pesan migration (untuk action 'migrate')")
     sp_db.add_argument("--format", choices=["table", "json", "csv"], default="table",
-                      help="Format output (untuk action 'query', default: table)")
-    sp_db.add_argument("--output", "-o", help="Tulis hasil ke file, bukan ke stdout (untuk action 'query')")
+                      help="Format output (untuk action 'query' & 'export', default: table/json)")
+    sp_db.add_argument("--output", "-o", help="Tulis hasil ke file (untuk action 'query' & 'export')")
     sp_db.add_argument("--revision", help="Target revision (untuk 'upgrade'/'downgrade'; "
                                           "default: head/-1)")
 
     # gen
-    sp_gen = subparsers.add_parser("gen", help="Generator (secret, apikey, hash, uuid)")
-    sp_gen.add_argument("action", choices=["secret", "apikey", "hash", "uuid"])
+    sp_gen = subparsers.add_parser("gen", help="Generator (secret, apikey, hash, uuid, mock)")
+    sp_gen.add_argument("action", choices=["secret", "apikey", "hash", "uuid", "mock"])
     sp_gen.add_argument("--length", type=int, default=64, help="Panjang key (default: 64)")
     sp_gen.add_argument("--password", help="Password untuk di-hash")
-    sp_gen.add_argument("--count", type=int, default=1, help="Jumlah UUID (default: 1)")
+    sp_gen.add_argument("--count", type=int, default=10, help="Jumlah item yang digenerate (default: 10/1)")
 
     # env
     sp_env = subparsers.add_parser("env", help="Environment management")
@@ -3175,14 +3930,15 @@ def _build_parser() -> argparse.ArgumentParser:
     sp_lint.add_argument("--path", help="Path target (default: app/)")
 
     # routes
-    sp_routes = subparsers.add_parser("routes", help="Tampilkan semua API routes")
-    sp_routes.add_argument("action", choices=["list", "check"], nargs="?", default="list",
-                          help="list: tampilkan semua routes, check: cek route yang tidak aman")
+    sp_routes = subparsers.add_parser("routes", help="Tampilkan, audit, atau visualisasikan API routes")
+    sp_routes.add_argument("action", choices=["list", "check", "diagram"], nargs="?", default="list",
+                          help="list: daftar routes, check: audit keamanan, diagram: generate Mermaid diagram")
     sp_routes.add_argument("--verbose", "-v", action="store_true", help="Tampilkan detail lengkap")
     sp_routes.add_argument("--format", choices=["table", "json"], default="table",
                           help="Format output untuk 'list' (default: table)")
-    sp_routes.add_argument("--method", help="Filter berdasarkan HTTP method (GET, POST, dst) untuk 'list'")
-    sp_routes.add_argument("--tag", help="Filter berdasarkan tag (substring, case-insensitive) untuk 'list'")
+    sp_routes.add_argument("--method", help="Filter berdasarkan HTTP method untuk 'list'")
+    sp_routes.add_argument("--tag", help="Filter berdasarkan tag untuk 'list'")
+    sp_routes.add_argument("--output", "-o", help="Path file output untuk 'diagram'")
 
     # deps
     sp_deps = subparsers.add_parser("deps", help="Dependency management")
@@ -3192,10 +3948,10 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("security", help="Audit keamanan project")
 
     # user
-    sp_user = subparsers.add_parser("user", help="Manajemen user (create / reset-password / list / delete)")
+    sp_user = subparsers.add_parser("user", help="Manajemen user (create / reset-password / list / delete / promote / demote)")
     sp_user.add_argument(
         "action",
-        choices=["create", "reset-password", "list", "delete"],
+        choices=["create", "reset-password", "list", "delete", "promote", "demote"],
         help="Aksi yang dilakukan",
     )
     # Argumen umum
@@ -3203,6 +3959,8 @@ def _build_parser() -> argparse.ArgumentParser:
     sp_user.add_argument("--email", help="Email (untuk create)")
     sp_user.add_argument("--full-name", help="Nama lengkap (untuk create)")
     sp_user.add_argument("--password", help="Password (create/reset). Jika kosong, akan diminta interaktif.")
+    sp_user.add_argument("--role", choices=["user", "admin"], default=None,
+                        help="Role user: 'user' (default) atau 'admin' (untuk create)")
     sp_user.add_argument("--identifier", help="Identifier user: id, username, atau email (untuk reset-password/delete)")
     sp_user.add_argument("--inactive", action="store_true", help="Buat user dalam keadaan non-aktif (untuk create)")
     sp_user.add_argument("--no-validate", action="store_true", help="Lewati validasi kekuatan password (untuk reset-password)")
@@ -3243,9 +4001,29 @@ def _build_parser() -> argparse.ArgumentParser:
     # shell
     subparsers.add_parser("shell", help="Buka Python REPL preloaded dengan db/models/settings")
 
-    # Kill port
+    # token
+    sp_token = subparsers.add_parser("token", help="Manajemen & inspeksi JWT access token (create / decode)")
+    sp_token.add_argument("action", choices=["create", "decode"], nargs="?", default="create",
+                         help="create: buat token, decode: bedah token JWT")
+    sp_token.add_argument("--user", "-u", help="Identifier user untuk action 'create' (id / username / email). Default: admin")
+    sp_token.add_argument("--token", "-t", dest="raw_token", help="JWT token string untuk action 'decode'")
+
+    # format
+    sp_format = subparsers.add_parser("format", help="Format & auto-fix codebase (Ruff/Black)")
+    sp_format.add_argument("--path", help="Target path (default: app/)")
+
+    # bench
+    sp_bench = subparsers.add_parser("bench", help="HTTP Load Benchmarking & Latency Profiler")
+    sp_bench.add_argument("endpoint", nargs="?", default="/health", help="API endpoint path (default: /health)")
+    sp_bench.add_argument("--base", default="http://127.0.0.1:8002", help="Base URL (default: http://127.0.0.1:8002)")
+    sp_bench.add_argument("-n", "--requests", type=int, default=50, help="Jumlah total request (default: 50)")
+    sp_bench.add_argument("--token", help="Bearer token untuk otentikasi (opsional)")
+
+    # Kill port — `port` bisa positional (kill 8080) atau keyword (kill --port 8080)
     sp_kill = subparsers.add_parser("kill", help="Kill process di port tertentu")
-    sp_kill.add_argument("--port", type=int, default=8002, help="Port yang akan di-kill (default: 8002)")
+    sp_kill.add_argument("port", type=int, nargs="?", default=None, help="Port yang akan di-kill")
+    sp_kill.add_argument("--port", dest="port_flag", type=int, default=None,
+                        help="Port (alternatif: python devtoolkit.py kill --port 8080)")
     return parser
 
 
@@ -3288,6 +4066,10 @@ COMMAND_MAP = {
     "status": cmd_status,
     "openapi": cmd_openapi,
     "shell": cmd_shell,
+    "token": cmd_token,
+    "format": cmd_format,
+    "bench": cmd_bench,
+    "watch": cmd_watch,
     "kill": cmd_kill_port,
 }
 
