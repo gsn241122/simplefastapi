@@ -16,6 +16,7 @@ class Product(Base):
     price = Column(Numeric(10, 2), nullable=False)
     stock = Column(Integer, default=0)
     is_available = Column(Boolean, default=True)
+    image_url = Column(String, nullable=True)  # URL or path to the product image
 
     # Soft delete
     is_deleted = Column(Boolean, default=False)

@@ -2492,6 +2492,41 @@ def _get_user_session():
     return SessionLocal, engine
 
 
+def _resolve_user(db: Any, identifier: str) -> Any:
+    """
+    Resolve identifier user (id / username / email) menjadi instance User.
+
+    Urutan percobaan: numeric → id, lalu username, lalu email (hanya bila
+    identifier memuat '@', supaya string seperti 'user@host' dianggap email
+    dan string 'foo' tanpa '@' tetap jatuh ke lookup username). Return
+    None kalau tidak ada yang cocok — caller yang memutuskan cara
+    melaporkannya (pesan error bisa bervariasi antar command, mis. pesan
+    untuk reset-password berbeda dengan pesan untuk delete).
+
+    Lazy import `app.modules.user.crud` di sini (bukan module scope)
+    supaya command yang TIDAK butuh user lookup — `info`, `gen`, `lint`,
+    `clean`, `loc`, `test` — tetap jalan walau `app.*` belum bisa di-import.
+    """
+    from app.modules.user.crud import (  # noqa: PLC0415
+        get_user,
+        get_user_by_username,
+        get_user_by_email,
+    )
+
+    if identifier.isdigit():
+        user = get_user(db, int(identifier))
+        if user:
+            return user
+    user = get_user_by_username(db, identifier)
+    if user:
+        return user
+    if "@" in identifier:
+        user = get_user_by_email(db, identifier)
+        if user:
+            return user
+    return None
+
+
 def _prompt(question: str, default: str = "", password: bool = False) -> str:
     """
     Prompt interaktif dengan nilai default. Mendukung input tersembunyi
@@ -2704,23 +2739,11 @@ def _user_reset_password(
         _error(f"Gagal koneksi ke database: {exc}")
         return
 
-    from app.modules.user.crud import (  # noqa: PLC0415
-        get_user,
-        get_user_by_username,
-        get_user_by_email,
-        update_user,
-    )
+    from app.modules.user.crud import update_user  # noqa: PLC0415
 
     db = SessionLocal()
     try:
-        # Tentukan user: coba id (int), lalu username, lalu email
-        user = None
-        if identifier.isdigit():
-            user = get_user(db, int(identifier))
-        if not user:
-            user = get_user_by_username(db, identifier)
-        if not user and "@" in identifier:
-            user = get_user_by_email(db, identifier)
+        user = _resolve_user(db, identifier)
 
         if not user:
             _error(f"User '{identifier}' tidak ditemukan.")
@@ -2811,22 +2834,11 @@ def _user_delete(identifier: str | None) -> None:
         _error(f"Gagal koneksi ke database: {exc}")
         return
 
-    from app.modules.user.crud import (  # noqa: PLC0415
-        get_user,
-        get_user_by_username,
-        get_user_by_email,
-        delete_user,
-    )
+    from app.modules.user.crud import delete_user  # noqa: PLC0415
 
     db = SessionLocal()
     try:
-        user = None
-        if identifier.isdigit():
-            user = get_user(db, int(identifier))
-        if not user:
-            user = get_user_by_username(db, identifier)
-        if not user and "@" in identifier:
-            user = get_user_by_email(db, identifier)
+        user = _resolve_user(db, identifier)
 
         if not user:
             _error(f"User '{identifier}' tidak ditemukan.")

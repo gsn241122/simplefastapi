@@ -14,6 +14,9 @@ from app.core.config import settings
 from app.core.database import Base, engine, check_db_connection
 from app.core.dependencies import request_logger
 from app.core.logging_config import setup_logging
+from app.core.seed import run_seed
+
+# Import SEMUA module agar Base.metadata mengenalinya untuk create_all & alembic
 from app.modules.role.routes import router as role_router
 from app.modules.user.routes import router as user_router
 from app.modules.product.routes import router as product_router
@@ -24,6 +27,7 @@ from app.modules.provider.routes import router as provider_router
 from app.modules.model.routes import router as model_router
 from app.modules.conversation.routes import router as conversation_router
 from app.modules.doc.routes import router as doc_router
+from app.modules.permission.routes import router as permission_router  # ← NEW
 
 # Setup logging sebelum apapun
 setup_logging()
@@ -37,7 +41,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Starting up %s v%s [env=%s]", settings.APP_NAME, settings.APP_VERSION, settings.ENVIRONMENT)
     Base.metadata.create_all(bind=engine)
     logger.info("Database tables synchronized.")
+
+    # 🌱 Seed default roles, permissions, dan admin user
+    try:
+        run_seed()
+    except Exception as exc:
+        logger.warning("⚠️  Seeding skipped / failed: %s", exc)
+
     yield
+
     # --- Shutdown ---
     logger.info("Shutting down %s.", settings.APP_NAME)
 
@@ -59,34 +71,28 @@ def get_active_ngrok_url() -> str | None:
 
 
 servers_list = [
-    {
-        "url": "http://localhost:8080",
-        "description": "Development Server"
-    }
+    {"url": "http://localhost:8080", "description": "Development Server"}
 ]
 
 ngrok_url = get_active_ngrok_url()
 if ngrok_url:
-    servers_list.append({
-        "url": ngrok_url,
-        "description": "Development Server (ngrok tunnel)"
-    })
+    servers_list.append({"url": ngrok_url, "description": "Development Server (ngrok tunnel)"})
 
 
 app = FastAPI(
     title=settings.APP_NAME,
     description=(
         "A modular, production-ready FastAPI backend with JWT authentication, "
-        "Redis token binding, role-based access control, pagination, and soft-delete "
-        "across multiple resource modules (users, products, orders, invoices, etc.)."
+        "Redis token binding, full Role-Based Access Control (RBAC) with "
+        "permissions, pagination, and soft-delete across multiple resource "
+        "modules (users, products, orders, invoices, etc.)."
     ),
     version=settings.APP_VERSION,
     docs_url=None,
     redoc_url=None,
     lifespan=lifespan,
-    servers=servers_list
+    servers=servers_list,
 )
-
 
 
 # --- CORS Middleware ---
@@ -108,6 +114,7 @@ async def log_and_rate_limit(request, call_next):
 app.include_router(auth_router)
 app.include_router(role_router)
 app.include_router(user_router)
+app.include_router(permission_router)  # ← NEW
 app.include_router(product_router)
 app.include_router(order_router)
 app.include_router(invoice_router)
@@ -127,8 +134,6 @@ def read_root():
 def health_check():
     """
     Endpoint health check yang mengembalikan status aplikasi dan database.
-
-    Berguna untuk load balancer, Docker HEALTHCHECK, dan monitoring.
     """
     db_ok = check_db_connection()
     status_str = "healthy" if db_ok else "degraded"
@@ -141,4 +146,3 @@ def health_check():
     }
     http_status = 200 if db_ok else 503
     return JSONResponse(content=payload, status_code=http_status)
-

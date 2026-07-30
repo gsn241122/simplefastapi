@@ -76,6 +76,7 @@ def upgrade() -> None:
         sa.Column('price', sa.Numeric(precision=10, scale=2), nullable=False),
         sa.Column('stock', sa.Integer(), nullable=True, default=0),
         sa.Column('is_available', sa.Boolean(), nullable=True, default=True),
+        sa.Column('image_url', sa.String(), nullable=True),
         sa.Column('is_deleted', sa.Boolean(), nullable=True, default=False),
         sa.Column('deleted_at', sa.DateTime(), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),

@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List
 from app.core.database import get_db
-from app.core.config import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
+from app.core.config import settings, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from app.core.responses import APIResponse, PaginationMeta, StandardJSONResponse
+from app.core.upload import save_upload_file, delete_file
 from app.modules.product import crud, schemas
 from app.modules.auth.routes import get_current_user
 from app.modules.user.models import User
@@ -75,7 +76,7 @@ def update_product(
 
 @router.delete("/{product_id}", response_model=APIResponse, summary="Delete product")
 def delete_product(
-    product_id: int, 
+    product_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -88,4 +89,45 @@ def delete_product(
     db_product = crud.delete_product(db, product_id=product_id)
     if db_product is None:
         raise HTTPException(status_code=404, detail="Product not found")
+    # Delete associated image file if exists
+    if db_product.image_url:
+        delete_file(db_product.image_url)
     return StandardJSONResponse.success(message="Product soft deleted successfully")
+
+
+@router.post("/{product_id}/image", response_model=APIResponse, summary="Upload product image")
+def upload_product_image(
+    product_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Hanya admin yang bisa mengunggah gambar produk
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions. Admin access required to upload product images."
+        )
+    
+    # Get the product
+    db_product = crud.get_product(db, product_id=product_id)
+    if db_product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    # Delete old image if exists
+    if db_product.image_url:
+        delete_file(db_product.image_url)
+    
+    # Save new image
+    image_url = save_upload_file(file, subdirectory="products")
+    
+    # Update product with image URL
+    db_product.image_url = image_url
+    db.commit()
+    db.refresh(db_product)
+    
+    response_data = schemas.ProductResponse.model_validate(db_product)
+    return StandardJSONResponse.success(
+        data=response_data,
+        message="Product image uploaded successfully"
+    )

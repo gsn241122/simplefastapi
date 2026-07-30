@@ -1,22 +1,47 @@
+"""
+Pydantic schemas untuk User dengan dukungan RBAC.
+"""
 from __future__ import annotations
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
+
+
+# --- Forward references ---
+class _PermissionBrief(BaseModel):
+    id: int
+    name: str
+    resource: str
+    action: str
+    model_config = {"from_attributes": True}
+
+
+class _RoleBrief(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    is_active: bool = True
+    model_config = {"from_attributes": True}
+
+
+class _UserBrief(BaseModel):
+    id: int
+    username: str
+    model_config = {"from_attributes": True}
+
 
 
 # --- Token Schemas ---
 
 class Token(BaseModel):
     """Schema untuk JWT access token."""
-
-    access_token: str = Field(..., description="JWT access token", example="eyJhbGci...")
-    token_type: str = Field(..., description="Tipe token", example="bearer")
+    access_token: str = Field(..., description="JWT access token")
+    token_type: str = Field(..., description="Tipe token")
 
 
 class TokenData(BaseModel):
     """Schema untuk data yang ada di dalam payload JWT."""
-
     username: Optional[str] = None
 
 
@@ -64,8 +89,13 @@ class UserCreate(UserBase):
     )
     role: Optional[str] = Field(
         default="user",
-        description="Role pengguna (user atau admin)",
+        description="Role legacy (string). Disinkronkan ke tabel roles.",
         example="user",
+    )
+    role_ids: Optional[List[int]] = Field(
+        default=None,
+        description="ID role dari tabel roles (RBAC). Admin akan pakai ini.",
+        example=[2],
     )
 
     @field_validator("username")
@@ -80,7 +110,7 @@ class UserCreate(UserBase):
     @field_validator("role")
     @classmethod
     def validate_role(cls, v: Optional[str]) -> Optional[str]:
-        """Validasi role hanya boleh 'user' atau 'admin'."""
+        """Validasi role legacy hanya boleh 'user' atau 'admin'."""
         if v is not None and v not in ["user", "admin"]:
             raise ValueError("Role hanya boleh 'user' atau 'admin'.")
         return v
@@ -89,32 +119,28 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     """Schema untuk memperbarui data user (semua field opsional)."""
 
-    username: Optional[str] = Field(
-        None, min_length=3, max_length=50, example="new_username"
-    )
-    email: Optional[EmailStr] = Field(
-        None, example="newemail@example.com"
-    )
-    full_name: Optional[str] = Field(
-        None, max_length=100, example="New Full Name"
-    )
-    is_active: Optional[bool] = Field(None, example=True)
+    username: Optional[str] = Field(None, min_length=3, max_length=50)
+    email: Optional[EmailStr] = None
+    full_name: Optional[str] = Field(None, max_length=100)
+    is_active: Optional[bool] = None
     password: Optional[str] = Field(
         None,
         min_length=8,
         description="Password baru. Kosongkan jika tidak ingin diubah.",
-        example="NewS3cur3P@ss!",
     )
     role: Optional[str] = Field(
         None,
-        description="Role pengguna (user atau admin)",
+        description="Role legacy (string). Disinkronkan ke tabel roles.",
         example="admin",
+    )
+    role_ids: Optional[List[int]] = Field(
+        default=None,
+        description="Ganti semua role user dengan daftar ID ini (RBAC).",
     )
 
     @field_validator("role")
     @classmethod
     def validate_role(cls, v: Optional[str]) -> Optional[str]:
-        """Validasi role hanya boleh 'user' atau 'admin'."""
         if v is not None and v not in ["user", "admin"]:
             raise ValueError("Role hanya boleh 'user' atau 'admin'.")
         return v
@@ -124,10 +150,54 @@ class UserResponse(UserBase):
     """Schema untuk response data user (tidak termasuk password)."""
 
     id: int = Field(..., description="ID unik pengguna", example=1)
-    role: str = Field(default="user", description="Role pengguna", example="user")
+    # Role legacy (string) untuk backward compat
+    role: str = Field(default="user", description="Role legacy (string)", example="user")
+    # Role RBAC (relasi many-to-many)
+    roles: List[_RoleBrief] = Field(
+        default_factory=list,
+        description="Daftar role RBAC user (relasi many-to-many).",
+    )
+    # Permission yang di-resolve dari role
+    permissions: List[str] = Field(
+        default_factory=list,
+        description="Daftar nama permission (di-resolve otomatis dari role).",
+    )
     created_at: Optional[datetime] = Field(None, description="Waktu pembuatan akun")
     updated_at: Optional[datetime] = Field(None, description="Waktu terakhir diperbarui")
     is_deleted: bool = Field(False, description="Apakah akun sudah dihapus (soft delete)")
     deleted_at: Optional[datetime] = Field(None, description="Waktu penghapusan akun")
 
     model_config = {"from_attributes": True}
+
+    @classmethod
+    def from_user_orm(cls, user) -> "UserResponse":
+        """
+        Helper untuk membuat UserResponse dari ORM User.
+        Memetakan relasi `roles` & `permissions` secara eksplisit.
+        """
+        return cls(
+            id=user.id,
+            username=user.username,
+            email=user.email,
+            full_name=user.full_name,
+            is_active=user.is_active,
+            role=user.role,
+            roles=[
+                _RoleBrief(
+                    id=r.id,
+                    name=r.name,
+                    description=r.description,
+                    is_active=r.is_active,
+                )
+                for r in user.roles
+            ],
+            permissions=sorted(user.permissions),
+            created_at=user.created_at,
+            updated_at=user.updated_at,
+            is_deleted=user.is_deleted,
+            deleted_at=user.deleted_at,
+        )
+
+# Rebuild Pydantic models setelah forward references di-update
+UserResponse.model_rebuild() # noqa: F401
+

@@ -51,7 +51,7 @@ class ProductBase(BaseModel):
 
 class ProductCreate(ProductBase):
     """Schema untuk membuat produk baru."""
-    pass
+    image_url: Optional[str] = None
 
 
 class ProductUpdate(BaseModel):
@@ -62,6 +62,7 @@ class ProductUpdate(BaseModel):
     price: Optional[Decimal] = Field(None, ge=0, example="12999000.00")
     stock: Optional[int] = Field(None, ge=0, example=25)
     is_available: Optional[bool] = Field(None, example=True)
+    image_url: Optional[str] = Field(None, description="URL or path to the product image", example="uploads/product_image.jpg")
 
 
 class ProductResponse(ProductBase):
@@ -72,5 +73,6 @@ class ProductResponse(ProductBase):
     deleted_at: Optional[datetime] = Field(None, description="Waktu penghapusan produk")
     created_at: Optional[datetime] = Field(None, description="Waktu pembuatan produk")
     updated_at: Optional[datetime] = Field(None, description="Waktu terakhir diperbarui")
+    image_url: Optional[str] = Field(None, description="URL or path to the product image", example="uploads/product_image.jpg")
 
     model_config = {"from_attributes": True}

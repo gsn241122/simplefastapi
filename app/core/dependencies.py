@@ -79,7 +79,7 @@ async def request_logger(request: Request, call_next):
 
     # Rate limiting (lewati endpoint docs dan health check)
     _SKIP_RATE_LIMIT_PATHS = {"/docs", "/redoc", "/openapi.json", "/health", "/"}
-    if metadata.path not in _SKIP_RATE_LIMIT_PATHS:
+    if not any(metadata.path.startswith(path) for path in _SKIP_RATE_LIMIT_PATHS):
         if _is_rate_limited(metadata.client_ip):
             logger.warning(
                 "Rate limit exceeded | ip=%s path=%s",

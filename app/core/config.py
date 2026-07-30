@@ -52,6 +52,23 @@ class Settings(BaseSettings):
     DEFAULT_PAGE_SIZE: int = DEFAULT_PAGE_SIZE
     MAX_PAGE_SIZE: int = MAX_PAGE_SIZE
 
+    # Email Settings
+    MAIL_SERVER: str = "localhost"
+    MAIL_PORT: int = 587
+    MAIL_USERNAME: Optional[str] = None
+    MAIL_PASSWORD: Optional[str] = None
+    MAIL_FROM: str = "noreply@fastapi.app"
+    MAIL_FROM_NAME: str = "FastAPI App"
+    MAIL_STARTTLS: bool = True
+    MAIL_SSL_TLS: bool = False
+    MAIL_VALIDATE_CERTS: bool = True
+    MAIL_USE_CREDENTIALS: bool = True
+
+    # File Upload Settings
+    UPLOAD_DIR: str = "uploads"
+    MAX_UPLOAD_SIZE: int = 10 * 1024 * 1024  # 10 MB
+    ALLOWED_IMAGE_TYPES: set = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+
     # Logging
     LOG_LEVEL: str = "INFO"
 

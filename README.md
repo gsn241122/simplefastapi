@@ -7,6 +7,7 @@ A simple yet complete FastAPI application with User and Product Management, feat
 - **User Management**: Register, update, delete, and retrieve users
 - **Product Management**: CRUD operations for products
 - **Authentication**: JWT-based authentication with token management
+- **Email Notifications**: Welcome emails sent upon user registration (configurable via SMTP)
 - **Database Support**: Multiple database backends (SQLite, PostgreSQL, MySQL)
 - **Docker Ready**: Containerized deployment with docker-compose
 - **Testing**: Pytest-based test suite
