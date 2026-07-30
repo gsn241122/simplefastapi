@@ -185,6 +185,29 @@ def require_role(*allowed_roles: str) -> Callable:
     return role_checker
 
 
+
+
+# -----------------------------------------------------------------------------
+# Permission helpers
+# -----------------------------------------------------------------------------
+
+def _current_user_has_permission(current_user: Any, permission: str) -> bool:
+    """Check permissions for both ORM users and API key proxy users."""
+    if hasattr(current_user, "has_permission") and callable(current_user.has_permission):
+        try:
+            return current_user.has_permission(permission)
+        except Exception:
+            pass
+
+    user_permissions = getattr(current_user, "permissions", None)
+    if user_permissions is None:
+        return False
+    if isinstance(user_permissions, (set, list, tuple)) and "*" in user_permissions:
+        return True
+    if isinstance(user_permissions, dict):
+        return permission in user_permissions
+    return permission in set(user_permissions)
+
 def require_permission(*required_permissions: str) -> Callable:
     """
     Dependency factory: izinkan user yang memiliki salah satu permission.
@@ -211,15 +234,13 @@ def require_permission(*required_permissions: str) -> Callable:
     from typing import Any
 
     def permission_checker(current_user: Any = Depends(get_current_user)) -> Any:
-        # Ambil semua permission user (gabungan dari semua role)
-        user_permissions = current_user.permissions
+        if any(_current_user_has_permission(current_user, perm) for perm in required_permissions):
+            return current_user
 
-        if not user_permissions.intersection(required_permissions):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Requires one of permissions: {list(required_permissions)}",
-            )
-        return current_user
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Requires one of permissions: {list(required_permissions)}",
+        )
 
     return permission_checker
 
@@ -241,14 +262,18 @@ def require_all_permissions(*required_permissions: str) -> Callable:
     from typing import Any
 
     def all_perm_checker(current_user: Any = Depends(get_current_user)) -> Any:
-        user_permissions = current_user.permissions
-        missing = set(required_permissions) - user_permissions
-        if missing:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Missing required permissions: {sorted(missing)}",
-            )
-        return current_user
+        if all(_current_user_has_permission(current_user, perm) for perm in required_permissions):
+            return current_user
+
+        user_permissions = getattr(current_user, "permissions", set())
+        if isinstance(user_permissions, (set, list, tuple)) and "*" in user_permissions:
+            return current_user
+
+        missing = [perm for perm in required_permissions if not _current_user_has_permission(current_user, perm)]
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Missing required permissions: {sorted(missing)}",
+        )
 
     return all_perm_checker
 

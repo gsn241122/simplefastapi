@@ -14,3 +14,8 @@ python-multipart
 redis
 python-dotenv
 scalar-fastapi
+
+psycopg2-binary
+PyMySQL
+fastmcp[server]
+trio

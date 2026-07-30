@@ -13,6 +13,7 @@ from app.core.database import get_db
 from app.core.security import verify_password, get_password_hash
 from app.core.config import settings
 from app.core.responses import StandardJSONResponse
+from app.core.dependencies import validate_api_key
 from app.modules.user import crud, schemas
 
 # ─── Redis Client ────────────────────────────────────────────────────────────────
@@ -49,7 +50,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="auth/login-swagger",
-    auto_error=True,
+    auto_error=False,
     scheme_name="bearer",
     description="JWT Bearer Token",
     scopes={
@@ -108,9 +109,40 @@ def _remove_token_from_redis(ip_address: str, token: str) -> None:
 
 
 # ─── Dependencies ─────────────────────────────────────────────────────────────────
+class APIKeyUser:
+    """A lightweight user proxy for requests authenticated with an API key."""
+
+    def __init__(self, api_key: str) -> None:
+        self.id = 0
+        self.username = "api_key"
+        self.email = f"api_key@{settings.APP_NAME.lower().replace(' ', '')}.local"
+        self.full_name = "API Key Authenticated Client"
+        self.role = "admin"
+        self.roles: list[Any] = []
+        self.is_active = True
+        self.is_deleted = False
+        self.deleted_at = None
+        self.created_at = datetime.now(timezone.utc)
+        self.updated_at = datetime.now(timezone.utc)
+
+    @property
+    def role_names(self) -> set[str]:
+        return {"admin"}
+
+    @property
+    def permissions(self) -> set[str]:
+        return {"*"}
+
+    def has_role(self, role_name: str) -> bool:
+        return role_name == "admin"
+
+    def has_permission(self, permission_name: str) -> bool:
+        return True
+
+
 async def get_current_user(
     request: Request,
-    token: str = Depends(oauth2_scheme),
+    token: Optional[str] = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
  ) -> Any:
     credentials_exception = HTTPException(
@@ -118,6 +150,14 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    api_key = request.headers.get("X-API-Key")
+    if api_key:
+        await validate_api_key(request)
+        return APIKeyUser(api_key=api_key)
+
+    if not token:
+        raise credentials_exception
 
     # 1. Verify token exists in Redis (bound to client IP)
     #    If Redis is unavailable, skip IP binding check and rely on JWT alone.

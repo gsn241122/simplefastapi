@@ -5,13 +5,14 @@ A simple yet complete FastAPI application with User and Product Management, feat
 ## Features
 
 - **User Management**: Register, update, delete, and retrieve users
-- **Product Management**: CRUD operations for products
-- **Authentication**: JWT-based authentication with token management
+- **Product Management**: CRUD operations for products, image uploads, and soft delete
+- **Authentication**: JWT-based authentication with token management and optional Redis token/IP binding
+- **RBAC**: Role and permission management with role-based access control
 - **Email Notifications**: Welcome emails sent upon user registration (configurable via SMTP)
 - **Database Support**: Multiple database backends (SQLite, PostgreSQL, MySQL)
 - **Docker Ready**: Containerized deployment with docker-compose
 - **Testing**: Pytest-based test suite
-- **Security**: Password hashing with bcrypt, CORS middleware
+- **Security**: Password hashing with bcrypt, CORS middleware, rate limiting middleware
 
 ## Tech Stack
 
@@ -30,7 +31,7 @@ A simple yet complete FastAPI application with User and Product Management, feat
 ├── app/
 │   ├── __init__.py
 │   ├── main.py              # Application entry point
-│   ├── core/                # Core configurations and utilities
+│   ├── core/                # Core configurations and 
 │   │   ├── config.py        # Application settings
 │   │   ├── database.py      # Database configuration
 │   │   ├── dependencies.py  # Request dependencies
@@ -39,13 +40,21 @@ A simple yet complete FastAPI application with User and Product Management, feat
 │   └── modules/             # Feature modules
 │       ├── auth/            # Authentication module
 │       ├── user/            # User management module
-│       └── product/         # Product management module
+│       ├── product/         # Product management module
+│       ├── role/            # Role management and RBAC 
+│       ├── permission/      # Permission management 
+│       ├── order/           # Order processing module
+│       ├── invoice/         # Invoice management module
+│       ├── provider/        # Provider management module
+│       ├── model/           # Model management module
+│       ├── conversation/    # Conversation assistant 
+│       └── doc/             # Custom API documentation 
 ├── tests/                   # Test suite
 ├── alembic/                 # Database migrations
-├── docker-compose.yml       # Docker Compose configuration
+├── docker-compose.yml       # Docker Compose 
 ├── dockerfile               # Docker image configuration
 ├── requirements.txt         # Python dependencies
-└── .env.example             # Environment variables template
+└── .env.example             # Environment variables 
 ```
 
 ## Getting Started
@@ -108,8 +117,41 @@ The API will be available at `http://localhost:8000`.
 
 Once running, access the interactive API documentation:
 
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+- **RapiDoc UI**: http://localhost:8000/docs/rapidoc
+- **Scalar Docs**: http://localhost:8000/docs/scalar
+
+> Note: The default FastAPI `/docs` and `/redoc` endpoints are disabled in this application, so use the custom documentation pages above.
+
+## MCP Chatbot Clients
+
+This repository includes two chatbot clients under `chatbot/`:
+
+- `chatbot/mcp_chatbot.py` — a direct MCP tool client for the wrapper.
+- `chatbot/openapi_chatbot.py` — an OpenAPI-driven chatbot that loads the FastAPI OpenAPI schema via the wrapper and helps map natural-language prompts to API calls.
+
+Start the MCP wrapper server first, then run either client:
+
+```bash
+python3 chatbot/mcp_chatbot.py --url http://127.0.0.1:8003/mcp
+```
+
+or:
+
+```bash
+python3 chatbot/openapi_chatbot.py --url http://127.0.0.1:8003/mcp
+```
+
+The OpenAPI chatbot supports these commands:
+
+- `openapi` — list discovered OpenAPI endpoints
+- `ask <question>` — map a natural-language question to an API call
+- `login <username> <password>` — log in and save a bearer token
+- `users [search]` — list users using OpenAPI-discovered `/users/`
+- `api <METHOD> <PATH> [json]` — perform a raw API call via the wrapper
+- `call <tool> [json]` — call a named MCP tool
+- `exit` — quit the chatbot
+
+The `ask` command demonstrates how the client can use OpenAPI schema metadata to choose a suitable backend endpoint, which is the same pattern an LLM-based agent such as Gemini would use when consuming an OpenAPI definition.
 
 ## Docker Deployment
 
@@ -163,17 +205,20 @@ docker-compose down
 |--------|----------|-------------|
 | POST | `/auth/register` | Register a new user |
 | POST | `/auth/login` | Login and get access token |
+| POST | `/auth/login-swagger` | Login for Swagger/Swagger-like clients |
 | GET | `/auth/me` | Get current user info |
+| POST | `/auth/logout` | Logout and invalidate current token |
 
 ### User Management
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/users/register` | Create a new user |
-| GET | `/users/` | List all users |
+| POST | `/users/register` | Create a new user (admin or write:users permission required) |
+| GET | `/users/` | List users (read:users permission required) |
 | GET | `/users/{user_id}` | Get user by ID |
 | PUT | `/users/{user_id}` | Update user |
-| DELETE | `/users/{user_id}` | Delete user (soft delete) |
+| DELETE | `/users/{user_id}` | Delete user (soft delete, admin only) |
+| GET | `/users/me/permissions` | Get current user's roles and permissions |
 
 ### Product Management
 
@@ -184,6 +229,11 @@ docker-compose down
 | GET | `/products/{product_id}` | Get product by ID |
 | PUT | `/products/{product_id}` | Update product |
 | DELETE | `/products/{product_id}` | Delete product (soft delete) |
+| POST | `/products/{product_id}/image` | Upload or replace product image |
+
+### Additional APIs
+
+This application also includes modular endpoints for roles, permissions, orders, invoices, providers, models, and conversations.
 
 ### Health Check
 
