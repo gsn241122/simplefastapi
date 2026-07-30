@@ -152,11 +152,13 @@ class GeminiLLM:
 
 
 class LLMMCPChatbot:
-    def __init__(self, url: str = DEFAULT_MCP_URL, app_api_key: str | None = None, gemini_api_key: str | None = None, gemini_use_key_query: bool = False) -> None:
+    def __init__(self, url: str = DEFAULT_MCP_URL, app_api_key: str | None = None, gemini_api_key: str | None = None, gemini_endpoint: str | None = None, gemini_model: str | None = None, gemini_use_key_query: bool = False) -> None:
         self.url = url
         self.session: ClientSession | None = None
         self.app_api_key = app_api_key
         self.gemini_api_key = gemini_api_key
+        self.gemini_endpoint = gemini_endpoint
+        self.gemini_model = gemini_model
         self.gemini_use_key_query = gemini_use_key_query
         self.last_token: str | None = None
         self.openapi: dict[str, Any] | None = None
@@ -171,7 +173,9 @@ class LLMMCPChatbot:
                 print("Gemini API key provided via CLI; enabling LLM features.")
             else:
                 print("Gemini API key loaded from environment; enabling LLM features.")
-            self.llm = GeminiLLM(key, use_api_key_in_query=self.gemini_use_key_query)
+            model = self.gemini_model or DEFAULT_GEMINI_MODEL
+            endpoint_template = self.gemini_endpoint or None
+            self.llm = GeminiLLM(key, model=model, use_api_key_in_query=self.gemini_use_key_query, endpoint_template=endpoint_template)
         else:
             print("Warning: GEMINI_API_KEY is not set. Natural-language LLM features will be disabled.")
 
@@ -244,6 +248,8 @@ Supported commands:
   ask <question>         Ask Gemini to select and call an endpoint.
   login <username> <password>   Authenticate and save bearer token.
   users [search]         List users using the /users/ endpoint.
+  switch-model <model>    Switch the Gemini model used by the LLM client.
+  list-models [url]       List available models from the Gemini models endpoint (optional URL).
   api <METHOD> <PATH> [json]    Call raw endpoint using the wrapper.
   exit                   Quit.
 """
@@ -270,6 +276,14 @@ Supported commands:
         elif command == "users":
             search = parts[1] if len(parts) == 2 else None
             await self.list_users(search)
+        elif command == "switch-model":
+            if len(parts) != 2:
+                print("Usage: switch-model <model>")
+                return
+            await self.switch_model(parts[1])
+        elif command == "list-models":
+            url = parts[1] if len(parts) == 2 else None
+            await self.list_models(url)
         elif command == "api":
             if len(parts) < 3:
                 print("Usage: api <METHOD> <PATH> [json]")
@@ -361,6 +375,61 @@ Supported commands:
         json_text = re.sub(r"\}\s*$", "}", json_text, flags=re.DOTALL)
         return json_text
 
+    async def switch_model(self, model: str) -> None:
+        """Switch the model used by the Gemini LLM. Updates endpoint if an endpoint template is set."""
+        self.gemini_model = model
+        if self.llm is not None:
+            self.llm.model = model
+            # recompute endpoint from template if available
+            template = self.gemini_endpoint or DEFAULT_GEMINI_ENDPOINT
+            try:
+                self.llm.endpoint = (template).format(model=model)
+                print(f"Switched Gemini model to {model} and updated endpoint to {self.llm.endpoint}")
+            except Exception as exc:
+                print(f"Switched Gemini model to {model}. Failed to update endpoint template: {exc}")
+        else:
+            print(f"Gemini model set to {model}; will be used when LLM is initialized.")
+
+    async def list_models(self, url: str | None = None) -> None:
+        """List models from the Gemini models endpoint. If url is None, construct from endpoint template or default."""
+        # Determine URL
+        if url is None:
+            base_template = self.gemini_endpoint or DEFAULT_GEMINI_ENDPOINT
+            if '/models/' in base_template and '{model}' in base_template:
+                url = base_template.split('/models/')[0] + '/models'
+                # if template contains version segment like v1 or v1beta2, keep it
+            else:
+                url = base_template.split('/generate')[0] + 'models'
+        # Prepare auth
+        headers = {"Content-Type": "application/json"}
+        params = None
+        if self.llm is not None and self.llm.use_api_key_in_query:
+            params = {"key": self.llm.api_key}
+        elif self.llm is not None and self.llm.api_key:
+            headers["Authorization"] = f"Bearer {self.llm.api_key}"
+        elif self.gemini_api_key:
+            # not yet initialized llm but have key via CLI
+            headers["Authorization"] = f"Bearer {self.gemini_api_key}"
+        elif os.getenv('GEMINI_API_KEY'):
+            headers["Authorization"] = f"Bearer {os.getenv('GEMINI_API_KEY')}"
+        print(f"Fetching models list from {url}...")
+        try:
+            # run blocking httpx in thread to avoid blocking event loop
+            import anyio
+            def _fetch():
+                import httpx
+                with httpx.Client(timeout=30) as client:
+                    resp = client.get(url, headers=headers, params=params)
+                    resp.raise_for_status()
+                    try:
+                        return resp.json()
+                    except Exception:
+                        return resp.text
+            result = await anyio.to_thread.run_sync(_fetch)
+            print(json.dumps(result, indent=2) if isinstance(result, dict) else str(result))
+        except Exception as exc:
+            print(f"Failed to fetch models: {exc}")
+
     async def login(self, username: str, password: str) -> None:
         print(f"Logging in as {username}...")
         result = await self.call_api("POST", "/auth/login", data={"username": username, "password": password})
@@ -430,6 +499,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--app-api-key", default=os.getenv("SIMPLEFASTAPI_API_KEY"), help="Optional application API key to send as X-API-Key.")
     parser.add_argument("--gemini-api-key", default=os.getenv("GEMINI_API_KEY"), help="Optional Gemini API key (overrides GEMINI_API_KEY env).")
     parser.add_argument("--gemini-use-key-query", action="store_true", help="Send Gemini API key as query param (?key=...) on requests")
+    parser.add_argument("--gemini-endpoint", default=os.getenv("GEMINI_API_ENDPOINT"), help="Optional Gemini endpoint template (use {model} placeholder).")
+    parser.add_argument("--gemini-model", default=os.getenv("GEMINI_MODEL"), help="Optional Gemini model id (overrides GEMINI_MODEL env).")
     return parser.parse_args()
 
 
