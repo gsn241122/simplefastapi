@@ -71,7 +71,7 @@ def get_active_ngrok_url() -> str | None:
 
 
 servers_list = [
-    {"url": "http://localhost:8080", "description": "Development Server"}
+    {"url": "http://localhost:8002", "description": "Development Server"}
 ]
 
 ngrok_url = get_active_ngrok_url()

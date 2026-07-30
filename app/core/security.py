@@ -4,7 +4,10 @@ Security helpers: password hashing, JWT validation, RBAC dependencies.
 from __future__ import annotations
 
 import re
-from typing import Callable
+from typing import Callable, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.modules.user.models import User
 from passlib.context import CryptContext
 from app.core.config import MIN_PASSWORD_LENGTH
 
@@ -78,7 +81,7 @@ def validate_password_strength(password: str) -> list[str]:
 
 # ─── Token / Current User ────────────────────────────────────────────────────────
 
-async def get_current_user_from_token(token: str, db) -> "User":
+async def get_current_user_from_token(token: str, db) -> Any:
     """
     Dependency untuk mendapatkan user saat ini dari token JWT.
 
@@ -130,7 +133,7 @@ async def get_current_user_from_token(token: str, db) -> "User":
 
 # ─── RBAC Dependencies ───────────────────────────────────────────────────────────
 
-def require_auth(current_user: "User") -> "User":
+def require_auth(current_user: Any) -> Any:
     """
     Dependency untuk memastikan user sudah terautentikasi.
 
@@ -164,8 +167,9 @@ def require_role(*allowed_roles: str) -> Callable:
     """
     from fastapi import Depends, HTTPException, status
     from app.modules.auth.routes import get_current_user
+    from typing import Any
 
-    def role_checker(current_user: "User" = Depends(get_current_user)) -> "User":
+    def role_checker(current_user: Any = Depends(get_current_user)) -> Any:
         # Kumpulkan semua role user: dari relasi + legacy field
         user_roles = {r.name for r in current_user.roles}
         if current_user.role:
@@ -204,8 +208,9 @@ def require_permission(*required_permissions: str) -> Callable:
     """
     from fastapi import Depends, HTTPException, status
     from app.modules.auth.routes import get_current_user
+    from typing import Any
 
-    def permission_checker(current_user: "User" = Depends(get_current_user)) -> "User":
+    def permission_checker(current_user: Any = Depends(get_current_user)) -> Any:
         # Ambil semua permission user (gabungan dari semua role)
         user_permissions = current_user.permissions
 
@@ -233,8 +238,9 @@ def require_all_permissions(*required_permissions: str) -> Callable:
     """
     from fastapi import Depends, HTTPException, status
     from app.modules.auth.routes import get_current_user
+    from typing import Any
 
-    def all_perm_checker(current_user: "User" = Depends(get_current_user)) -> "User":
+    def all_perm_checker(current_user: Any = Depends(get_current_user)) -> Any:
         user_permissions = current_user.permissions
         missing = set(required_permissions) - user_permissions
         if missing:
@@ -249,7 +255,7 @@ def require_all_permissions(*required_permissions: str) -> Callable:
 
 # ─── Backward-compatible alias ───────────────────────────────────────────────────
 # Dipertahankan agar kode lama yang import `require_admin` tidak rusak.
-def require_admin(current_user: "User") -> "User":
+def require_admin(current_user: Any) -> Any:
     """
     Dependency untuk memastikan user adalah admin.
 

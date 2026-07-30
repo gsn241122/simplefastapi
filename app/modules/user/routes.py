@@ -3,6 +3,7 @@ HTTP routes untuk User management dengan RBAC.
 """
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from typing import Any, TYPE_CHECKING
 
 from app.core.config import settings
 from app.core.database import get_db
@@ -16,7 +17,8 @@ from app.core.security import (
 from app.core.email import send_email
 from app.modules.user import crud, schemas
 from app.modules.auth.routes import get_current_user
-from app.modules.user.models import User
+if TYPE_CHECKING:
+    from app.modules.user.models import User
 
 router = APIRouter(prefix="/users", tags=["User Management"], dependencies=[Depends(get_current_user)])
 
@@ -30,7 +32,7 @@ def read_users(
     search: str | None = Query(None, description="Search by username, email, or full name"),
     db: Session = Depends(get_db),
     # Hanya yang punya permission read:users boleh lihat daftar
-    _current: User = Depends(require_permission("read:users")),
+    _current: Any = Depends(require_permission("read:users")),
 ):
     items, total = crud.get_users(db, skip=skip, limit=limit, search=search)
     response_data = [schemas.UserResponse.from_user_orm(u) for u in items]
@@ -42,7 +44,7 @@ def read_users(
 
 
 @router.get("/me/permissions", response_model=APIResponse, summary="List permission user saat ini")
-def get_my_permissions(current_user: User = Depends(get_current_user)):
+def get_my_permissions(current_user: Any = Depends(get_current_user)):
     """Kembalikan daftar permission user yang sedang login."""
     return StandardJSONResponse.success(
         data={
@@ -66,7 +68,7 @@ def create_user(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     # Hanya admin (atau yang punya write:users) yang boleh buat user baru
-    _admin: User = Depends(require_permission("write:users")),
+    _admin: Any = Depends(require_permission("write:users")),
 ):
     if crud.get_user_by_username(db, username=user.username):
         raise HTTPException(status_code=400, detail="Username already registered")
@@ -115,7 +117,7 @@ The {settings.APP_NAME} Team
 def read_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user),
 ):
     """
     Ambil user by ID. User hanya boleh lihat profil sendiri kecuali
@@ -144,7 +146,7 @@ def update_user(
     user_id: int,
     user_update: schemas.UserUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user),
 ):
     db_user = crud.get_user(db, user_id=user_id)
     if db_user is None:
@@ -198,7 +200,7 @@ def update_user(
 def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),  # hanya admin
+    _admin: Any = Depends(require_admin),  # hanya admin
 ):
     if user_id == _admin.id:
         raise HTTPException(
@@ -222,7 +224,7 @@ def assign_user_roles(
     user_id: int,
     role_ids: list[int],
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: Any = Depends(require_admin),
 ):
     """
     Ganti semua role user dengan daftar ID baru.
@@ -250,7 +252,7 @@ def add_user_role(
     user_id: int,
     role_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: Any = Depends(require_admin),
 ):
     """Tambahkan satu role ke user (tidak menimpa)."""
     try:
@@ -274,7 +276,7 @@ def remove_user_role(
     user_id: int,
     role_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: Any = Depends(require_admin),
 ):
     """Hapus satu role dari user."""
     try:

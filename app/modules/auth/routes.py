@@ -2,7 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta, datetime, timezone
-from typing import Optional
+from typing import Optional, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.modules.user.models import User
 from jose import JWTError, jwt
 import redis
 
@@ -11,7 +14,6 @@ from app.core.security import verify_password, get_password_hash
 from app.core.config import settings
 from app.core.responses import StandardJSONResponse
 from app.modules.user import crud, schemas
-from app.modules.user.models import User
 
 # ─── Redis Client ────────────────────────────────────────────────────────────────
 _redis_client: redis.Redis | None = None
@@ -110,7 +112,7 @@ async def get_current_user(
     request: Request,
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
-) -> User:
+ ) -> Any:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -158,7 +160,7 @@ async def get_current_user_with_token(
     request: Request,
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
-) -> tuple[User, str]:
+ ) -> tuple[Any, str]:
     """Same as get_current_user but also returns the raw token (needed for logout)."""
     user = await get_current_user(request=request, token=token, db=db)
     return user, token
@@ -274,7 +276,7 @@ async def login_for_swagger(
 
 # ─── Protected Endpoints ──────────────────────────────────────────────────────────
 @router.get("/me")
-def read_users_me(current_user: User = Depends(get_current_user)):
+def read_users_me(current_user: Any = Depends(get_current_user)):
     """Get the currently authenticated user's profile."""
     response_data = schemas.UserResponse.model_validate(current_user)
     return StandardJSONResponse.success(
@@ -285,7 +287,7 @@ def read_users_me(current_user: User = Depends(get_current_user)):
 @router.post("/logout")
 async def logout(
     request: Request,
-    auth: tuple[User, str] = Depends(get_current_user_with_token),
+    auth: tuple[Any, str] = Depends(get_current_user_with_token),
 ):
     """Invalidate the current token (logout)."""
     _, token = auth

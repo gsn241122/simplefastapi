@@ -40,3 +40,4 @@ app.db
 app.db-shm
 app.db-wal
 test.db
+.playwright-mcp/

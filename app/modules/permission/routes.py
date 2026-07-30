@@ -15,7 +15,6 @@ from app.modules.permission.schemas import (
     PermissionUpdate,
 )
 from app.modules.auth.routes import get_current_user
-from app.modules.user.models import User
 
 router = APIRouter(
     prefix="/permissions",
@@ -24,15 +23,14 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=APIResponse, summary="List semua permission")
+@router.get("", response_model=APIResponse, summary="List semua permission",
+         dependencies=[Depends(require_permission("read:permissions"))])
 def list_permissions(
     skip: int = Query(0, ge=0),
     limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
     search: str | None = Query(None, description="Cari berdasarkan nama/deskripsi"),
     resource: str | None = Query(None, description="Filter berdasarkan resource"),
     db: Session = Depends(get_db),
-    # User yang punya permission read:permissions boleh lihat
-    _current: User = Depends(require_permission("read:permissions")),
 ):
     items, total = crud.get_permissions(db, skip=skip, limit=limit, search=search, resource=resource)
     return StandardJSONResponse.success(
@@ -42,11 +40,11 @@ def list_permissions(
     )
 
 
-@router.get("/{permission_id}", response_model=APIResponse, summary="Get permission by ID")
+@router.get("/{permission_id}", response_model=APIResponse, summary="Get permission by ID",
+            dependencies=[Depends(require_permission("read:permissions"))])
 def get_permission(
     permission_id: int,
     db: Session = Depends(get_db),
-    _current: User = Depends(require_permission("read:permissions")),
 ):
     item = crud.get_permission_by_id(db, permission_id)
     if not item:

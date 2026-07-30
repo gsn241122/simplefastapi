@@ -1,13 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.modules.user.models import User
 from app.core.database import get_db
 from app.core.config import settings, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from app.core.responses import APIResponse, PaginationMeta, StandardJSONResponse
 from app.core.upload import save_upload_file, delete_file
 from app.modules.product import crud, schemas
 from app.modules.auth.routes import get_current_user
-from app.modules.user.models import User
 
 router = APIRouter(prefix="/products", tags=["Product Management"], dependencies=[Depends(get_current_user)])
 
@@ -15,7 +17,7 @@ router = APIRouter(prefix="/products", tags=["Product Management"], dependencies
 @router.post("/", response_model=APIResponse, summary="Create product")
 def create_product(
     product: schemas.ProductCreate, 
-    current_user: User = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     # Hanya admin yang bisa membuat produk
@@ -58,7 +60,7 @@ def read_product(product_id: int, db: Session = Depends(get_db)):
 def update_product(
     product_id: int,
     product_update: schemas.ProductUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     # Hanya admin yang bisa mengupdate produk
@@ -77,7 +79,7 @@ def update_product(
 @router.delete("/{product_id}", response_model=APIResponse, summary="Delete product")
 def delete_product(
     product_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     # Hanya admin yang bisa menghapus produk
@@ -99,7 +101,7 @@ def delete_product(
 def upload_product_image(
     product_id: int,
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
+    current_user: Any = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     # Hanya admin yang bisa mengunggah gambar produk
