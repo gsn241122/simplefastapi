@@ -33,7 +33,7 @@ def save_session(session_id: str, title: str, messages: list) -> None:
             pass
     data = {
         "session_id": session_id,
-        "title": title or "Percakapan Baru",
+        "title": title or "New conversation",
         "created_at": created_at,
         "messages": messages,
     }
@@ -53,7 +53,7 @@ def list_saved_sessions() -> list[dict]:
                     sessions.append(
                         {
                             "session_id": data.get("session_id", filename[:-5]),
-                            "title": data.get("title", "Tanpa Judul"),
+                            "title": data.get("title", "Untitled"),
                             "created_at": data.get("created_at", ""),
                         }
                     )
@@ -89,4 +89,4 @@ def get_default_session_title(messages: list) -> str:
             content = msg.get("content", "")
             if isinstance(content, str) and content.strip():
                 return content.strip()[:30] + ("..." if len(content.strip()) > 30 else "")
-    return "Percakapan Baru"
+    return "New conversation"

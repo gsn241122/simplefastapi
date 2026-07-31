@@ -18,8 +18,10 @@ from config import (
     DEFAULT_MAX_OUTPUT_TOKENS,
     DEFAULT_MAX_TOOL_ROUNDS,
     DEFAULT_MODEL,
+    DEFAULT_PROVIDER,
     DEFAULT_TEMPERATURE,
     MCP_CONFIG_PATH,
+    PROVIDERS,
     SYSTEM_PROMPT,
 )
 from history_manager import (
@@ -37,6 +39,8 @@ from mcp_client import call_mcp_tool_by_name, fetch_all_mcp_tools, load_mcp_conf
 class SidebarSettings:
     """Values collected from the sidebar that the main app needs."""
 
+    provider: str
+    base_url: str
     api_key: str
     model: str
     safe_mode: bool
@@ -60,26 +64,74 @@ class _Tuning:
     dangerous_keywords: tuple[str, ...]
 
 
-def _render_model_settings() -> tuple[str, str]:
+def _on_provider_change() -> None:
+    """Synchronize base_url, default_model, and api_key when the user selects a different LLM Provider."""
+    prov = st.session_state.get("llm_provider", DEFAULT_PROVIDER)
+    if prov in PROVIDERS:
+        p_info = PROVIDERS[prov]
+        st.session_state["llm_base_url"] = p_info["base_url"]
+        st.session_state["llm_model"] = p_info["default_model"]
+        st.session_state["llm_custom_model"] = ""
+        st.session_state["llm_api_key"] = os.getenv(p_info["default_api_key_env"], "")
+
+
+def _render_model_settings() -> tuple[str, str, str, str]:
+    provider_names = list(PROVIDERS.keys())
+
+    # Initialize state defaults on first run if missing
+    if "llm_provider" not in st.session_state or st.session_state["llm_provider"] not in PROVIDERS:
+        st.session_state["llm_provider"] = DEFAULT_PROVIDER
+        p_info = PROVIDERS[DEFAULT_PROVIDER]
+        st.session_state["llm_base_url"] = p_info["base_url"]
+        st.session_state["llm_model"] = p_info["default_model"]
+        st.session_state["llm_custom_model"] = ""
+        st.session_state["llm_api_key"] = os.getenv(p_info["default_api_key_env"], "")
+
+    selected_provider = st.selectbox(
+        "LLM Provider",
+        options=provider_names,
+        key="llm_provider",
+        on_change=_on_provider_change,
+    )
+    p_info = PROVIDERS[selected_provider]
+
     api_key = st.text_input(
-        "Gemini API key",
-        value=os.getenv("GEMINI_API_KEY", ""),
+        f"{selected_provider} API key",
+        key="llm_api_key",
         type="password",
-        help="Get one at https://aistudio.google.com/apikey",
+        help=p_info["api_key_help"],
     )
+
+    models_list = p_info["models"]
+    current_model = st.session_state.get("llm_model")
+    if current_model not in models_list:
+        st.session_state["llm_model"] = p_info["default_model"]
+
     model = st.selectbox(
-        "Gemini model",
-        options=AVAILABLE_MODELS,
-        index=AVAILABLE_MODELS.index(DEFAULT_MODEL) if DEFAULT_MODEL in AVAILABLE_MODELS else 0,
+        "Model",
+        options=models_list,
+        key="llm_model",
     )
-    custom_model = st.text_input("...or use a custom model id", value="")
-    if custom_model.strip():
-        model = custom_model.strip()
-    return api_key, model
+    custom_model = st.text_input(
+        "Custom model ID",
+        key="llm_custom_model",
+        placeholder="e.g. custom-model-id",
+        label_visibility="collapsed",
+        help="Override the model selector above with any model ID.",
+    )
+    effective_model = custom_model.strip() if custom_model.strip() else model
+
+    custom_base_url = st.text_input(
+        "Base URL",
+        key="llm_base_url",
+        help="API base URL for the selected provider. Override if using a custom proxy/gateway.",
+    )
+
+    return selected_provider, custom_base_url, api_key, effective_model
 
 
 def _render_advanced_tuning() -> _Tuning:
-    with st.expander("🎛️ Advanced tuning"):
+    with st.expander("Advanced tuning", icon=":material/tune:"):
         temperature = st.slider(
             "Temperature",
             min_value=0.0,
@@ -108,7 +160,7 @@ def _render_advanced_tuning() -> _Tuning:
             help="How many back-and-forth tool calls the assistant may make before giving up.",
         )
 
-        st.caption("MCP connection")
+        st.subheader(":material/settings_ethernet: MCP connection", divider=False)
         connect_timeout = st.number_input(
             "Connect timeout (s)",
             min_value=1.0,
@@ -127,7 +179,7 @@ def _render_advanced_tuning() -> _Tuning:
         )
 
         keywords_raw = st.text_input(
-            "Safe Mode keywords (comma-separated)",
+            "Safe mode keywords (comma-separated)",
             value=", ".join(DANGEROUS_NAME_KEYWORDS),
             help="Tool names containing any of these words require confirmation when Safe Mode is on.",
         )
@@ -144,13 +196,12 @@ def _render_advanced_tuning() -> _Tuning:
 
 
 def _render_mcp_server_list() -> None:
-    st.subheader("🔌 MCP Servers")
+    st.subheader(":material/hub: MCP servers")
     if not st.session_state.mcp_config:
-        st.warning("mcp_servers.json not found or empty.")
+        st.warning("mcp_servers.json not found or empty.", icon=":material/warning:")
         return
-    st.success(f"Loaded {len(st.session_state.mcp_config)} server(s):")
     for name in st.session_state.mcp_config:
-        st.caption(f"• {name}")
+        st.badge(name, icon=":material/electrical_services:", color="violet")
 
 
 def _build_saved_session_selection(saved_sessions: list[dict]) -> tuple[list[str], dict[str, str]]:
@@ -240,7 +291,7 @@ def _handle_login(login_path: str, username: str, password: str, connect_timeout
 
 
 def _render_login_form(connect_timeout: float, call_timeout: float) -> None:
-    st.subheader("🔐 API Authentication")
+    st.subheader(":material/lock: API authentication")
     if "api_bearer_token" not in st.session_state:
         st.session_state.api_bearer_token = os.getenv("API_BEARER_TOKEN", "")
 
@@ -252,7 +303,7 @@ def _render_login_form(connect_timeout: float, call_timeout: float) -> None:
     with st.form("login_form"):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
-        submitted = st.form_submit_button("🔑 Login via MCP")
+        submitted = st.form_submit_button("Login via MCP", icon=":material/key:")
 
     if submitted:
         if not username or not password:
@@ -265,7 +316,7 @@ def _render_login_form(connect_timeout: float, call_timeout: float) -> None:
 
 
 def _render_mcp_tools_status(connect_timeout: float) -> None:
-    if st.button("🔄 Refresh MCP tools"):
+    if st.button("Refresh MCP tools", icon=":material/refresh:"):
         st.session_state.mcp_config = load_mcp_config(MCP_CONFIG_PATH)
         st.session_state.pop("mcp_tools", None)
         st.session_state.pop("tool_to_server", None)
@@ -286,23 +337,31 @@ def _render_mcp_tools_status(connect_timeout: float) -> None:
             st.session_state.mcp_error = str(exc)
 
     if st.session_state.get("mcp_error"):
-        st.error(f"Could not reach MCP server:\n{st.session_state.mcp_error}")
+        st.error(f"Could not reach MCP server:\n{st.session_state.mcp_error}", icon=":material/error:")
         return
 
     if st.session_state.get("server_errors"):
-        st.warning(f"⚠️ {len(st.session_state.server_errors)} server(s) failed to connect:")
+        st.warning(
+            f"{len(st.session_state.server_errors)} server(s) failed to connect:",
+            icon=":material/warning:",
+        )
         for server_name, error in st.session_state.server_errors.items():
-            with st.expander(f"🔴 {server_name}"):
+            with st.expander(server_name, icon=":material/cancel:"):
                 st.code(error)
 
-    st.success(f"Connected — {len(st.session_state.mcp_tools)} tool(s) available")
+    tool_count = len(st.session_state.mcp_tools)
+    st.badge(
+        f"Connected — {tool_count} tool{'s' if tool_count != 1 else ''} available",
+        icon=":material/check_circle:",
+        color="green",
+    )
     for tool in st.session_state.mcp_tools:
         server_name = st.session_state.tool_to_server.get(tool["function"]["name"], "?")
-        st.caption(f"• {tool['function']['name']} ({server_name})")
+        st.caption(f":material/build: {tool['function']['name']} — {server_name}")
 
 
 def _on_new_chat_click() -> None:
-    """Callback for ➕ Chat Baru button."""
+    """Callback: start a brand-new conversation session."""
     new_id = generate_session_id()
     st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     st.session_state.current_session_id = new_id
@@ -314,7 +373,7 @@ def _on_new_chat_click() -> None:
 
 
 def _on_delete_session_click(target_id: str) -> None:
-    """Callback for 🗑️ Hapus Sesi button."""
+    """Callback: delete a saved session by ID."""
     delete_session(target_id)
     if st.session_state.get("current_session_id") == target_id:
         new_id = generate_session_id()
@@ -326,7 +385,7 @@ def _on_delete_session_click(target_id: str) -> None:
 
 
 def _on_clear_chat_click() -> None:
-    """Callback for 🧹 Bersihkan Chat Aktif button."""
+    """Callback: clear the active conversation and start a fresh session."""
     new_id = generate_session_id()
     st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     st.session_state.current_session_id = new_id
@@ -354,22 +413,25 @@ def _on_session_select_change() -> None:
 
 
 def _render_chat_history_management() -> None:
-    st.subheader("📁 Riwayat Percakapan")
+    st.subheader(":material/history: Chat history")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.button("➕ Chat Baru", on_click=_on_new_chat_click)
+    with st.container(horizontal=True):
+        st.button(
+            "New chat",
+            icon=":material/add:",
+            on_click=_on_new_chat_click,
+        )
 
-    with col2:
         if st.session_state.messages and len(st.session_state.messages) > 1:
-            # Auto save current session before export or action
+            # Auto-save current session before export
             current_id = st.session_state.get("current_session_id", generate_session_id())
             title = get_default_session_title(st.session_state.messages)
             save_session(current_id, title, st.session_state.messages)
 
             chat_json = json.dumps(st.session_state.messages, ensure_ascii=False, indent=2)
             st.download_button(
-                label="💾 Ekspor",
+                label="Export",
+                icon=":material/download:",
                 data=chat_json,
                 file_name=f"{current_id}.json",
                 mime="application/json",
@@ -381,11 +443,11 @@ def _render_chat_history_management() -> None:
         current_id = st.session_state.get("current_session_id")
         if current_id and current_id not in session_ids:
             session_ids.insert(0, current_id)
-            session_labels[current_id] = "➕ Percakapan Baru (Aktif)"
+            session_labels[current_id] = "New conversation (active)"
         default_index = session_ids.index(current_id) if current_id in session_ids else 0
 
         st.selectbox(
-            "Pilih Sesi Tersimpan",
+            "Saved sessions",
             options=session_ids,
             index=default_index,
             format_func=lambda sid: session_labels.get(sid, sid),
@@ -395,30 +457,39 @@ def _render_chat_history_management() -> None:
 
         selected_id = st.session_state.get("saved_session_select")
         if selected_id:
-            st.button("🗑️ Hapus Sesi", on_click=_on_delete_session_click, args=(selected_id,))
+            st.button(
+                "Delete session",
+                icon=":material/delete:",
+                on_click=_on_delete_session_click,
+                args=(selected_id,),
+            )
 
 
 def _render_clear_conversation_button() -> None:
-    st.button("🧹 Bersihkan Chat Aktif", on_click=_on_clear_chat_click)
+    st.button(
+        "Clear active chat",
+        icon=":material/cleaning_services:",
+        on_click=_on_clear_chat_click,
+    )
 
 
 def render_sidebar() -> SidebarSettings:
     """Render the full sidebar and return the settings the main app needs."""
     with st.sidebar:
-        # 1. Chat History Management & Clear
+        # 1. Chat history management & clear
         _render_chat_history_management()
         _render_clear_conversation_button()
         st.divider()
 
-        # 2. Model Settings & Advanced Tuning
-        st.header("⚙️ Settings")
-        api_key, model = _render_model_settings()
+        # 2. Model settings & advanced tuning
+        st.header(":material/settings: Settings")
+        provider, base_url, api_key, model = _render_model_settings()
         tuning = _render_advanced_tuning()
         st.divider()
 
-        # 3. API Authentication & Bearer Token
+        # 3. API authentication & bearer token
         _render_login_form(tuning.connect_timeout, tuning.call_timeout)
-        
+
         bearer_token = st.text_input(
             "Bearer token for the target API",
             key="api_bearer_token",
@@ -432,9 +503,9 @@ def render_sidebar() -> SidebarSettings:
         )
         st.divider()
 
-        # 4. Security & Safety
+        # 4. Security & safety
         safe_mode = st.checkbox(
-            "🛡️ Safe Mode (confirm dangerous actions)",
+            ":material/shield: Safe mode (confirm dangerous actions)",
             value=True,
             help=(
                 "Ask for explicit confirmation before running a DELETE, PUT, "
@@ -443,17 +514,19 @@ def render_sidebar() -> SidebarSettings:
             ),
         )
         stream_response = st.checkbox(
-            "⚡ Stream response (typewriter effect)",
+            ":material/bolt: Stream response (typewriter effect)",
             value=True,
             help="Stream model response tokens in real-time as they are generated for faster response times.",
         )
         st.divider()
 
-        # 5. MCP Servers & Tools Status
+        # 5. MCP servers & tools status
         _render_mcp_server_list()
         _render_mcp_tools_status(tuning.connect_timeout)
 
     return SidebarSettings(
+        provider=provider,
+        base_url=base_url,
         api_key=api_key,
         model=model,
         safe_mode=safe_mode,

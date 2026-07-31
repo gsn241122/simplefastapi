@@ -115,9 +115,8 @@ def fetch_all_mcp_tools(
 
         print(f"[MCP] Found {len(tools)} tools from '{server_name}'", file=sys.stderr)
         for tool in tools:
-            func_name = tool.name
-            if func_name in tool_to_server and tool_to_server[func_name] != server_name:
-                func_name = f"{server_name}__{tool.name}"
+            # Always prefix tool names with server_name__ for clarity and collision prevention
+            func_name = f"{server_name}__{tool.name}"
 
             openai_tools.append(
                 {
@@ -146,6 +145,14 @@ def call_mcp_tool_by_name(
 ) -> Any:
     """Invoke a single MCP tool, reusing the server's persistent connection."""
     server_name = tool_to_server.get(tool_name)
+    if not server_name:
+        # Fallback: match if tool_name was passed without prefix (e.g. "call_api" -> "fastapi__call_api")
+        for registered_name, sname in tool_to_server.items():
+            if registered_name.endswith(f"__{tool_name}"):
+                tool_name = registered_name
+                server_name = sname
+                break
+
     if not server_name:
         return {"error": f"Tool '{tool_name}' not found in any configured MCP server."}
 

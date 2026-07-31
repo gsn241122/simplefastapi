@@ -23,67 +23,44 @@ from sidebar import render_sidebar
 from state import init_session_state
 
 st.set_page_config(
-    page_title="FastAPI MCP Chatbot (Gemini)",
-    page_icon="🤖",
+    page_title="FastAPI MCP Chatbot",
+    page_icon=":material/smart_toy:",
     layout="wide",
-)
-
-# Custom CSS Polish for Streamlit UI
-st.markdown(
-    """
-    <style>
-    /* Sleek container styling */
-    .stAppViewContainer {
-        font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    }
-    /* Modern badge styling */
-    .mcp-badge-active {
-        background-color: rgba(46, 204, 113, 0.15);
-        color: #2ecc71;
-        border: 1px solid rgba(46, 204, 113, 0.4);
-        padding: 4px 10px;
-        border-radius: 20px;
-        font-weight: 600;
-        font-size: 0.85rem;
-    }
-    .mcp-badge-model {
-        background-color: rgba(52, 152, 219, 0.15);
-        color: #3498db;
-        border: 1px solid rgba(52, 152, 219, 0.4);
-        padding: 4px 10px;
-        border-radius: 20px;
-        font-weight: 600;
-        font-size: 0.85rem;
-        margin-right: 8px;
-    }
-    /* Code block container tweaks */
-    div[data-testid="stCodeBlock"] {
-        border-radius: 8px;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
 )
 
 init_session_state()
 settings = render_sidebar()
 
-st.title("🤖 FastAPI MCP Chatbot")
-mcp_cfg = st.session_state.get("mcp_config")
-server_names = list(mcp_cfg.keys()) if isinstance(mcp_cfg, dict) and mcp_cfg else []
-server_count = len(server_names)
-server_label = ", ".join(server_names) if server_names else "None"
+# ── Header ────────────────────────────────────────────────────────────────────
+col_title, col_badges = st.columns([3, 2], vertical_alignment="bottom")
 
-st.markdown(
-    f"""
-    <div style="margin-bottom: 20px;">
-        <span class="mcp-badge-model">⚡ Model: {settings.model}</span>
-        <span class="mcp-badge-active">🟢 {server_count} MCP Server Active ({server_label})</span>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+with col_title:
+    st.title(":material/smart_toy: FastAPI MCP chatbot")
 
+with col_badges:
+    mcp_cfg = st.session_state.get("mcp_config")
+    server_names = list(mcp_cfg.keys()) if isinstance(mcp_cfg, dict) and mcp_cfg else []
+    server_count = len(server_names)
+    server_label = ", ".join(server_names) if server_names else "none"
+
+    with st.container(horizontal=True):
+        st.badge(
+            f"Model: {settings.model}",
+            icon=":material/model_training:",
+            color="blue",
+        )
+        st.badge(
+            f"{server_count} MCP server{'s' if server_count != 1 else ''} active",
+            icon=":material/check_circle:" if server_count else ":material/warning:",
+            color="green" if server_count else "orange",
+        )
+
+    if server_names:
+        st.caption(f":material/hub: {server_label}")
+
+st.divider()
+
+# ── Chat ──────────────────────────────────────────────────────────────────────
 render_chat_history()
 render_pending_confirmation(settings)
 handle_chat_input(settings)

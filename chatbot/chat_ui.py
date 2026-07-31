@@ -21,51 +21,73 @@ from tool_execution import (
 )
 
 
+def _build_tool_id_map() -> dict[str, str]:
+    """Build a mapping from tool_call_id → function_name in O(n) for the current session."""
+    mapping: dict[str, str] = {}
+    for m in st.session_state.messages:
+        if m.get("role") == "assistant" and m.get("tool_calls"):
+            for tc in m["tool_calls"]:
+                tc_id = tc.get("id", "")
+                tc_name = tc.get("function", {}).get("name", "unknown_tool")
+                if tc_id:
+                    mapping[tc_id] = tc_name
+    return mapping
+
+
 def render_chat_history() -> None:
-    """Render past messages, including clean collapsible expanders for tool calls and interactive results."""
+    """Render past messages, grouping assistant text + tool calls in one bubble."""
+    # Pre-build a lookup from tool_call_id → function_name once per render pass
+    tool_id_map = _build_tool_id_map()
+
     for msg in st.session_state.messages:
         role = msg.get("role")
-        content = msg.get("content")
-        
-        if role in ("user", "assistant") and content:
-            with st.chat_message(role):
+        content = msg.get("content", "")
+        tool_calls = msg.get("tool_calls")
+
+        # ── User / plain-text assistant messages ──────────────────────────────
+        if role == "user" and content:
+            with st.chat_message("user"):
                 st.markdown(content)
-        elif role == "assistant" and not content and msg.get("tool_calls"):
-            # Assistant message with only tool calls and empty content
-            with st.chat_message("assistant"):
-                pass
-        
-        # Display tool calls made by the assistant cleanly in history
-        if role == "assistant" and msg.get("tool_calls"):
-            with st.chat_message("assistant"):
-                for tc in msg["tool_calls"]:
-                    func_name = tc["function"]["name"]
-                    with st.expander(f"🛠️ Tool called: `{func_name}`"):
-                        st.code(tc["function"]["arguments"], language="json")
-        
-        # Display tool execution results with status indicators in history
-        if role == "tool":
-            tool_id = msg.get("tool_call_id", "")
-            func_name = "unknown_tool"
-            for m in st.session_state.messages:
-                if m.get("role") == "assistant" and m.get("tool_calls"):
-                    for tc in m["tool_calls"]:
-                        if tc.get("id") == tool_id:
+
+        elif role == "assistant":
+            # Render text + tool-call expanders inside a single bubble
+            if content or tool_calls:
+                with st.chat_message("assistant"):
+                    if content:
+                        st.markdown(content)
+                    if tool_calls:
+                        for tc in tool_calls:
                             func_name = tc["function"]["name"]
-            
+                            with st.expander(
+                                f"Tool called: `{func_name}`",
+                                icon=":material/build:",
+                            ):
+                                st.code(tc["function"]["arguments"], language="json")
+
+        # ── Tool results ──────────────────────────────────────────────────────
+        elif role == "tool":
+            tool_id = msg.get("tool_call_id", "")
+            func_name = tool_id_map.get(tool_id, "unknown_tool")
             content_str = msg.get("content", "")
+
             is_error = False
             try:
                 parsed_content = json.loads(content_str)
-                if isinstance(parsed_content, dict) and ("error" in parsed_content or parsed_content.get("status_code", 200) >= 400):
+                if isinstance(parsed_content, dict) and (
+                    "error" in parsed_content
+                    or parsed_content.get("status_code", 200) >= 400
+                ):
                     is_error = True
             except Exception:
                 pass
 
-            icon = "❌" if is_error else "✅"
+            result_icon = ":material/cancel:" if is_error else ":material/check_circle:"
             status_text = "Failed" if is_error else "Success"
             with st.chat_message("assistant"):
-                with st.expander(f"{icon} Tool Result: `{func_name}` ({status_text})"):
+                with st.expander(
+                    f"Tool result: `{func_name}` — {status_text}",
+                    icon=result_icon,
+                ):
                     st.code(content_str, language="json")
 
 
@@ -106,18 +128,17 @@ def render_pending_confirmation(settings: SidebarSettings) -> None:
     tool_name = get_tool_call_name(tc)
     tool_id = get_tool_call_id(tc)
 
-    st.warning("⚠️ Dangerous action detected (Safe Mode is on)")
+    st.warning("Dangerous action detected (Safe Mode is on)", icon=":material/security:")
     st.markdown(
         f"**Tool:** `{tool_name}`  \n"
         f"**Method:** `{args.get('method', 'N/A')}`  \n"
         f"**Path:** `{args.get('path', 'N/A')}`"
     )
-    with st.expander("🔍 View payload details"):
+    with st.expander("View payload details", icon=":material/search:"):
         st.json(args)
 
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("✅ Yes, execute", type="primary", key=f"btn_confirm_exec_{tool_id}"):
+    with st.container(horizontal=True):
+        if st.button("Execute", type="primary", icon=":material/check_circle:", key=f"btn_confirm_exec_{tool_id}"):
             # Execute all safe tools before this dangerous tool
             for safe_tc, safe_args, _ in queue[:next_idx]:
                 st.session_state.messages.append(
@@ -147,8 +168,7 @@ def render_pending_confirmation(settings: SidebarSettings) -> None:
                 st.session_state.resume_llm = True
             st.rerun()
 
-    with col2:
-        if st.button("❌ Cancel", key=f"btn_confirm_cancel_{tool_id}"):
+        if st.button("Cancel", icon=":material/cancel:", key=f"btn_confirm_cancel_{tool_id}"):
             # Execute all safe tools before this dangerous tool
             for safe_tc, safe_args, _ in queue[:next_idx]:
                 st.session_state.messages.append(
@@ -177,14 +197,17 @@ def _build_assistant_message(choice) -> dict:
     """Turn an OpenAI-style choice into a chat message dict, preserving the
     Gemini `thought_signature` on any tool calls.
     """
+    import uuid
+
     assistant_msg = {"role": "assistant", "content": choice.content or ""}
     if not choice.tool_calls:
         return assistant_msg
 
     tool_call_dicts = []
     for tc in choice.tool_calls:
+        tc_id = getattr(tc, "id", None) or f"call_{uuid.uuid4().hex[:8]}"
         tc_dict = {
-            "id": tc.id,
+            "id": tc_id,
             "type": "function",
             "function": {"name": tc.function.name, "arguments": tc.function.arguments},
         }
@@ -217,11 +240,14 @@ def run_chat_turn(settings: SidebarSettings) -> None:
     """Send the conversation to Gemini and resolve any tool calls it makes,
     looping up to `settings.max_tool_rounds` times before giving up.
     """
-    if not settings.api_key:
-        st.error("Please enter your Gemini API key in the sidebar.")
+    api_key = settings.api_key or "dummy-key"
+    base_url = getattr(settings, "base_url", None) or GEMINI_BASE_URL
+
+    if not settings.api_key and "Ollama" not in getattr(settings, "provider", ""):
+        st.error(f"Please enter your {getattr(settings, 'provider', 'LLM')} API key in the sidebar.")
         st.stop()
 
-    client = OpenAI(api_key=settings.api_key, base_url=GEMINI_BASE_URL)
+    client = OpenAI(api_key=api_key, base_url=base_url)
     tools = st.session_state.get("mcp_tools") or None
     tool_to_real_name = st.session_state.get("tool_to_real_name", {})
 
@@ -277,14 +303,17 @@ def run_chat_turn(settings: SidebarSettings) -> None:
                             if thought_sig:
                                 tool_calls_builder[idx]["extra_content"] = thought_sig
 
+                import uuid
+
                 placeholder.markdown(full_content if full_content else "")
 
                 assistant_msg = {"role": "assistant", "content": full_content}
                 tool_calls_list = []
                 for idx in sorted(tool_calls_builder.keys()):
                     tc = tool_calls_builder[idx]
+                    tc_id = tc["id"] or f"call_{idx}_{uuid.uuid4().hex[:6]}"
                     tc_dict = {
-                        "id": tc["id"],
+                        "id": tc_id,
                         "type": "function",
                         "function": {"name": tc["name"], "arguments": tc["arguments"]},
                     }
@@ -350,11 +379,40 @@ def _auto_save_current_session() -> None:
         save_session(current_id, title, messages)
 
 
+# Suggestion chips shown on an empty conversation
+_SUGGESTIONS: dict[str, str] = {
+    ":blue[:material/api:] List API endpoints": "List all available API endpoints",
+    ":green[:material/folder:] Show project files": "Show the project file structure",
+    ":orange[:material/terminal:] Run a bash command": "Run `ls -la` in the current directory",
+    ":violet[:material/commit:] Show recent commits": "Show the last 5 git commits",
+}
+
+
 def handle_chat_input(settings: SidebarSettings) -> None:
     """Read new chat input (or resume after a Safe Mode confirmation) and
     run one LLM turn if there's anything to send.
     """
-    user_input = st.chat_input("Ask something about the API, files, bash, or git...")
+    # Show suggestion chips when the conversation is empty
+    visible_messages = [
+        m for m in st.session_state.messages if m.get("role") != "system"
+    ]
+    if not visible_messages:
+        selected = st.pills(
+            "Try asking:",
+            list(_SUGGESTIONS.keys()),
+            label_visibility="collapsed",
+        )
+        if selected:
+            prompt = _SUGGESTIONS[selected]
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            run_chat_turn(settings)
+            _auto_save_current_session()
+            st.rerun()
+
+    user_input = st.chat_input(
+        "Ask something about the API, files, bash, or git...",
+        submit_mode="disable",
+    )
 
     if user_input:
         st.session_state.messages.append({"role": "user", "content": user_input})
@@ -367,3 +425,4 @@ def handle_chat_input(settings: SidebarSettings) -> None:
 
     run_chat_turn(settings)
     _auto_save_current_session()
+    st.rerun()

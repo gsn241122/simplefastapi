@@ -73,7 +73,7 @@ def is_dangerous_tool_call(
 
     name = get_tool_call_name(tool_call)
 
-    if name == "call_api" and args.get("method", "").upper() in DANGEROUS_HTTP_METHODS:
+    if name.endswith("call_api") and args.get("method", "").upper() in DANGEROUS_HTTP_METHODS:
         return True
 
     return any(keyword in name.lower() for keyword in dangerous_keywords)
@@ -100,7 +100,7 @@ def run_tool_call(
 
     # Auto-inject the Bearer token for call_api so the model never has to
     # know or ask about credentials.
-    if name == "call_api" and bearer_token:
+    if name.endswith("call_api") and bearer_token:
         headers = dict(args.get("headers") or {})
         headers.setdefault("Authorization", f"Bearer {bearer_token}")
         args["headers"] = headers
