@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "fastapi": {
+      "url": "http://localhost:8003/mcp"
+    },
+    "filesystem": {
+      "command": "bun",
+      "args": ["x", "@modelcontextprotocol/server-filesystem", "/home/dell/Desktop/workspace/simplefastapi/"]
+    },
+    "bash": {
+      "command": "bun",
+      "args": ["x", "bash-mcp"]
+    },
+    "git": {
+      "command": "uvx",
+      "args": ["mcp-server-git", "--repository", "/home/dell/Desktop/workspace/simplefastapi/"]
+    }
+  }
+}
