@@ -176,12 +176,14 @@ class MCPConnectionPool:
 
     def close(self) -> None:
         """Close every open connection. Registered with `atexit`."""
+        if not hasattr(self, "_loop") or self._loop.is_closed():
+            return
 
         async def _close_all() -> None:
             for name in list(self._connections):
                 await self._drop_connection(name)
 
         try:
-            self._run_coro(_close_all(), timeout=10)
+            self._run_coro(_close_all(), timeout=5)
         except Exception:
             pass

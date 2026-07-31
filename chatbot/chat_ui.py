@@ -1,13 +1,31 @@
 """Chat history rendering, the Safe Mode confirmation UI, and the main
 LLM ↔ tool-calling loop.
+
+Tuning yang diterapkan:
+- Konstanta UI dipindah ke `config.py` (single source of truth).
+- Cached `tool_id_map` (mencegah rebuild tiap render pass pada sesi panjang).
+- Adaptive truncate: tool result panjang di-truncate untuk UI tapi full-nya
+  tetap dikirim ke LLM (sebelumnya hanya truncate saat display).
+- Cancel button di confirmation juga handle cleanup state dengan benar.
+- Better error message untuk API key kosong.
+- `_run_safe_tools_before` di-extract (DRY) — sebelumnya duplikasi di
+  Execute & Cancel branch.
 """
 from __future__ import annotations
 
 import json
+import time
+import uuid
+from typing import Any
+
 import streamlit as st
 from openai import OpenAI
 
-from config import GEMINI_BASE_URL
+from config import (
+    GEMINI_BASE_URL,
+    MAX_TOOL_CALL_ID_HEX_LEN,
+    TOOL_RESULT_TRUNCATE_CHARS,
+)
 from history_manager import get_default_session_title, save_session
 from sidebar import SidebarSettings
 from tool_execution import (
@@ -21,10 +39,22 @@ from tool_execution import (
 )
 
 
-def _build_tool_id_map() -> dict[str, str]:
-    """Build a mapping from tool_call_id → function_name in O(n) for the current session."""
+# ──────────────────────────────────────────────────────────────────────────────
+# Helpers
+# ──────────────────────────────────────────────────────────────────────────────
+@st.cache_data(show_spinner=False)
+def _cached_tool_id_map(messages_json: str) -> dict[str, str]:
+    """Cached mapping tool_call_id → function_name, keyed by messages JSON.
+
+    Streamlit's cache_data is keyed by the function args, so as long as the
+    chat history hasn't changed we skip rebuilding the lookup on every rerun.
+    """
+    try:
+        messages = json.loads(messages_json)
+    except json.JSONDecodeError:
+        return {}
     mapping: dict[str, str] = {}
-    for m in st.session_state.messages:
+    for m in messages:
         if m.get("role") == "assistant" and m.get("tool_calls"):
             for tc in m["tool_calls"]:
                 tc_id = tc.get("id", "")
@@ -34,6 +64,35 @@ def _build_tool_id_map() -> dict[str, str]:
     return mapping
 
 
+def _build_tool_id_map() -> dict[str, str]:
+    """Build a mapping from tool_call_id → function_name in O(n) for the current session."""
+    try:
+        messages_json = json.dumps(st.session_state.messages, default=str, sort_keys=True)
+    except TypeError:
+        messages_json = "[]"
+    return _cached_tool_id_map(messages_json)
+
+
+def _truncate_for_display(text: str, limit: int = TOOL_RESULT_TRUNCATE_CHARS) -> tuple[str, bool]:
+    """Truncate `text` to `limit` chars; return (display_text, was_truncated)."""
+    if len(text) > limit:
+        return text[:limit] + "...", True
+    return text, False
+
+
+def _looks_like_error(parsed: Any) -> bool:
+    """Heuristic: dict with explicit 'error' key, or HTTP status >= 400."""
+    if not isinstance(parsed, dict):
+        return False
+    if "error" in parsed:
+        return True
+    status = parsed.get("status_code")
+    return isinstance(status, int) and status >= 400
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Chat history rendering
+# ──────────────────────────────────────────────────────────────────────────────
 def render_chat_history() -> None:
     """Render past messages, grouping assistant text + tool calls in one bubble."""
     # Pre-build a lookup from tool_call_id → function_name once per render pass
@@ -44,13 +103,12 @@ def render_chat_history() -> None:
         content = msg.get("content", "")
         tool_calls = msg.get("tool_calls")
 
-        # ── User / plain-text assistant messages ──────────────────────────────
+        # ── User / plain-text assistant messages ────────────────────────────
         if role == "user" and content:
             with st.chat_message("user"):
                 st.markdown(content)
 
         elif role == "assistant":
-            # Render text + tool-call expanders inside a single bubble
             if content or tool_calls:
                 with st.chat_message("assistant"):
                     if content:
@@ -64,31 +122,103 @@ def render_chat_history() -> None:
                             ):
                                 st.code(tc["function"]["arguments"], language="json")
 
-        # ── Tool results ──────────────────────────────────────────────────────
+        # ── Tool results ────────────────────────────────────────────────────
         elif role == "tool":
             tool_id = msg.get("tool_call_id", "")
             func_name = tool_id_map.get(tool_id, "unknown_tool")
             content_str = msg.get("content", "")
 
             is_error = False
+            parsed_content: Any = None
             try:
                 parsed_content = json.loads(content_str)
-                if isinstance(parsed_content, dict) and (
-                    "error" in parsed_content
-                    or parsed_content.get("status_code", 200) >= 400
-                ):
-                    is_error = True
+                is_error = _looks_like_error(parsed_content)
             except Exception:
                 pass
+
+            display_content, is_truncated = _truncate_for_display(content_str)
+            if is_truncated:
+                try:
+                    parsed_content = json.loads(display_content)
+                except Exception:
+                    parsed_content = None
 
             result_icon = ":material/cancel:" if is_error else ":material/check_circle:"
             status_text = "Failed" if is_error else "Success"
             with st.chat_message("assistant"):
-                with st.expander(
-                    f"Tool result: `{func_name}` — {status_text}",
-                    icon=result_icon,
-                ):
-                    st.code(content_str, language="json")
+                expander_label = f"Tool result: `{func_name}` — {status_text}"
+                if is_truncated:
+                    expander_label += " (truncated)"
+                with st.expander(expander_label, icon=result_icon):
+                    if parsed_content is not None and isinstance(parsed_content, (dict, list)):
+                        st.json(parsed_content)
+                    else:
+                        st.code(
+                            display_content,
+                            language="json" if display_content.lstrip().startswith(("{", "[")) else "text",
+                        )
+                    if is_truncated:
+                        st.caption(
+                            f"⚠️ Output truncated to first {TOOL_RESULT_TRUNCATE_CHARS:,} characters. "
+                            f"Full length: {len(content_str):,} chars."
+                        )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Safe-mode confirmation
+# ──────────────────────────────────────────────────────────────────────────────
+def _run_safe_tools_before(
+    queue: list[tuple],
+    up_to_idx: int,
+    settings: SidebarSettings,
+) -> None:
+    """Execute all safe (non-dangerous) tool calls before `up_to_idx`."""
+    tool_to_real_name = st.session_state.get("tool_to_real_name", {})
+    for safe_tc, safe_args, _ in queue[:up_to_idx]:
+        st.session_state.messages.append(
+            run_tool_call(
+                safe_tc,
+                st.session_state.mcp_config,
+                st.session_state.tool_to_server,
+                tool_to_real_name,
+                settings.bearer_token,
+                settings.call_timeout,
+            )
+        )
+
+
+def _finalize_queue_after_dangerous(
+    queue: list[tuple],
+    consumed_idx: int,
+    cancelled: bool,
+    tc: Any,
+) -> None:
+    """Common cleanup after Execute or Cancel: pop consumed entry, decide resume."""
+    remaining = queue[consumed_idx + 1 :]
+    st.session_state.pending_tool_queue = remaining if remaining else None
+    st.session_state.resume_llm = not remaining
+    if cancelled:
+        st.session_state.messages.append(cancelled_tool_result(tc))
+    st.rerun()
+
+
+def _run_all_remaining_safe(queue: list[tuple], settings: SidebarSettings) -> None:
+    """Execute every entry in the queue as safe (no dangerous calls)."""
+    tool_to_real_name = st.session_state.get("tool_to_real_name", {})
+    for tc, args, _ in queue:
+        st.session_state.messages.append(
+            run_tool_call(
+                tc,
+                st.session_state.mcp_config,
+                st.session_state.tool_to_server,
+                tool_to_real_name,
+                settings.bearer_token,
+                settings.call_timeout,
+            )
+        )
+    st.session_state.pending_tool_queue = None
+    st.session_state.resume_llm = True
+    st.rerun()
 
 
 def render_pending_confirmation(settings: SidebarSettings) -> None:
@@ -100,35 +230,26 @@ def render_pending_confirmation(settings: SidebarSettings) -> None:
         return
 
     # Find the index of the next dangerous call in the queue
-    next_idx = None
-    for idx, (tc, args, is_danger) in enumerate(queue):
-        if is_danger:
-            next_idx = idx
-            break
-
-    tool_to_real_name = st.session_state.get("tool_to_real_name", {})
+    next_idx = next(
+        (i for i, (_, _, is_danger) in enumerate(queue) if is_danger),
+        None,
+    )
 
     if next_idx is None:
-        # All remaining tool calls in the queue are safe to execute
-        for tc, args, _ in queue:
-            result = run_tool_call(
-                tc,
-                st.session_state.mcp_config,
-                st.session_state.tool_to_server,
-                tool_to_real_name,
-                settings.bearer_token,
-                settings.call_timeout,
-            )
-            st.session_state.messages.append(result)
-        st.session_state.pending_tool_queue = None
-        st.session_state.resume_llm = True
-        st.rerun()
+        _run_all_remaining_safe(queue, settings)
+        return  # unreachable; _run_all_remaining_safe calls st.rerun()
 
     tc, args, _ = queue[next_idx]
     tool_name = get_tool_call_name(tc)
     tool_id = get_tool_call_id(tc)
 
-    st.warning("Dangerous action detected (Safe Mode is on)", icon=":material/security:")
+    warning_title = (
+                        "Tool execution preview (Dry-run mode is active)"
+                        if settings.dry_run_mode
+                        else "Dangerous action detected (Safe Mode is on)"
+                    )
+    
+    st.warning(warning_title, icon=":material/preview:" if settings.dry_run_mode else ":material/security:")
     st.markdown(
         f"**Tool:** `{tool_name}`  \n"
         f"**Method:** `{args.get('method', 'N/A')}`  \n"
@@ -138,20 +259,14 @@ def render_pending_confirmation(settings: SidebarSettings) -> None:
         st.json(args)
 
     with st.container(horizontal=True):
-        if st.button("Execute", type="primary", icon=":material/check_circle:", key=f"btn_confirm_exec_{tool_id}"):
-            # Execute all safe tools before this dangerous tool
-            for safe_tc, safe_args, _ in queue[:next_idx]:
-                st.session_state.messages.append(
-                    run_tool_call(
-                        safe_tc,
-                        st.session_state.mcp_config,
-                        st.session_state.tool_to_server,
-                        tool_to_real_name,
-                        settings.bearer_token,
-                        settings.call_timeout,
-                    )
-                )
-            # Execute this dangerous tool
+        if st.button(
+            "Execute",
+            type="primary",
+            icon=":material/check_circle:",
+            key=f"btn_confirm_exec_{tool_id}",
+        ):
+            _run_safe_tools_before(queue, next_idx, settings)
+            tool_to_real_name = st.session_state.get("tool_to_real_name", {})
             result = run_tool_call(
                 tc,
                 st.session_state.mcp_config,
@@ -161,51 +276,33 @@ def render_pending_confirmation(settings: SidebarSettings) -> None:
                 settings.call_timeout,
             )
             st.session_state.messages.append(result)
+            _finalize_queue_after_dangerous(queue, next_idx, cancelled=False, tc=tc)
 
-            remaining = queue[next_idx + 1 :]
-            st.session_state.pending_tool_queue = remaining if remaining else None
-            if not remaining:
-                st.session_state.resume_llm = True
-            st.rerun()
-
-        if st.button("Cancel", icon=":material/cancel:", key=f"btn_confirm_cancel_{tool_id}"):
-            # Execute all safe tools before this dangerous tool
-            for safe_tc, safe_args, _ in queue[:next_idx]:
-                st.session_state.messages.append(
-                    run_tool_call(
-                        safe_tc,
-                        st.session_state.mcp_config,
-                        st.session_state.tool_to_server,
-                        tool_to_real_name,
-                        settings.bearer_token,
-                        settings.call_timeout,
-                    )
-                )
-            # Record cancelled result for this dangerous tool
-            st.session_state.messages.append(cancelled_tool_result(tc))
-
-            remaining = queue[next_idx + 1 :]
-            st.session_state.pending_tool_queue = remaining if remaining else None
-            if not remaining:
-                st.session_state.resume_llm = True
-            st.rerun()
+        if st.button(
+            "Cancel",
+            icon=":material/cancel:",
+            key=f"btn_confirm_cancel_{tool_id}",
+        ):
+            _run_safe_tools_before(queue, next_idx, settings)
+            _finalize_queue_after_dangerous(queue, next_idx, cancelled=True, tc=tc)
 
     st.stop()
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# LLM turn & tool-call building
+# ──────────────────────────────────────────────────────────────────────────────
 def _build_assistant_message(choice) -> dict:
     """Turn an OpenAI-style choice into a chat message dict, preserving the
     Gemini `thought_signature` on any tool calls.
     """
-    import uuid
-
-    assistant_msg = {"role": "assistant", "content": choice.content or ""}
+    assistant_msg: dict = {"role": "assistant", "content": choice.content or ""}
     if not choice.tool_calls:
         return assistant_msg
 
     tool_call_dicts = []
     for tc in choice.tool_calls:
-        tc_id = getattr(tc, "id", None) or f"call_{uuid.uuid4().hex[:8]}"
+        tc_id = getattr(tc, "id", None) or f"call_{uuid.uuid4().hex[:MAX_TOOL_CALL_ID_HEX_LEN]}"
         tc_dict = {
             "id": tc_id,
             "type": "function",
@@ -219,21 +316,99 @@ def _build_assistant_message(choice) -> dict:
     return assistant_msg
 
 
-def _stash_dangerous_call_if_any(
-    choice, assistant_msg: dict, safe_mode: bool, dangerous_keywords: tuple[str, ...]
-) -> bool:
-    """Legacy helper maintained for compatibility."""
-    if not choice.tool_calls:
-        return False
+def _build_create_kwargs(settings: SidebarSettings, stream: bool) -> dict:
+    """Build kwargs for `client.chat.completions.create`."""
+    tools = st.session_state.get("mcp_tools") or None
+    kwargs: dict = dict(
+        model=settings.model,
+        messages=st.session_state.messages,
+        tools=tools,
+        tool_choice="auto" if tools else None,
+        temperature=settings.temperature,
+    )
+    if settings.max_tokens:
+        kwargs["max_tokens"] = settings.max_tokens
+    if stream:
+        kwargs["stream"] = True
+    return kwargs
 
-    for tc in choice.tool_calls:
-        args = parse_tool_arguments(tc)
-        if is_dangerous_tool_call(tc, args, safe_mode, dangerous_keywords):
-            st.session_state.pending_tool_call = tc
-            st.session_state.pending_args = args
-            st.session_state.messages.append(assistant_msg)
-            return True
-    return False
+
+def _stream_response(client: OpenAI, settings: SidebarSettings, placeholder):
+    """Stream the response token by token. Returns (assistant_msg, raw_tool_calls)."""
+    stream = client.chat.completions.create(**_build_create_kwargs(settings, stream=True))
+
+    full_content = ""
+    tool_calls_builder: dict[int, dict] = {}
+
+    for chunk in stream:
+        if not chunk.choices:
+            continue
+        delta = chunk.choices[0].delta
+
+        if delta.content and not delta.tool_calls:
+            full_content += delta.content
+            placeholder.markdown(full_content + "▌")
+
+        if delta.tool_calls:
+            for tc_delta in delta.tool_calls:
+                idx = getattr(tc_delta, "index", 0)
+                if idx not in tool_calls_builder:
+                    tool_calls_builder[idx] = {
+                        "id": "",
+                        "name": "",
+                        "arguments": "",
+                        "extra_content": None,
+                    }
+                if tc_delta.id:
+                    tool_calls_builder[idx]["id"] += tc_delta.id
+                if tc_delta.function:
+                    if tc_delta.function.name:
+                        tool_calls_builder[idx]["name"] += tc_delta.function.name
+                    if tc_delta.function.arguments:
+                        tool_calls_builder[idx]["arguments"] += tc_delta.function.arguments
+                thought_sig = get_thought_signature(tc_delta)
+                if thought_sig:
+                    tool_calls_builder[idx]["extra_content"] = thought_sig
+
+    placeholder.markdown(full_content if full_content else "")
+
+    assistant_msg: dict = {"role": "assistant", "content": full_content}
+    tool_calls_list = []
+    for idx in sorted(tool_calls_builder.keys()):
+        tc = tool_calls_builder[idx]
+        tc_id = tc["id"] or f"call_{idx}_{uuid.uuid4().hex[:MAX_TOOL_CALL_ID_HEX_LEN - 2]}"
+        tc_dict = {
+            "id": tc_id,
+            "type": "function",
+            "function": {"name": tc["name"], "arguments": tc["arguments"]},
+        }
+        if tc["extra_content"]:
+            tc_dict["extra_content"] = tc["extra_content"]
+        tool_calls_list.append(tc_dict)
+
+    if tool_calls_list:
+        assistant_msg["tool_calls"] = tool_calls_list
+    return assistant_msg, tool_calls_list
+
+
+def _non_stream_response(client: OpenAI, settings: SidebarSettings, placeholder):
+    """Non-streaming response. Returns (assistant_msg, raw_tool_calls, error)."""
+    response = client.chat.completions.create(**_build_create_kwargs(settings, stream=False))
+    choice = response.choices[0].message
+    assistant_msg = _build_assistant_message(choice)
+    raw_tool_calls = choice.tool_calls or []
+
+    # Show token usage if available
+    if hasattr(response, "usage") and response.usage:
+        usage = response.usage
+        total = getattr(usage, "total_tokens", None)
+        prompt = getattr(usage, "prompt_tokens", None)
+        completion = getattr(usage, "completion_tokens", None)
+        if total:
+            placeholder.caption(
+                f"📊 tokens: {prompt} prompt + {completion} completion = {total} total"
+            )
+    return assistant_msg, raw_tool_calls, None
 
 
 def run_chat_turn(settings: SidebarSettings) -> None:
@@ -244,11 +419,13 @@ def run_chat_turn(settings: SidebarSettings) -> None:
     base_url = getattr(settings, "base_url", None) or GEMINI_BASE_URL
 
     if not settings.api_key and "Ollama" not in getattr(settings, "provider", ""):
-        st.error(f"Please enter your {getattr(settings, 'provider', 'LLM')} API key in the sidebar.")
+        st.error(
+            f":material/key_off: Please enter your {getattr(settings, 'provider', 'LLM')} "
+            "API key in the sidebar.",
+        )
         st.stop()
 
     client = OpenAI(api_key=api_key, base_url=base_url)
-    tools = st.session_state.get("mcp_tools") or None
     tool_to_real_name = st.session_state.get("tool_to_real_name", {})
 
     with st.chat_message("assistant"):
@@ -256,84 +433,25 @@ def run_chat_turn(settings: SidebarSettings) -> None:
         placeholder.markdown("_thinking..._")
 
         for _ in range(settings.max_tool_rounds):
-            create_kwargs = dict(
-                model=settings.model,
-                messages=st.session_state.messages,
-                tools=tools,
-                tool_choice="auto" if tools else None,
-                temperature=settings.temperature,
-            )
-            if settings.max_tokens:
-                create_kwargs["max_tokens"] = settings.max_tokens
-
-            if settings.stream_response:
-                create_kwargs["stream"] = True
-                stream = client.chat.completions.create(**create_kwargs)
-
-                full_content = ""
-                tool_calls_builder: dict[int, dict] = {}
-
-                for chunk in stream:
-                    if not chunk.choices:
-                        continue
-                    delta = chunk.choices[0].delta
-
-                    if delta.content:
-                        full_content += delta.content
-                        placeholder.markdown(full_content + "▌")
-
-                    if delta.tool_calls:
-                        for tc_delta in delta.tool_calls:
-                            idx = getattr(tc_delta, "index", 0)
-                            if idx not in tool_calls_builder:
-                                tool_calls_builder[idx] = {
-                                    "id": "",
-                                    "name": "",
-                                    "arguments": "",
-                                    "extra_content": None,
-                                }
-                            if tc_delta.id:
-                                tool_calls_builder[idx]["id"] += tc_delta.id
-                            if tc_delta.function:
-                                if tc_delta.function.name:
-                                    tool_calls_builder[idx]["name"] += tc_delta.function.name
-                                if tc_delta.function.arguments:
-                                    tool_calls_builder[idx]["arguments"] += tc_delta.function.arguments
-                            thought_sig = get_thought_signature(tc_delta)
-                            if thought_sig:
-                                tool_calls_builder[idx]["extra_content"] = thought_sig
-
-                import uuid
-
-                placeholder.markdown(full_content if full_content else "")
-
-                assistant_msg = {"role": "assistant", "content": full_content}
-                tool_calls_list = []
-                for idx in sorted(tool_calls_builder.keys()):
-                    tc = tool_calls_builder[idx]
-                    tc_id = tc["id"] or f"call_{idx}_{uuid.uuid4().hex[:6]}"
-                    tc_dict = {
-                        "id": tc_id,
-                        "type": "function",
-                        "function": {"name": tc["name"], "arguments": tc["arguments"]},
-                    }
-                    if tc["extra_content"]:
-                        tc_dict["extra_content"] = tc["extra_content"]
-                    tool_calls_list.append(tc_dict)
-
-                if tool_calls_list:
-                    assistant_msg["tool_calls"] = tool_calls_list
-
-                raw_tool_calls = tool_calls_list
-            else:
-                response = client.chat.completions.create(**create_kwargs)
-                choice = response.choices[0].message
-                assistant_msg = _build_assistant_message(choice)
-                raw_tool_calls = choice.tool_calls or []
+            turn_start = time.perf_counter()
+            try:
+                if settings.stream_response:
+                    assistant_msg, raw_tool_calls = _stream_response(client, settings, placeholder)
+                else:
+                    assistant_msg, raw_tool_calls, _ = _non_stream_response(
+                        client, settings, placeholder
+                    )
+            except Exception as exc:
+                placeholder.empty()
+                st.error(f"**LLM API Error:** {exc}", icon=":material/error:")
+                st.toast(f"LLM Call Failed: {exc}", icon=":material/warning:")
+                return
 
             st.session_state.messages.append(assistant_msg)
 
             if not raw_tool_calls:
+                elapsed = time.perf_counter() - turn_start
+                st.caption(f":material/timer: {elapsed:.2f}s")
                 return
 
             tool_names = [
@@ -346,7 +464,9 @@ def run_chat_turn(settings: SidebarSettings) -> None:
             has_dangerous = False
             for tc in raw_tool_calls:
                 args = parse_tool_arguments(tc)
-                is_danger = is_dangerous_tool_call(tc, args, settings.safe_mode, settings.dangerous_keywords)
+                is_danger = is_dangerous_tool_call(
+                    tc, args, settings.safe_mode, settings.dangerous_keywords, settings.dry_run_mode
+                )
                 queue.append((tc, args, is_danger))
                 if is_danger:
                     has_dangerous = True
@@ -370,6 +490,9 @@ def run_chat_turn(settings: SidebarSettings) -> None:
         placeholder.markdown("_Stopped after multiple tool calls without a final answer._")
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Persistence
+# ──────────────────────────────────────────────────────────────────────────────
 def _auto_save_current_session() -> None:
     """Save active session messages to disk immediately after user/LLM interactions."""
     current_id = st.session_state.get("current_session_id")
@@ -379,7 +502,9 @@ def _auto_save_current_session() -> None:
         save_session(current_id, title, messages)
 
 
-# Suggestion chips shown on an empty conversation
+# ──────────────────────────────────────────────────────────────────────────────
+# Suggestion chips & chat input
+# ──────────────────────────────────────────────────────────────────────────────
 _SUGGESTIONS: dict[str, str] = {
     ":blue[:material/api:] List API endpoints": "List all available API endpoints",
     ":green[:material/folder:] Show project files": "Show the project file structure",
@@ -392,9 +517,9 @@ def handle_chat_input(settings: SidebarSettings) -> None:
     """Read new chat input (or resume after a Safe Mode confirmation) and
     run one LLM turn if there's anything to send.
     """
-    # Show suggestion chips when the conversation is empty
     visible_messages = [
-        m for m in st.session_state.messages if m.get("role") != "system"
+        m for m in st.session_state.messages
+        if m.get("role") != "system" and m.get("content")
     ]
     if not visible_messages:
         selected = st.pills(

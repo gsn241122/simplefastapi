@@ -1,10 +1,16 @@
-"""Application-wide constants and configuration for the MCP chatbot."""
+"""Application-wide constants and configuration for the MCP chatbot.
+
+All defaults here can be overridden by the user via the sidebar's
+"Advanced tuning" panel. Tweak these values to tune the UX of the chatbot.
+"""
 from __future__ import annotations
 
 import os
 
-# --- LLM Providers Configuration ---
-PROVIDERS = {
+# ──────────────────────────────────────────────────────────────────────────────
+# LLM Providers Configuration
+# ──────────────────────────────────────────────────────────────────────────────
+PROVIDERS: dict[str, dict] = {
     "Gemini (Google AI Studio)": {
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
         "default_api_key_env": "GEMINI_API_KEY",
@@ -15,7 +21,9 @@ PROVIDERS = {
             "gemini-2.5-flash",
             "gemini-2.5-pro",
             "gemini-2.0-flash",
+            "gemini-2.0-flash-lite",
             "gemini-1.5-flash",
+            "gemini-1.5-pro",
         ],
         "default_model": "gemini-3.5-flash-lite",
     },
@@ -33,7 +41,7 @@ PROVIDERS = {
         "default_model": "gpt-4o-mini",
     },
     "Anthropic (via compatible proxy/OpenAI endpoint)": {
-        "base_url": "https://api.anthropic.com/v1", # Note: requires OpenAI compatible proxy like LiteLLM if using native Anthropic SDK, or standard OpenAI format if proxy is used
+        "base_url": "https://api.anthropic.com/v1",  # requires OpenAI compatible proxy like LiteLLM
         "default_api_key_env": "ANTHROPIC_API_KEY",
         "api_key_help": "Enter your Anthropic API key or proxy endpoint key",
         "models": [
@@ -81,22 +89,43 @@ DEFAULT_MODEL = PROVIDERS[DEFAULT_PROVIDER]["default_model"]
 _HERE = os.path.dirname(os.path.abspath(__file__))
 MCP_CONFIG_PATH = os.path.join(_HERE, "..", "mcp_servers.json")
 
-# --- Tunable defaults, overridable from the sidebar's "Advanced tuning" panel ---
-DEFAULT_TEMPERATURE = 0.7
-DEFAULT_MAX_OUTPUT_TOKENS = 2048
+# ──────────────────────────────────────────────────────────────────────────────
+# Tunable defaults (overridable from the sidebar's "Advanced tuning" panel)
+# ──────────────────────────────────────────────────────────────────────────────
+# Higher temperature → more creative/random; lower → more focused/deterministic.
+# For tool-calling we recommend a lower value to keep JSON arguments stable.
+DEFAULT_TEMPERATURE: float = 0.7
+DEFAULT_TEMPERATURE_TOOL_CALLING: float = 0.2
+DEFAULT_MAX_OUTPUT_TOKENS: int = 4096
 
 # Maximum number of automatic tool-call rounds before the assistant gives up
 # and reports that it couldn't reach a final answer.
-DEFAULT_MAX_TOOL_ROUNDS = 5
+DEFAULT_MAX_TOOL_ROUNDS: int = 5
 
-# How long to wait when opening a new MCP connection / spawning a stdio
-# subprocess, and how long to wait for a single tool call to finish.
-DEFAULT_CONNECT_TIMEOUT_SECONDS = 10.0
-DEFAULT_CALL_TIMEOUT_SECONDS = 60.0
+# Timeouts: how long to wait when opening a new MCP connection / spawning a
+# stdio subprocess, and how long to wait for a single tool call to finish.
+DEFAULT_CONNECT_TIMEOUT_SECONDS: float = 10.0
+DEFAULT_CALL_TIMEOUT_SECONDS: float = 60.0
 
-# --- Safe Mode: which tool calls require explicit user confirmation --------
-DANGEROUS_HTTP_METHODS = {"DELETE", "PUT", "PATCH"}
-DANGEROUS_NAME_KEYWORDS = ("delete", "write_file", "execute")
+# ──────────────────────────────────────────────────────────────────────────────
+# Safe Mode: which tool calls require explicit user confirmation
+# ──────────────────────────────────────────────────────────────────────────────
+DANGEROUS_HTTP_METHODS: set[str] = {"DELETE", "PUT", "PATCH"}
+DANGEROUS_NAME_KEYWORDS: tuple[str, ...] = ("delete", "write_file", "execute")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# UI tuning constants
+# ──────────────────────────────────────────────────────────────────────────────
+# Tool result outputs longer than this will be truncated in the chat UI
+# (the full result is still passed back to the LLM).
+TOOL_RESULT_TRUNCATE_CHARS: int = 5000
+
+# Hex chars used when synthesizing a fallback tool_call_id.
+MAX_TOOL_CALL_ID_HEX_LEN: int = 8
+
+# How long the page is allowed to re-render before Streamlit raises a
+# runtime error. Increase this if you have very long tool outputs.
+DEFAULT_RUNTIME_TIMEOUT_S: int = 120
 
 SYSTEM_PROMPT = (
     "You are an assistant with access to tools exposed via MCP (Model Context Protocol). "

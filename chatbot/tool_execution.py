@@ -66,8 +66,12 @@ def is_dangerous_tool_call(
     args: dict[str, Any],
     safe_mode: bool,
     dangerous_keywords: tuple[str, ...],
+    dry_run_mode: bool = False,
 ) -> bool:
     """Decide whether a tool call should be confirmed by the user before running."""
+    if dry_run_mode:
+        return True  # tuned: dry-run mode forces confirmation on all tools
+
     if not safe_mode:
         return False
 
