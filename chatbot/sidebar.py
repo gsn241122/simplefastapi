@@ -276,19 +276,19 @@ def _render_clear_conversation_button() -> None:
 def render_sidebar() -> SidebarSettings:
     """Render the full sidebar and return the settings the main app needs."""
     with st.sidebar:
-        st.header("⚙️ Settings")
-        api_key, model = _render_model_settings()
+        # 1. Main Action / Reset
+        _render_clear_conversation_button()
         st.divider()
 
+        # 2. Model Settings & Advanced Tuning
+        st.header("⚙️ Settings")
+        api_key, model = _render_model_settings()
         tuning = _render_advanced_tuning()
         st.divider()
 
-        _render_mcp_server_list()
-        st.divider()
-
+        # 3. API Authentication & Bearer Token
         _render_login_form(tuning.connect_timeout, tuning.call_timeout)
-        st.divider()
-
+        
         bearer_token = st.text_input(
             "Bearer token for the target API",
             key="api_bearer_token",
@@ -302,6 +302,7 @@ def render_sidebar() -> SidebarSettings:
         )
         st.divider()
 
+        # 4. Security & Safety
         safe_mode = st.checkbox(
             "🛡️ Safe Mode (confirm dangerous actions)",
             value=True,
@@ -313,10 +314,9 @@ def render_sidebar() -> SidebarSettings:
         )
         st.divider()
 
+        # 5. MCP Servers & Tools Status
+        _render_mcp_server_list()
         _render_mcp_tools_status(tuning.connect_timeout)
-        st.divider()
-
-        _render_clear_conversation_button()
 
     return SidebarSettings(
         api_key=api_key,
