@@ -133,3 +133,20 @@ def upload_product_image(
         data=response_data,
         message="Product image uploaded successfully"
     )
+
+
+# Summary provider for aggregator
+def get_summary(db, redis=None):
+    """Return a small summary dict for the product module.
+
+    Expected shape consumed by the aggregator:
+    {
+      "counts": {"products": int},
+      "meta": {"module": "product"}
+    }
+    """
+    try:
+        _, total = crud.get_products(db, skip=0, limit=1)
+    except Exception:
+        total = 0
+    return {"counts": {"products": total}, "meta": {"module": "product"}}

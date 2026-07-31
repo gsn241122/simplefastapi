@@ -74,3 +74,13 @@ def delete_order(id: int, db: Session = Depends(get_db)):
     if not success:
         raise HTTPException(status_code=404, detail="Order tidak ditemukan.")
     return StandardJSONResponse.success(message="Order berhasil dihapus.")
+
+
+# Summary provider for aggregator
+def get_summary(db, redis=None):
+    """Return a small summary dict for the order module."""
+    try:
+        _, total = service.get_order_list(db, skip=0, limit=1)
+    except Exception:
+        total = 0
+    return {"counts": {"orders": total}, "meta": {"module": "order"}}

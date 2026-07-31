@@ -56,6 +56,16 @@ def get_role(id: int, db: Session = Depends(get_db)):
     )
 
 
+# Summary provider for aggregator
+def get_summary(db, redis=None):
+    """Return a small summary dict for the role module."""
+    try:
+        _, total = service.get_role_list(db, skip=0, limit=1)
+    except Exception:
+        total = 0
+    return {"counts": {"roles": total}, "meta": {"module": "role"}}
+
+
 @router.post(
     "",
     response_model=APIResponse,

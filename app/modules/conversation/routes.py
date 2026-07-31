@@ -74,3 +74,13 @@ def delete_conversation(id: int, db: Session = Depends(get_db)):
     if not success:
         raise HTTPException(status_code=404, detail="Conversation tidak ditemukan.")
     return StandardJSONResponse.success(message="Conversation berhasil dihapus.")
+
+
+# Summary provider for aggregator
+def get_summary(db, redis=None):
+    """Return a small summary dict for the conversation module."""
+    try:
+        _, total = service.get_conversation_list(db, skip=0, limit=1)
+    except Exception:
+        total = 0
+    return {"counts": {"conversations": total}, "meta": {"module": "conversation"}}

@@ -44,3 +44,9 @@ async def scalar_html():
         title="SimpleFastAPI Application API",
         show_sidebar=True
     )
+
+
+# Summary provider for aggregator
+def get_summary(db, redis=None):
+    """Return a minimal summary for documentation module."""
+    return {"counts": {}, "meta": {"module": "doc"}}

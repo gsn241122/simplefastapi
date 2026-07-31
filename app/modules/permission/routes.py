@@ -118,3 +118,13 @@ def delete_permission(permission_id: int, db: Session = Depends(get_db)):
     if not success:
         raise HTTPException(status_code=404, detail="Permission tidak ditemukan.")
     return StandardJSONResponse.success(message="Permission berhasil dihapus.")
+
+
+# Summary provider for aggregator
+def get_summary(db, redis=None):
+    """Return a small summary dict for the permission module."""
+    try:
+        _, total = crud.get_permissions(db, skip=0, limit=1)
+    except Exception:
+        total = 0
+    return {"counts": {"permissions": total}, "meta": {"module": "permission"}}

@@ -74,3 +74,13 @@ def delete_invoice(id: int, db: Session = Depends(get_db)):
     if not success:
         raise HTTPException(status_code=404, detail="Invoice tidak ditemukan.")
     return StandardJSONResponse.success(message="Invoice berhasil dihapus.")
+
+
+# Summary provider for aggregator
+def get_summary(db, redis=None):
+    """Return a small summary dict for the invoice module."""
+    try:
+        _, total = service.get_invoice_list(db, skip=0, limit=1)
+    except Exception:
+        total = 0
+    return {"counts": {"invoices": total}, "meta": {"module": "invoice"}}

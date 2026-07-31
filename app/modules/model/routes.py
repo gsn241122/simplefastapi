@@ -74,3 +74,13 @@ def delete_model(id: int, db: Session = Depends(get_db)):
     if not success:
         raise HTTPException(status_code=404, detail="Model tidak ditemukan.")
     return StandardJSONResponse.success(message="Model berhasil dihapus.")
+
+
+# Summary provider for aggregator
+def get_summary(db, redis=None):
+    """Return a small summary dict for the model module."""
+    try:
+        _, total = service.get_model_list(db, skip=0, limit=1)
+    except Exception:
+        total = 0
+    return {"counts": {"models": total}, "meta": {"module": "model"}}

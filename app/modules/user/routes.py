@@ -289,3 +289,20 @@ def remove_user_role(
         data=schemas.UserResponse.from_user_orm(updated),
         message="Role berhasil dihapus.",
     )
+
+
+# Summary provider for aggregator
+def get_summary(db, redis=None):
+    """Return a small summary dict for the user module.
+
+    Expected shape consumed by the aggregator:
+    {
+      "counts": {"users": int},
+      "meta": {"module": "user"}
+    }
+    """
+    try:
+        _, total = crud.get_users(db, skip=0, limit=1)
+    except Exception:
+        total = 0
+    return {"counts": {"users": total}, "meta": {"module": "user"}}

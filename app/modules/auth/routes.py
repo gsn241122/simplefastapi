@@ -333,3 +333,19 @@ async def logout(
     _, token = auth
     _remove_token_from_redis(_get_client_ip(request), token)
     return StandardJSONResponse.success(data=None, message="Logout successful")
+
+
+# Summary provider for aggregator
+def get_summary(db, redis=None):
+    """Return a small summary for the auth module (health-ish).
+
+    Uses the module-local _get_redis() if available to report Redis health.
+    """
+    redis_client = redis if redis is not None else _get_redis()
+    redis_ok = False
+    try:
+        if redis_client is not None:
+            redis_ok = bool(redis_client.ping())
+    except Exception:
+        redis_ok = False
+    return {"counts": {}, "meta": {"module": "auth"}, "health": {"redis": redis_ok}}

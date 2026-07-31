@@ -74,3 +74,13 @@ def delete_provider(id: int, db: Session = Depends(get_db)):
     if not success:
         raise HTTPException(status_code=404, detail="Provider tidak ditemukan.")
     return StandardJSONResponse.success(message="Provider berhasil dihapus.")
+
+
+# Summary provider for aggregator
+def get_summary(db, redis=None):
+    """Return a small summary dict for the provider module."""
+    try:
+        _, total = service.get_provider_list(db, skip=0, limit=1)
+    except Exception:
+        total = 0
+    return {"counts": {"providers": total}, "meta": {"module": "provider"}}
