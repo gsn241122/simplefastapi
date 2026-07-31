@@ -124,12 +124,13 @@ Once running, access the interactive API documentation:
 
 ## MCP Chatbot Clients
 
-This repository includes two chatbot clients under `chatbot/`:
+This repository includes three chatbot clients under `chatbot/`:
 
 - `chatbot/mcp_chatbot.py` — a direct MCP tool client for the wrapper.
 - `chatbot/openapi_chatbot.py` — an OpenAPI-driven chatbot that loads the FastAPI OpenAPI schema via the wrapper and helps map natural-language prompts to API calls.
+- `chatbot/llm_gemini_chatbot.py` — an LLM-driven assistant that uses Gemini-style prompt completion plus the OpenAPI schema to choose API calls.
 
-Start the MCP wrapper server first, then run either client:
+Start the MCP wrapper server first, then run one of the clients:
 
 ```bash
 python3 chatbot/mcp_chatbot.py --url http://127.0.0.1:8003/mcp
@@ -152,6 +153,14 @@ The OpenAPI chatbot supports these commands:
 - `exit` — quit the chatbot
 
 The `ask` command demonstrates how the client can use OpenAPI schema metadata to choose a suitable backend endpoint, which is the same pattern an LLM-based agent such as Gemini would use when consuming an OpenAPI definition.
+
+The LLM+Gemini chatbot can also use `chatbot/llm_gemini_chatbot.py` with `GEMINI_API_KEY` configured for natural-language endpoint selection. For any client, set `SIMPLEFASTAPI_API_KEY` or pass `--app-api-key` to send `X-API-Key` authentication instead of JWT.
+
+Example:
+
+```bash
+GEMINI_API_KEY="your-gemini-api-key" python3 chatbot/llm_gemini_chatbot.py --url http://127.0.0.1:8003/mcp --app-api-key "your-app-api-key"
+```
 
 ## Docker Deployment
 

@@ -19,3 +19,7 @@ psycopg2-binary
 PyMySQL
 fastmcp[server]
 trio
+
+streamlit>=1.38
+openai>=1.50
+fastmcp>=2.0

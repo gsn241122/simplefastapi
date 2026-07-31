@@ -17,9 +17,9 @@ DEFAULT_MCP_URL = os.getenv("SIMPLEFASTAPI_MCP_URL", "http://127.0.0.1:8003/mcp"
 class OpenAPIChatbot:
     """A simple OpenAPI-driven chatbot client for the SimpleFastAPI MCP wrapper."""
 
-    def __init__(self, url: str = DEFAULT_MCP_URL, api_key: str | None = None) -> None:
+    def __init__(self, url: str = DEFAULT_MCP_URL, app_api_key: str | None = None) -> None:
         self.url = url
-        self.app_api_key = api_key
+        self.app_api_key = app_api_key
         self.session: ClientSession | None = None
         self.last_token: str | None = None
         self.openapi: dict[str, Any] | None = None
@@ -322,7 +322,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    chatbot = OpenAPIChatbot(url=args.url)
+    chatbot = OpenAPIChatbot(url=args.url, app_api_key=args.app_api_key)
     anyio.run(chatbot.run, backend="trio")
 
 

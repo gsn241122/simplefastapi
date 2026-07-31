@@ -16,8 +16,9 @@ DEFAULT_MCP_URL = os.getenv("SIMPLEFASTAPI_MCP_URL", "http://127.0.0.1:8003/mcp"
 class MCPChatbot:
     """A simple MCP-based chatbot client for the SimpleFastAPI wrapper."""
 
-    def __init__(self, url: str = DEFAULT_MCP_URL) -> None:
+    def __init__(self, url: str = DEFAULT_MCP_URL, app_api_key: str | None = None) -> None:
         self.url = url
+        self.app_api_key = app_api_key
         self.session: ClientSession | None = None
         self.last_token: str | None = None
 
@@ -27,6 +28,8 @@ class MCPChatbot:
                 self.session = session
                 await session.initialize()
                 print(f"Connected to MCP server at {self.url}")
+                if self.app_api_key:
+                    print("Using X-API-Key authentication from environment or CLI.")
                 await self.print_tools()
                 await self.interactive_loop()
 
@@ -208,12 +211,12 @@ Example:
         return getattr(tool_result, "structuredContent", {}) or {}
 
     def _auth_header(self) -> dict[str, str] | None:
+        headers: dict[str, str] = {}
         if self.last_token:
-            return {"Authorization": f"Bearer {self.last_token}"}
-        return None
-
-    def print_result(self, result: dict[str, Any]) -> None:
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+            headers["Authorization"] = f"Bearer {self.last_token}"
+        if self.app_api_key:
+            headers["X-API-Key"] = self.app_api_key
+        return headers or None
 
 
 def parse_args() -> argparse.Namespace:
@@ -223,12 +226,17 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_MCP_URL,
         help="The MCP server URL for the SimpleFastAPI wrapper.",
     )
+    parser.add_argument(
+        "--app-api-key",
+        default=os.getenv("SIMPLEFASTAPI_API_KEY"),
+        help="Optional application API key to send as X-API-Key.",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    chatbot = MCPChatbot(url=args.url)
+    chatbot = MCPChatbot(url=args.url, app_api_key=args.app_api_key)
     anyio.run(chatbot.run, backend="trio")
 
 
