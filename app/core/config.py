@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from pydantic_settings import BaseSettings
-from pydantic import ConfigDict
-from typing import List, Optional
+from pydantic import ConfigDict, field_validator
+from typing import List, Optional, Iterable
+import json
 
 
 # --- Konstanta Aplikasi ---
@@ -67,7 +68,34 @@ class Settings(BaseSettings):
     # File Upload Settings
     UPLOAD_DIR: str = "uploads"
     MAX_UPLOAD_SIZE: int = 10 * 1024 * 1024  # 10 MB
-    ALLOWED_IMAGE_TYPES: set = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+    ALLOWED_IMAGE_TYPES: List[str] = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+
+    @field_validator("ALLOWED_IMAGE_TYPES", mode="before")
+    @classmethod
+    def _parse_allowed_image_types(cls, v: "str | Iterable[str]") -> List[str]:
+        """Accept comma-separated string (from .env) or JSON list or iterable and normalize to List[str]."""
+        if v is None:
+            return []
+        # If dotenv provided a JSON array string, try to parse it
+        if isinstance(v, str):
+            s = v.strip()
+            if not s:
+                return []
+            # If looks like JSON list
+            if s.startswith("[") and s.endswith("]"):
+                try:
+                    parsed = json.loads(s)
+                    if isinstance(parsed, list):
+                        return [str(x).strip() for x in parsed if x is not None]
+                except Exception:
+                    pass
+            # Otherwise assume comma-separated
+            return [item.strip() for item in s.split(",") if item.strip()]
+        # If it's already an iterable (list/tuple/set), normalize
+        if isinstance(v, Iterable):
+            return [str(x).strip() for x in v]
+        # Fallback
+        return [str(v)]
 
     # Logging
     LOG_LEVEL: str = "INFO"
