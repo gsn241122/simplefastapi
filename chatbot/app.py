@@ -5,9 +5,6 @@ list_routes, call_api) to interact with the wrapped FastAPI app.
 Run:
 1. Start the MCP server:      python server.py
 2. Start this chatbot:        streamlit run app.py
-Env vars:
-GEMINI_API_KEY   Google AI Studio API key (can also be entered in the sidebar)
-MCP_URL          URL of the running MCP server (default http://localhost:8003/mcp)
 """
 from __future__ import annotations
 import asyncio
@@ -17,7 +14,6 @@ import streamlit as st
 from openai import OpenAI
 from mcp_client import call_mcp_tool, fetch_mcp_tools
 
-# Load .env if present so os.getenv can see values stored there
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -41,7 +37,7 @@ MAX_TOOL_ROUNDS = 5
 st.set_page_config(page_title="FastAPI MCP Chatbot (Gemini)", page_icon="🤖")
 
 # ---------------------------------------------------------------------------
-# Sidebar: API key, model switcher, MCP connection, LOGIN, tool list
+# Sidebar
 # ---------------------------------------------------------------------------
 with st.sidebar:
     st.header("⚙️ Settings")
@@ -72,7 +68,7 @@ with st.sidebar:
     st.divider()
 
     # -----------------------------------------------------------------------
-    # 🔐 LOGIN SECTION (menggunakan call_mcp_tool → call_api)
+    # 🔐 LOGIN SECTION (via MCP call_api)
     # -----------------------------------------------------------------------
     st.subheader("🔐 Autentikasi API")
 
@@ -95,11 +91,6 @@ with st.sidebar:
                 st.error("Username dan password wajib diisi!")
             else:
                 try:
-                    # -------------------------------------------------------
-                    # PENTING: Gunakan parameter "data" (sesuai signature
-                    # call_api di server.py), BUKAN "body".
-                    # Kirim sebagai dictionary (JSON), bukan string.
-                    # -------------------------------------------------------
                     login_args = {
                         "method": "POST",
                         "path": login_path,
@@ -114,18 +105,13 @@ with st.sidebar:
                             call_mcp_tool(mcp_url, "call_api", login_args)
                         )
 
-                    # Parse respons — sesuai format sample:
-                    # result = {"status_code": 200, "body": {...}, ...}
                     body = result.get("body")
-
-                    # Jika body masih berupa string JSON, parse dulu
                     if isinstance(body, str):
                         try:
                             body = json.loads(body)
                         except json.JSONDecodeError:
                             pass
 
-                    # Cek keberhasilan (sesuai struktur response Anda)
                     if (
                         isinstance(body, dict)
                         and body.get("success")
@@ -158,9 +144,9 @@ with st.sidebar:
 
     st.divider()
 
-    # Bearer Token — terikat ke session_state via key
+    # Bearer token (terikat ke session_state via key)
     api_bearer_token = st.text_input(
-        "Bearer token untuk API target (opsional)",
+        "Bearer token untuk API target",
         key="api_bearer_token",
         type="password",
         help=(
@@ -170,6 +156,19 @@ with st.sidebar:
         ),
     )
 
+    st.divider()
+
+    # -----------------------------------------------------------------------
+    # 🛡️ SAFE MODE CONFIGURATION
+    # -----------------------------------------------------------------------
+    safe_mode = st.checkbox(
+        "🛡️ Safe Mode (Konfirmasi aksi berbahaya)",
+        value=True,
+        help="Meminta konfirmasi eksplisit sebelum menjalankan method DELETE, PUT, PATCH, atau tool yang mengandung kata 'delete'.",
+    )
+
+    st.divider()
+
     if st.button("🔄 Refresh MCP tools"):
         st.session_state.pop("mcp_tools", None)
 
@@ -177,7 +176,7 @@ with st.sidebar:
         try:
             st.session_state.mcp_tools = asyncio.run(fetch_mcp_tools(mcp_url))
             st.session_state.mcp_error = None
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             st.session_state.mcp_tools = []
             st.session_state.mcp_error = str(exc)
 
@@ -191,13 +190,25 @@ with st.sidebar:
     st.divider()
     if st.button("🗑️ Clear conversation"):
         st.session_state.messages = []
+        st.session_state.pop("pending_tool_call", None)
+        st.session_state.pop("pending_args", None)
+        st.session_state.pop("resume_llm", None)
         st.rerun()
 
 # ---------------------------------------------------------------------------
-# Chat state
+# Chat state initialization
 # ---------------------------------------------------------------------------
 if "messages" not in st.session_state:
     st.session_state.messages = []
+
+if "pending_tool_call" not in st.session_state:
+    st.session_state.pending_tool_call = None
+
+if "pending_args" not in st.session_state:
+    st.session_state.pending_args = None
+
+if "resume_llm" not in st.session_state:
+    st.session_state.resume_llm = False
 
 if not st.session_state.messages:
     st.session_state.messages.append(
@@ -215,15 +226,9 @@ if not st.session_state.messages:
         }
     )
 
-st.title("🤖 FastAPI MCP Chatbot")
-st.caption(f"Model: `{model}` · MCP: `{mcp_url}`")
-
-for msg in st.session_state.messages:
-    if msg["role"] in ("user", "assistant") and msg.get("content"):
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
-
-
+# ---------------------------------------------------------------------------
+# ⬇️ HELPER FUNCTIONS — DIPINDAH KE ATAS SEBELUM DIPANGGIL
+# ---------------------------------------------------------------------------
 def get_thought_signature(tool_call) -> dict | None:
     """Pull the `extra_content.google.thought_signature` field Gemini attaches
     to function-call parts. Gemini 3.x models REQUIRE this to be echoed back
@@ -243,7 +248,7 @@ def run_tool_call(tool_call) -> dict:
     except json.JSONDecodeError:
         args = {}
 
-    # Auto-inject the configured Bearer token into call_api requests
+    # Auto-inject Bearer token
     if name == "call_api" and api_bearer_token:
         headers = dict(args.get("headers") or {})
         headers.setdefault("Authorization", f"Bearer {api_bearer_token}")
@@ -251,7 +256,7 @@ def run_tool_call(tool_call) -> dict:
 
     try:
         result = asyncio.run(call_mcp_tool(mcp_url, name, args))
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         result = {"error": str(exc)}
 
     return {
@@ -262,18 +267,82 @@ def run_tool_call(tool_call) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Render chat history
+# ---------------------------------------------------------------------------
+st.title("🤖 FastAPI MCP Chatbot")
+st.caption(f"Model: `{model}` · MCP: `{mcp_url}`")
+
+for msg in st.session_state.messages:
+    if msg["role"] in ("user", "assistant") and msg.get("content"):
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+# ---------------------------------------------------------------------------
+# 🛡️ HANDLE PENDING DANGEROUS ACTION UI
+# ---------------------------------------------------------------------------
+if st.session_state.get("pending_tool_call"):
+    st.warning("⚠️ **Aksi Berbahaya Terdeteksi (Safe Mode Aktif)**")
+    tc = st.session_state.pending_tool_call
+    args = st.session_state.pending_args
+
+    st.markdown(
+        f"**Tool:** `{tc.function.name}`  \n"
+        f"**Method:** `{args.get('method', 'N/A')}`  \n"
+        f"**Path:** `{args.get('path', 'N/A')}`"
+    )
+
+    with st.expander("🔍 Lihat Detail Payload"):
+        st.json(args)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("✅ Ya, Eksekusi", type="primary", key="btn_confirm_exec"):
+            # ✅ SEKARANG run_tool_call SUDAH TERDEFINISI
+            result = run_tool_call(tc)
+            st.session_state.messages.append(result)
+
+            st.session_state.pending_tool_call = None
+            st.session_state.pending_args = None
+            st.session_state.resume_llm = True
+            st.rerun()
+
+    with col2:
+        if st.button("❌ Batal", key="btn_confirm_cancel"):
+            cancel_result = {
+                "role": "tool",
+                "tool_call_id": tc.id,
+                "content": json.dumps(
+                    {"error": "Aksi dibatalkan oleh pengguna karena Safe Mode aktif."}
+                ),
+            }
+            st.session_state.messages.append(cancel_result)
+
+            st.session_state.pending_tool_call = None
+            st.session_state.pending_args = None
+            st.session_state.resume_llm = True
+            st.rerun()
+
+    st.stop()
+
+# ---------------------------------------------------------------------------
 # Chat input / LLM loop
 # ---------------------------------------------------------------------------
 user_input = st.chat_input("Ask something about the API (e.g. 'is the service healthy?')")
 
-if user_input:
+if user_input or st.session_state.resume_llm:
+
+    if st.session_state.resume_llm:
+        st.session_state.resume_llm = False
+        messages_to_send = st.session_state.messages
+    else:
+        st.session_state.messages.append({"role": "user", "content": user_input})
+        messages_to_send = st.session_state.messages
+        with st.chat_message("user"):
+            st.markdown(user_input)
+
     if not api_key:
         st.error("Please enter your Gemini API key in the sidebar.")
         st.stop()
-
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    with st.chat_message("user"):
-        st.markdown(user_input)
 
     client = OpenAI(api_key=api_key, base_url=GEMINI_BASE_URL)
     tools = st.session_state.get("mcp_tools") or None
@@ -285,7 +354,7 @@ if user_input:
         for _ in range(MAX_TOOL_ROUNDS):
             response = client.chat.completions.create(
                 model=model,
-                messages=st.session_state.messages,
+                messages=messages_to_send,
                 tools=tools,
                 tool_choice="auto" if tools else None,
             )
@@ -308,6 +377,35 @@ if user_input:
                         tc_dict["extra_content"] = thought_sig
                     tool_call_dicts.append(tc_dict)
                 assistant_msg["tool_calls"] = tool_call_dicts
+
+            # -------------------------------------------------------------------
+            # 🛡️ CEK AKSI BERBAHAYA SEBELUM EKSEKUSI
+            # -------------------------------------------------------------------
+            halted = False
+            if choice.tool_calls:
+                for tc in choice.tool_calls:
+                    try:
+                        args = json.loads(tc.function.arguments or "{}")
+                    except json.JSONDecodeError:
+                        args = {}
+
+                    is_dangerous = safe_mode and (
+                        (
+                            tc.function.name == "call_api"
+                            and args.get("method", "").upper() in ["DELETE", "PUT", "PATCH"]
+                        )
+                        or "delete" in tc.function.name.lower()
+                    )
+
+                    if is_dangerous:
+                        st.session_state.pending_tool_call = tc
+                        st.session_state.pending_args = args
+                        st.session_state.messages.append(assistant_msg)
+                        halted = True
+                        break
+
+                if halted:
+                    st.rerun()
 
             st.session_state.messages.append(assistant_msg)
 
