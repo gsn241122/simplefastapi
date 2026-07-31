@@ -4,10 +4,32 @@ import os
 import uuid
 import shutil
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Iterable
+from app.core.config import settings
+
+def _normalize_allowed_image_types(value: "str | Iterable[str]") -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        s = value.strip()
+        if not s:
+            return []
+        # support JSON list or comma-separated
+        if s.startswith("[") and s.endswith("]"):
+            try:
+                parsed = json.loads(s)
+                if isinstance(parsed, list):
+                    return [str(x).strip() for x in parsed if x is not None]
+            except Exception:
+                pass
+        return [item.strip() for item in s.split(",") if item.strip()]
+    if isinstance(value, Iterable):
+        return [str(x).strip() for x in value]
+    return [str(value)]
 
 from fastapi import UploadFile, HTTPException, status
 from app.core.config import settings
+import json
 
 def validate_image_file(upload_file: UploadFile) -> None:
     """
@@ -26,10 +48,11 @@ def validate_image_file(upload_file: UploadFile) -> None:
         )
     
     # Check content type
-    if upload_file.content_type not in settings.ALLOWED_IMAGE_TYPES:
+    allowed_types = _normalize_allowed_image_types(settings.ALLOWED_IMAGE_TYPES)
+    if upload_file.content_type not in allowed_types:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f"File type '{upload_file.content_type}' is not allowed. Allowed types: {', '.join(settings.ALLOWED_IMAGE_TYPES)}"
+            detail=f"File type '{upload_file.content_type}' is not allowed. Allowed types: {', '.join(allowed_types)}"
         )
 
 def save_upload_file(upload_file: UploadFile, subdirectory: str = "") -> str:
