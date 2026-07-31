@@ -3,14 +3,18 @@ LLM ↔ tool-calling loop.
 """
 from __future__ import annotations
 
+import json
 import streamlit as st
 from openai import OpenAI
 
 from config import GEMINI_BASE_URL
+from history_manager import get_default_session_title, save_session
 from sidebar import SidebarSettings
 from tool_execution import (
     cancelled_tool_result,
     get_thought_signature,
+    get_tool_call_id,
+    get_tool_call_name,
     is_dangerous_tool_call,
     parse_tool_arguments,
     run_tool_call,
@@ -18,25 +22,93 @@ from tool_execution import (
 
 
 def render_chat_history() -> None:
-    """Render every past user/assistant message in the conversation."""
+    """Render past messages, including clean collapsible expanders for tool calls and interactive results."""
     for msg in st.session_state.messages:
-        if msg["role"] in ("user", "assistant") and msg.get("content"):
-            with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
+        role = msg.get("role")
+        content = msg.get("content")
+        
+        if role in ("user", "assistant") and content:
+            with st.chat_message(role):
+                st.markdown(content)
+        elif role == "assistant" and not content and msg.get("tool_calls"):
+            # Assistant message with only tool calls and empty content
+            with st.chat_message("assistant"):
+                pass
+        
+        # Display tool calls made by the assistant cleanly in history
+        if role == "assistant" and msg.get("tool_calls"):
+            with st.chat_message("assistant"):
+                for tc in msg["tool_calls"]:
+                    func_name = tc["function"]["name"]
+                    with st.expander(f"🛠️ Tool called: `{func_name}`"):
+                        st.code(tc["function"]["arguments"], language="json")
+        
+        # Display tool execution results with status indicators in history
+        if role == "tool":
+            tool_id = msg.get("tool_call_id", "")
+            func_name = "unknown_tool"
+            for m in st.session_state.messages:
+                if m.get("role") == "assistant" and m.get("tool_calls"):
+                    for tc in m["tool_calls"]:
+                        if tc.get("id") == tool_id:
+                            func_name = tc["function"]["name"]
+            
+            content_str = msg.get("content", "")
+            is_error = False
+            try:
+                parsed_content = json.loads(content_str)
+                if isinstance(parsed_content, dict) and ("error" in parsed_content or parsed_content.get("status_code", 200) >= 400):
+                    is_error = True
+            except Exception:
+                pass
+
+            icon = "❌" if is_error else "✅"
+            status_text = "Failed" if is_error else "Success"
+            with st.chat_message("assistant"):
+                with st.expander(f"{icon} Tool Result: `{func_name}` ({status_text})"):
+                    st.code(content_str, language="json")
 
 
 def render_pending_confirmation(settings: SidebarSettings) -> None:
-    """If a dangerous tool call is awaiting confirmation, render the Safe
-    Mode prompt and halt the script here until the user responds.
+    """If tool calls in the queue require confirmation or execution, process
+    them safely in order without missing any tool responses.
     """
-    if not st.session_state.get("pending_tool_call"):
+    queue = st.session_state.get("pending_tool_queue")
+    if not queue:
         return
 
+    # Find the index of the next dangerous call in the queue
+    next_idx = None
+    for idx, (tc, args, is_danger) in enumerate(queue):
+        if is_danger:
+            next_idx = idx
+            break
+
+    tool_to_real_name = st.session_state.get("tool_to_real_name", {})
+
+    if next_idx is None:
+        # All remaining tool calls in the queue are safe to execute
+        for tc, args, _ in queue:
+            result = run_tool_call(
+                tc,
+                st.session_state.mcp_config,
+                st.session_state.tool_to_server,
+                tool_to_real_name,
+                settings.bearer_token,
+                settings.call_timeout,
+            )
+            st.session_state.messages.append(result)
+        st.session_state.pending_tool_queue = None
+        st.session_state.resume_llm = True
+        st.rerun()
+
+    tc, args, _ = queue[next_idx]
+    tool_name = get_tool_call_name(tc)
+    tool_id = get_tool_call_id(tc)
+
     st.warning("⚠️ Dangerous action detected (Safe Mode is on)")
-    tool_call = st.session_state.pending_tool_call
-    args = st.session_state.pending_args
     st.markdown(
-        f"**Tool:** `{tool_call.function.name}`  \n"
+        f"**Tool:** `{tool_name}`  \n"
         f"**Method:** `{args.get('method', 'N/A')}`  \n"
         f"**Path:** `{args.get('path', 'N/A')}`"
     )
@@ -45,25 +117,57 @@ def render_pending_confirmation(settings: SidebarSettings) -> None:
 
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("✅ Yes, execute", type="primary", key="btn_confirm_exec"):
+        if st.button("✅ Yes, execute", type="primary", key=f"btn_confirm_exec_{tool_id}"):
+            # Execute all safe tools before this dangerous tool
+            for safe_tc, safe_args, _ in queue[:next_idx]:
+                st.session_state.messages.append(
+                    run_tool_call(
+                        safe_tc,
+                        st.session_state.mcp_config,
+                        st.session_state.tool_to_server,
+                        tool_to_real_name,
+                        settings.bearer_token,
+                        settings.call_timeout,
+                    )
+                )
+            # Execute this dangerous tool
             result = run_tool_call(
-                tool_call,
+                tc,
                 st.session_state.mcp_config,
                 st.session_state.tool_to_server,
+                tool_to_real_name,
                 settings.bearer_token,
                 settings.call_timeout,
             )
             st.session_state.messages.append(result)
-            st.session_state.pending_tool_call = None
-            st.session_state.pending_args = None
-            st.session_state.resume_llm = True
+
+            remaining = queue[next_idx + 1 :]
+            st.session_state.pending_tool_queue = remaining if remaining else None
+            if not remaining:
+                st.session_state.resume_llm = True
             st.rerun()
+
     with col2:
-        if st.button("❌ Cancel", key="btn_confirm_cancel"):
-            st.session_state.messages.append(cancelled_tool_result(tool_call))
-            st.session_state.pending_tool_call = None
-            st.session_state.pending_args = None
-            st.session_state.resume_llm = True
+        if st.button("❌ Cancel", key=f"btn_confirm_cancel_{tool_id}"):
+            # Execute all safe tools before this dangerous tool
+            for safe_tc, safe_args, _ in queue[:next_idx]:
+                st.session_state.messages.append(
+                    run_tool_call(
+                        safe_tc,
+                        st.session_state.mcp_config,
+                        st.session_state.tool_to_server,
+                        tool_to_real_name,
+                        settings.bearer_token,
+                        settings.call_timeout,
+                    )
+                )
+            # Record cancelled result for this dangerous tool
+            st.session_state.messages.append(cancelled_tool_result(tc))
+
+            remaining = queue[next_idx + 1 :]
+            st.session_state.pending_tool_queue = remaining if remaining else None
+            if not remaining:
+                st.session_state.resume_llm = True
             st.rerun()
 
     st.stop()
@@ -95,11 +199,7 @@ def _build_assistant_message(choice) -> dict:
 def _stash_dangerous_call_if_any(
     choice, assistant_msg: dict, safe_mode: bool, dangerous_keywords: tuple[str, ...]
 ) -> bool:
-    """If any requested tool call needs confirmation, save it to
-    `session_state` for `render_pending_confirmation` to pick up.
-
-    Returns True if the caller should stop and rerun to show that UI.
-    """
+    """Legacy helper maintained for compatibility."""
     if not choice.tool_calls:
         return False
 
@@ -123,6 +223,7 @@ def run_chat_turn(settings: SidebarSettings) -> None:
 
     client = OpenAI(api_key=settings.api_key, base_url=GEMINI_BASE_URL)
     tools = st.session_state.get("mcp_tools") or None
+    tool_to_real_name = st.session_state.get("tool_to_real_name", {})
 
     with st.chat_message("assistant"):
         placeholder = st.empty()
@@ -139,37 +240,114 @@ def run_chat_turn(settings: SidebarSettings) -> None:
             if settings.max_tokens:
                 create_kwargs["max_tokens"] = settings.max_tokens
 
-            response = client.chat.completions.create(**create_kwargs)
-            choice = response.choices[0].message
-            assistant_msg = _build_assistant_message(choice)
+            if settings.stream_response:
+                create_kwargs["stream"] = True
+                stream = client.chat.completions.create(**create_kwargs)
 
-            if _stash_dangerous_call_if_any(choice, assistant_msg, settings.safe_mode, settings.dangerous_keywords):
-                st.rerun()
+                full_content = ""
+                tool_calls_builder: dict[int, dict] = {}
+
+                for chunk in stream:
+                    if not chunk.choices:
+                        continue
+                    delta = chunk.choices[0].delta
+
+                    if delta.content:
+                        full_content += delta.content
+                        placeholder.markdown(full_content + "▌")
+
+                    if delta.tool_calls:
+                        for tc_delta in delta.tool_calls:
+                            idx = getattr(tc_delta, "index", 0)
+                            if idx not in tool_calls_builder:
+                                tool_calls_builder[idx] = {
+                                    "id": "",
+                                    "name": "",
+                                    "arguments": "",
+                                    "extra_content": None,
+                                }
+                            if tc_delta.id:
+                                tool_calls_builder[idx]["id"] += tc_delta.id
+                            if tc_delta.function:
+                                if tc_delta.function.name:
+                                    tool_calls_builder[idx]["name"] += tc_delta.function.name
+                                if tc_delta.function.arguments:
+                                    tool_calls_builder[idx]["arguments"] += tc_delta.function.arguments
+                            thought_sig = get_thought_signature(tc_delta)
+                            if thought_sig:
+                                tool_calls_builder[idx]["extra_content"] = thought_sig
+
+                placeholder.markdown(full_content if full_content else "")
+
+                assistant_msg = {"role": "assistant", "content": full_content}
+                tool_calls_list = []
+                for idx in sorted(tool_calls_builder.keys()):
+                    tc = tool_calls_builder[idx]
+                    tc_dict = {
+                        "id": tc["id"],
+                        "type": "function",
+                        "function": {"name": tc["name"], "arguments": tc["arguments"]},
+                    }
+                    if tc["extra_content"]:
+                        tc_dict["extra_content"] = tc["extra_content"]
+                    tool_calls_list.append(tc_dict)
+
+                if tool_calls_list:
+                    assistant_msg["tool_calls"] = tool_calls_list
+
+                raw_tool_calls = tool_calls_list
+            else:
+                response = client.chat.completions.create(**create_kwargs)
+                choice = response.choices[0].message
+                assistant_msg = _build_assistant_message(choice)
+                raw_tool_calls = choice.tool_calls or []
 
             st.session_state.messages.append(assistant_msg)
 
-            if not choice.tool_calls:
-                placeholder.markdown(choice.content or "")
+            if not raw_tool_calls:
                 return
 
-            placeholder.markdown(
-                "_calling tool(s): "
-                + ", ".join(tc.function.name for tc in choice.tool_calls)
-                + "..._"
-            )
+            tool_names = [
+                tc["function"]["name"] if isinstance(tc, dict) else tc.function.name
+                for tc in raw_tool_calls
+            ]
+            placeholder.markdown("_calling tool(s): " + ", ".join(tool_names) + "..._")
 
-            for tc in choice.tool_calls:
+            queue = []
+            has_dangerous = False
+            for tc in raw_tool_calls:
+                args = parse_tool_arguments(tc)
+                is_danger = is_dangerous_tool_call(tc, args, settings.safe_mode, settings.dangerous_keywords)
+                queue.append((tc, args, is_danger))
+                if is_danger:
+                    has_dangerous = True
+
+            if has_dangerous:
+                st.session_state.pending_tool_queue = queue
+                st.rerun()
+
+            for tc, args, _ in queue:
                 st.session_state.messages.append(
                     run_tool_call(
                         tc,
                         st.session_state.mcp_config,
                         st.session_state.tool_to_server,
+                        tool_to_real_name,
                         settings.bearer_token,
                         settings.call_timeout,
                     )
                 )
 
         placeholder.markdown("_Stopped after multiple tool calls without a final answer._")
+
+
+def _auto_save_current_session() -> None:
+    """Save active session messages to disk immediately after user/LLM interactions."""
+    current_id = st.session_state.get("current_session_id")
+    messages = st.session_state.get("messages") or []
+    if current_id and len(messages) > 1:
+        title = get_default_session_title(messages)
+        save_session(current_id, title, messages)
 
 
 def handle_chat_input(settings: SidebarSettings) -> None:
@@ -188,3 +366,4 @@ def handle_chat_input(settings: SidebarSettings) -> None:
         return
 
     run_chat_turn(settings)
+    _auto_save_current_session()

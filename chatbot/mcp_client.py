@@ -40,14 +40,23 @@ def get_pool() -> MCPConnectionPool:
 def load_mcp_config(config_path: str = "mcp_servers.json") -> dict[str, dict]:
     """Load MCP server configurations from a JSON file.
 
-    Returns an empty dict if the file doesn't exist. Accepts both
-    `{"mcpServers": {...}}` and a bare `{...}` mapping at the top level.
+    Returns an empty dict if the file doesn't exist, is invalid JSON, or doesn't
+    contain a dictionary. Accepts both `{"mcpServers": {...}}` and a bare
+    `{...}` mapping at the top level.
     """
     if not os.path.exists(config_path):
         return {}
-    with open(config_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-        return data.get("mcpServers", data)
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if not isinstance(data, dict):
+                return {}
+            mcp_servers = data.get("mcpServers")
+            if isinstance(mcp_servers, dict):
+                return mcp_servers
+            return data
+    except Exception:
+        return {}
 
 
 def _tool_input_schema(tool: Any) -> dict:
@@ -79,18 +88,20 @@ def _extract_result(result: Any) -> Any:
 def fetch_all_mcp_tools(
     config: dict[str, dict],
     connect_timeout: float = DEFAULT_CONNECT_TIMEOUT_SECONDS,
-) -> tuple[list[dict[str, Any]], dict[str, str], dict[str, str]]:
+) -> tuple[list[dict[str, Any]], dict[str, str], dict[str, str], dict[str, str]]:
     """Connect to every configured MCP server *concurrently* (reusing any
     already-open connections) and return their tool definitions.
 
     Returns:
         - openai_tools: tool definitions in OpenAI function-calling format
         - tool_to_server: mapping of tool_name -> server_name
+        - tool_to_real_name: mapping of tool_name -> actual_mcp_tool_name
         - server_errors: mapping of server_name -> error_message (for
           servers that failed to connect)
     """
     openai_tools: list[dict[str, Any]] = []
     tool_to_server: dict[str, str] = {}
+    tool_to_real_name: dict[str, str] = {}
     server_errors: dict[str, str] = {}
 
     print(f"[MCP] Connecting to {len(config)} server(s) in parallel...", file=sys.stderr)
@@ -104,19 +115,24 @@ def fetch_all_mcp_tools(
 
         print(f"[MCP] Found {len(tools)} tools from '{server_name}'", file=sys.stderr)
         for tool in tools:
+            func_name = tool.name
+            if func_name in tool_to_server and tool_to_server[func_name] != server_name:
+                func_name = f"{server_name}__{tool.name}"
+
             openai_tools.append(
                 {
                     "type": "function",
                     "function": {
-                        "name": tool.name,
+                        "name": func_name,
                         "description": tool.description or "",
                         "parameters": _tool_input_schema(tool),
                     },
                 }
             )
-            tool_to_server[tool.name] = server_name
+            tool_to_server[func_name] = server_name
+            tool_to_real_name[func_name] = tool.name
 
-    return openai_tools, tool_to_server, server_errors
+    return openai_tools, tool_to_server, tool_to_real_name, server_errors
 
 
 def call_mcp_tool_by_name(
@@ -124,6 +140,7 @@ def call_mcp_tool_by_name(
     tool_to_server: dict[str, str],
     tool_name: str,
     arguments: dict[str, Any],
+    tool_to_real_name: dict[str, str] | None = None,
     connect_timeout: float = DEFAULT_CONNECT_TIMEOUT_SECONDS,
     call_timeout: float = DEFAULT_CALL_TIMEOUT_SECONDS,
 ) -> Any:
@@ -136,22 +153,24 @@ def call_mcp_tool_by_name(
     if not server_config:
         return {"error": f"Server config for '{server_name}' not found."}
 
+    real_tool_name = (tool_to_real_name or {}).get(tool_name, tool_name)
+
     try:
         print(
-            f"[MCP] Calling tool '{tool_name}' on server '{server_name}' with args: {arguments}",
+            f"[MCP] Calling tool '{real_tool_name}' (registered as '{tool_name}') on server '{server_name}' with args: {arguments}",
             file=sys.stderr,
         )
         result = get_pool().call_tool(
             server_name,
             server_config,
-            tool_name,
+            real_tool_name,
             arguments,
             connect_timeout=connect_timeout,
             call_timeout=call_timeout,
         )
-        print(f"[MCP] Tool '{tool_name}' executed successfully", file=sys.stderr)
+        print(f"[MCP] Tool '{real_tool_name}' executed successfully", file=sys.stderr)
         return _extract_result(result)
     except Exception as e:
         error_msg = f"{type(e).__name__}: {e}"
-        print(f"[MCP] Error calling tool '{tool_name}': {error_msg}", file=sys.stderr)
+        print(f"[MCP] Error calling tool '{real_tool_name}': {error_msg}", file=sys.stderr)
         return {"error": error_msg}
