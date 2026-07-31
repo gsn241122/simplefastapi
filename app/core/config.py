@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     # API Key (minimal 32 karakter di production)
     API_KEY: str = "demo-api-key-12345"
 
+    # Optional Gemini/LLM settings read from environment
+    GEMINI_API_KEY: Optional[str] = None
+    GEMINI_MODEL: Optional[str] = None
+    GEMINI_API_ENDPOINT: Optional[str] = None
+
     # CORS Settings — kosongkan untuk allow all (hanya di development)
     CORS_ORIGINS: List[str] = ["*"]
     CORS_ALLOW_CREDENTIALS: bool = True
