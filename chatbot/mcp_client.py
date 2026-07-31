@@ -1,16 +1,40 @@
-"""Small helper layer to support multiple MCP servers configured via
-mcp_servers.json.
+"""Thin, synchronous MCP client API used by the rest of the app.
 
-- HTTP/SSE servers: via fastmcp.Client
-- Stdio servers: via mcp.ClientSession + mcp.client.stdio.stdio_client
+Connection lifecycle (opening stdio subprocesses / HTTP sessions, keeping
+them alive, tearing them down on failure) is delegated to the persistent
+connection pool in `mcp_pool.py`. This module is responsible for:
+  - loading mcp_servers.json
+  - converting MCP tool definitions into OpenAI function-calling format
+  - normalizing tool-call results into plain Python values
 """
 from __future__ import annotations
 
 import json
 import os
-import shutil
 import sys
+import threading
 from typing import Any
+
+from config import DEFAULT_CALL_TIMEOUT_SECONDS, DEFAULT_CONNECT_TIMEOUT_SECONDS
+from mcp_pool import MCPConnectionPool
+
+_pool: MCPConnectionPool | None = None
+_pool_lock = threading.Lock()
+
+
+def get_pool() -> MCPConnectionPool:
+    """Return the process-wide MCP connection pool, creating it on first use.
+
+    A single pool is shared across all Streamlit sessions in this process,
+    which is what lets tool connections persist across reruns instead of
+    reconnecting on every interaction.
+    """
+    global _pool
+    if _pool is None:
+        with _pool_lock:
+            if _pool is None:
+                _pool = MCPConnectionPool()
+    return _pool
 
 
 def load_mcp_config(config_path: str = "mcp_servers.json") -> dict[str, dict]:
@@ -26,16 +50,6 @@ def load_mcp_config(config_path: str = "mcp_servers.json") -> dict[str, dict]:
         return data.get("mcpServers", data)
 
 
-def _is_stdio_server(server_config: dict) -> bool:
-    """Check if server config is for a stdio-based server."""
-    return "command" in server_config
-
-
-def _is_http_server(server_config: dict) -> bool:
-    """Check if server config is for an HTTP/SSE-based server."""
-    return "url" in server_config
-
-
 def _tool_input_schema(tool: Any) -> dict:
     """Get a tool's JSON schema, tolerating both SDK naming conventions.
 
@@ -49,40 +63,25 @@ def _tool_input_schema(tool: Any) -> dict:
     return schema or {"type": "object", "properties": {}}
 
 
-async def _fetch_stdio_tools(server_config: dict) -> list:
-    """Fetch tools from a stdio-based MCP server using the `mcp` package directly."""
-    from mcp import ClientSession, StdioServerParameters
-    from mcp.client.stdio import stdio_client
+def _extract_result(result: Any) -> Any:
+    """Normalize a tool-call result from either `mcp.ClientSession` or
+    `fastmcp.Client` into a plain string/dict/list.
+    """
+    if getattr(result, "data", None) is not None:
+        return result.data
+    if getattr(result, "structured_content", None) is not None:
+        return result.structured_content
 
-    command = server_config["command"]
-    args = server_config.get("args", [])
-    env = server_config.get("env")
-
-    if not shutil.which(command):
-        raise ValueError(f"Command '{command}' not found in PATH. Make sure it's installed.")
-
-    params = StdioServerParameters(command=command, args=args, env=env)
-
-    async with stdio_client(params) as (read, write):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            result = await session.list_tools()
-            return result.tools
+    parts = [block.text for block in getattr(result, "content", []) or [] if getattr(block, "text", None)]
+    return "\n".join(parts) if parts else str(result)
 
 
-async def _fetch_http_tools(server_config: dict) -> list:
-    """Fetch tools from an HTTP/SSE-based MCP server using fastmcp.Client."""
-    from fastmcp import Client
-
-    url = server_config["url"]
-    async with Client(url) as client:
-        return await client.list_tools()
-
-
-async def fetch_all_mcp_tools(
+def fetch_all_mcp_tools(
     config: dict[str, dict],
+    connect_timeout: float = DEFAULT_CONNECT_TIMEOUT_SECONDS,
 ) -> tuple[list[dict[str, Any]], dict[str, str], dict[str, str]]:
-    """Connect to all configured MCP servers and return their tool definitions.
+    """Connect to every configured MCP server *concurrently* (reusing any
+    already-open connections) and return their tool definitions.
 
     Returns:
         - openai_tools: tool definitions in OpenAI function-calling format
@@ -94,90 +93,41 @@ async def fetch_all_mcp_tools(
     tool_to_server: dict[str, str] = {}
     server_errors: dict[str, str] = {}
 
-    for server_name, server_config in config.items():
-        try:
-            print(f"[MCP] Connecting to '{server_name}'...", file=sys.stderr)
+    print(f"[MCP] Connecting to {len(config)} server(s) in parallel...", file=sys.stderr)
+    results = get_pool().list_tools_many(config, connect_timeout=connect_timeout)
 
-            if _is_stdio_server(server_config):
-                tools = await _fetch_stdio_tools(server_config)
-            elif _is_http_server(server_config):
-                tools = await _fetch_http_tools(server_config)
-            else:
-                raise ValueError("Server config must contain 'url' or 'command'")
+    for server_name, (tools, error) in results.items():
+        if error:
+            print(f"[MCP] Error fetching tools from '{server_name}': {error}", file=sys.stderr)
+            server_errors[server_name] = error
+            continue
 
-            print(f"[MCP] Found {len(tools)} tools from '{server_name}'", file=sys.stderr)
-
-            for tool in tools:
-                openai_tools.append(
-                    {
-                        "type": "function",
-                        "function": {
-                            "name": tool.name,
-                            "description": tool.description or "",
-                            "parameters": _tool_input_schema(tool),
-                        },
-                    }
-                )
-                tool_to_server[tool.name] = server_name
-        except Exception as e:
-            error_msg = f"{type(e).__name__}: {e}"
-            print(f"[MCP] Error fetching tools from '{server_name}': {error_msg}", file=sys.stderr)
-            server_errors[server_name] = error_msg
+        print(f"[MCP] Found {len(tools)} tools from '{server_name}'", file=sys.stderr)
+        for tool in tools:
+            openai_tools.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": tool.name,
+                        "description": tool.description or "",
+                        "parameters": _tool_input_schema(tool),
+                    },
+                }
+            )
+            tool_to_server[tool.name] = server_name
 
     return openai_tools, tool_to_server, server_errors
 
 
-def _extract_text_content(result: Any) -> str:
-    """Join every `.text` block found in an MCP tool result's `.content` list."""
-    parts = [block.text for block in getattr(result, "content", []) or [] if getattr(block, "text", None)]
-    return "\n".join(parts) if parts else str(result)
-
-
-async def _call_stdio_tool(server_config: dict, tool_name: str, arguments: dict[str, Any]) -> Any:
-    """Call a tool on a stdio-based MCP server."""
-    from mcp import ClientSession, StdioServerParameters
-    from mcp.client.stdio import stdio_client
-
-    command = server_config["command"]
-    args = server_config.get("args", [])
-    env = server_config.get("env")
-
-    params = StdioServerParameters(command=command, args=args, env=env)
-
-    async with stdio_client(params) as (read, write):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            result = await session.call_tool(tool_name, arguments)
-            return _extract_text_content(result)
-
-
-async def _call_http_tool(server_config: dict, tool_name: str, arguments: dict[str, Any]) -> Any:
-    """Call a tool on an HTTP/SSE-based MCP server."""
-    from fastmcp import Client
-
-    url = server_config["url"]
-    async with Client(url) as client:
-        result = await client.call_tool(tool_name, arguments)
-
-        if getattr(result, "data", None) is not None:
-            return result.data
-        if getattr(result, "structured_content", None) is not None:
-            return result.structured_content
-
-        return _extract_text_content(result)
-
-
-async def call_mcp_tool_by_name(
+def call_mcp_tool_by_name(
     config: dict[str, dict],
     tool_to_server: dict[str, str],
     tool_name: str,
     arguments: dict[str, Any],
+    connect_timeout: float = DEFAULT_CONNECT_TIMEOUT_SECONDS,
+    call_timeout: float = DEFAULT_CALL_TIMEOUT_SECONDS,
 ) -> Any:
-    """Invoke a single MCP tool by routing it to the correct server.
-
-    Returns the tool's result, or a dict with an "error" key if the tool
-    couldn't be found, isn't configured, or raised an exception.
-    """
+    """Invoke a single MCP tool, reusing the server's persistent connection."""
     server_name = tool_to_server.get(tool_name)
     if not server_name:
         return {"error": f"Tool '{tool_name}' not found in any configured MCP server."}
@@ -191,16 +141,16 @@ async def call_mcp_tool_by_name(
             f"[MCP] Calling tool '{tool_name}' on server '{server_name}' with args: {arguments}",
             file=sys.stderr,
         )
-
-        if _is_stdio_server(server_config):
-            result = await _call_stdio_tool(server_config, tool_name, arguments)
-        elif _is_http_server(server_config):
-            result = await _call_http_tool(server_config, tool_name, arguments)
-        else:
-            return {"error": "Invalid server configuration"}
-
+        result = get_pool().call_tool(
+            server_name,
+            server_config,
+            tool_name,
+            arguments,
+            connect_timeout=connect_timeout,
+            call_timeout=call_timeout,
+        )
         print(f"[MCP] Tool '{tool_name}' executed successfully", file=sys.stderr)
-        return result
+        return _extract_result(result)
     except Exception as e:
         error_msg = f"{type(e).__name__}: {e}"
         print(f"[MCP] Error calling tool '{tool_name}': {error_msg}", file=sys.stderr)

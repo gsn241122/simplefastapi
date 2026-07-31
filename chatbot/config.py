@@ -14,11 +14,20 @@ AVAILABLE_MODELS = [
 ]
 DEFAULT_MODEL = "gemini-3.5-flash-lite"
 
+MCP_CONFIG_PATH = "mcp_servers.json"
+
+# --- Tunable defaults, overridable from the sidebar's "Advanced tuning" panel ---
+DEFAULT_TEMPERATURE = 0.7
+DEFAULT_MAX_OUTPUT_TOKENS = 2048
+
 # Maximum number of automatic tool-call rounds before the assistant gives up
 # and reports that it couldn't reach a final answer.
-MAX_TOOL_ROUNDS = 5
+DEFAULT_MAX_TOOL_ROUNDS = 5
 
-MCP_CONFIG_PATH = "mcp_servers.json"
+# How long to wait when opening a new MCP connection / spawning a stdio
+# subprocess, and how long to wait for a single tool call to finish.
+DEFAULT_CONNECT_TIMEOUT_SECONDS = 20.0
+DEFAULT_CALL_TIMEOUT_SECONDS = 60.0
 
 # --- Safe Mode: which tool calls require explicit user confirmation --------
 DANGEROUS_HTTP_METHODS = {"DELETE", "PUT", "PATCH"}

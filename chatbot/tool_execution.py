@@ -1,11 +1,10 @@
 """Helpers for parsing, executing, and gating MCP tool calls."""
 from __future__ import annotations
 
-import asyncio
 import json
 from typing import Any
 
-from config import DANGEROUS_HTTP_METHODS, DANGEROUS_NAME_KEYWORDS
+from config import DANGEROUS_HTTP_METHODS
 from mcp_client import call_mcp_tool_by_name
 
 
@@ -31,7 +30,12 @@ def parse_tool_arguments(tool_call: Any) -> dict[str, Any]:
         return {}
 
 
-def is_dangerous_tool_call(tool_call: Any, args: dict[str, Any], safe_mode: bool) -> bool:
+def is_dangerous_tool_call(
+    tool_call: Any,
+    args: dict[str, Any],
+    safe_mode: bool,
+    dangerous_keywords: tuple[str, ...],
+) -> bool:
     """Decide whether a tool call should be confirmed by the user before running."""
     if not safe_mode:
         return False
@@ -41,7 +45,7 @@ def is_dangerous_tool_call(tool_call: Any, args: dict[str, Any], safe_mode: bool
     if name == "call_api" and args.get("method", "").upper() in DANGEROUS_HTTP_METHODS:
         return True
 
-    return any(keyword in name.lower() for keyword in DANGEROUS_NAME_KEYWORDS)
+    return any(keyword in name.lower() for keyword in dangerous_keywords)
 
 
 def run_tool_call(
@@ -49,9 +53,12 @@ def run_tool_call(
     mcp_config: dict,
     tool_to_server: dict,
     bearer_token: str | None,
+    call_timeout: float,
 ) -> dict:
     """Execute one OpenAI-style tool_call against the correct MCP server.
 
+    Reuses the server's persistent connection (see mcp_pool.py) instead of
+    reconnecting from scratch on every call.
     Returns a chat message dict (role="tool") ready to append to the
     conversation history.
     """
@@ -66,7 +73,7 @@ def run_tool_call(
         args["headers"] = headers
 
     try:
-        result = asyncio.run(call_mcp_tool_by_name(mcp_config, tool_to_server, name, args))
+        result = call_mcp_tool_by_name(mcp_config, tool_to_server, name, args, call_timeout=call_timeout)
     except Exception as exc:
         result = {"error": str(exc)}
 

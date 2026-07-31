@@ -6,7 +6,7 @@ from __future__ import annotations
 import streamlit as st
 from openai import OpenAI
 
-from config import GEMINI_BASE_URL, MAX_TOOL_ROUNDS
+from config import GEMINI_BASE_URL
 from sidebar import SidebarSettings
 from tool_execution import (
     cancelled_tool_result,
@@ -51,6 +51,7 @@ def render_pending_confirmation(settings: SidebarSettings) -> None:
                 st.session_state.mcp_config,
                 st.session_state.tool_to_server,
                 settings.bearer_token,
+                settings.call_timeout,
             )
             st.session_state.messages.append(result)
             st.session_state.pending_tool_call = None
@@ -91,7 +92,9 @@ def _build_assistant_message(choice) -> dict:
     return assistant_msg
 
 
-def _stash_dangerous_call_if_any(choice, assistant_msg: dict, safe_mode: bool) -> bool:
+def _stash_dangerous_call_if_any(
+    choice, assistant_msg: dict, safe_mode: bool, dangerous_keywords: tuple[str, ...]
+) -> bool:
     """If any requested tool call needs confirmation, save it to
     `session_state` for `render_pending_confirmation` to pick up.
 
@@ -102,7 +105,7 @@ def _stash_dangerous_call_if_any(choice, assistant_msg: dict, safe_mode: bool) -
 
     for tc in choice.tool_calls:
         args = parse_tool_arguments(tc)
-        if is_dangerous_tool_call(tc, args, safe_mode):
+        if is_dangerous_tool_call(tc, args, safe_mode, dangerous_keywords):
             st.session_state.pending_tool_call = tc
             st.session_state.pending_args = args
             st.session_state.messages.append(assistant_msg)
@@ -112,7 +115,7 @@ def _stash_dangerous_call_if_any(choice, assistant_msg: dict, safe_mode: bool) -
 
 def run_chat_turn(settings: SidebarSettings) -> None:
     """Send the conversation to Gemini and resolve any tool calls it makes,
-    looping up to `MAX_TOOL_ROUNDS` times before giving up.
+    looping up to `settings.max_tool_rounds` times before giving up.
     """
     if not settings.api_key:
         st.error("Please enter your Gemini API key in the sidebar.")
@@ -125,17 +128,22 @@ def run_chat_turn(settings: SidebarSettings) -> None:
         placeholder = st.empty()
         placeholder.markdown("_thinking..._")
 
-        for _ in range(MAX_TOOL_ROUNDS):
-            response = client.chat.completions.create(
+        for _ in range(settings.max_tool_rounds):
+            create_kwargs = dict(
                 model=settings.model,
                 messages=st.session_state.messages,
                 tools=tools,
                 tool_choice="auto" if tools else None,
+                temperature=settings.temperature,
             )
+            if settings.max_tokens:
+                create_kwargs["max_tokens"] = settings.max_tokens
+
+            response = client.chat.completions.create(**create_kwargs)
             choice = response.choices[0].message
             assistant_msg = _build_assistant_message(choice)
 
-            if _stash_dangerous_call_if_any(choice, assistant_msg, settings.safe_mode):
+            if _stash_dangerous_call_if_any(choice, assistant_msg, settings.safe_mode, settings.dangerous_keywords):
                 st.rerun()
 
             st.session_state.messages.append(assistant_msg)
@@ -157,6 +165,7 @@ def run_chat_turn(settings: SidebarSettings) -> None:
                         st.session_state.mcp_config,
                         st.session_state.tool_to_server,
                         settings.bearer_token,
+                        settings.call_timeout,
                     )
                 )
 

@@ -1,14 +1,24 @@
-"""Sidebar UI: model settings, MCP server status, login form, and Safe Mode."""
+"""Sidebar UI: model settings, advanced tuning, MCP server status, login
+form, and Safe Mode.
+"""
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 from dataclasses import dataclass
 
 import streamlit as st
 
-from config import AVAILABLE_MODELS, DEFAULT_MODEL
+from config import (
+    AVAILABLE_MODELS,
+    DANGEROUS_NAME_KEYWORDS,
+    DEFAULT_CALL_TIMEOUT_SECONDS,
+    DEFAULT_CONNECT_TIMEOUT_SECONDS,
+    DEFAULT_MAX_OUTPUT_TOKENS,
+    DEFAULT_MAX_TOOL_ROUNDS,
+    DEFAULT_MODEL,
+    DEFAULT_TEMPERATURE,
+)
 from mcp_client import call_mcp_tool_by_name, fetch_all_mcp_tools
 
 
@@ -20,6 +30,22 @@ class SidebarSettings:
     model: str
     safe_mode: bool
     bearer_token: str
+    temperature: float
+    max_tokens: int | None
+    max_tool_rounds: int
+    connect_timeout: float
+    call_timeout: float
+    dangerous_keywords: tuple[str, ...]
+
+
+@dataclass
+class _Tuning:
+    temperature: float
+    max_tokens: int | None
+    max_tool_rounds: int
+    connect_timeout: float
+    call_timeout: float
+    dangerous_keywords: tuple[str, ...]
 
 
 def _render_model_settings() -> tuple[str, str]:
@@ -40,6 +66,71 @@ def _render_model_settings() -> tuple[str, str]:
     return api_key, model
 
 
+def _render_advanced_tuning() -> _Tuning:
+    with st.expander("🎛️ Advanced tuning"):
+        temperature = st.slider(
+            "Temperature",
+            min_value=0.0,
+            max_value=2.0,
+            value=DEFAULT_TEMPERATURE,
+            step=0.1,
+            help="Higher = more creative/random, lower = more focused/deterministic.",
+        )
+
+        limit_tokens = st.checkbox("Limit max output tokens", value=False)
+        max_tokens: int | None = None
+        if limit_tokens:
+            max_tokens = st.number_input(
+                "Max output tokens",
+                min_value=64,
+                max_value=32000,
+                value=DEFAULT_MAX_OUTPUT_TOKENS,
+                step=64,
+            )
+
+        max_tool_rounds = st.slider(
+            "Max tool-call rounds",
+            min_value=1,
+            max_value=20,
+            value=DEFAULT_MAX_TOOL_ROUNDS,
+            help="How many back-and-forth tool calls the assistant may make before giving up.",
+        )
+
+        st.caption("MCP connection")
+        connect_timeout = st.number_input(
+            "Connect timeout (s)",
+            min_value=1.0,
+            max_value=120.0,
+            value=DEFAULT_CONNECT_TIMEOUT_SECONDS,
+            step=1.0,
+            help="Max time to wait when opening a new MCP server connection (e.g. spawning a stdio subprocess).",
+        )
+        call_timeout = st.number_input(
+            "Tool-call timeout (s)",
+            min_value=1.0,
+            max_value=300.0,
+            value=DEFAULT_CALL_TIMEOUT_SECONDS,
+            step=5.0,
+            help="Max time to wait for a single tool call to finish.",
+        )
+
+        keywords_raw = st.text_input(
+            "Safe Mode keywords (comma-separated)",
+            value=", ".join(DANGEROUS_NAME_KEYWORDS),
+            help="Tool names containing any of these words require confirmation when Safe Mode is on.",
+        )
+        dangerous_keywords = tuple(k.strip().lower() for k in keywords_raw.split(",") if k.strip())
+
+    return _Tuning(
+        temperature=temperature,
+        max_tokens=int(max_tokens) if max_tokens else None,
+        max_tool_rounds=max_tool_rounds,
+        connect_timeout=connect_timeout,
+        call_timeout=call_timeout,
+        dangerous_keywords=dangerous_keywords or DANGEROUS_NAME_KEYWORDS,
+    )
+
+
 def _render_mcp_server_list() -> None:
     st.subheader("🔌 MCP Servers")
     if not st.session_state.mcp_config:
@@ -50,14 +141,14 @@ def _render_mcp_server_list() -> None:
         st.caption(f"• {name}")
 
 
-def _ensure_tool_mapping_loaded() -> bool:
+def _ensure_tool_mapping_loaded(connect_timeout: float) -> bool:
     """Make sure `tool_to_server` is populated before the login form calls
     `call_api`. Returns False (and shows an error) on failure.
     """
     if st.session_state.tool_to_server:
         return True
     try:
-        _, mapping, _ = asyncio.run(fetch_all_mcp_tools(st.session_state.mcp_config))
+        _, mapping, _ = fetch_all_mcp_tools(st.session_state.mcp_config, connect_timeout=connect_timeout)
         st.session_state.tool_to_server = mapping
         return True
     except Exception as exc:
@@ -73,8 +164,8 @@ def _extract_login_error(body: object) -> str:
     return "Unknown error"
 
 
-def _handle_login(login_path: str, username: str, password: str) -> None:
-    if not _ensure_tool_mapping_loaded():
+def _handle_login(login_path: str, username: str, password: str, connect_timeout: float, call_timeout: float) -> None:
+    if not _ensure_tool_mapping_loaded(connect_timeout):
         st.stop()
 
     login_args = {
@@ -83,13 +174,13 @@ def _handle_login(login_path: str, username: str, password: str) -> None:
         "data": {"username": username, "password": password},
     }
     with st.spinner("Logging in via MCP server..."):
-        result = asyncio.run(
-            call_mcp_tool_by_name(
-                st.session_state.mcp_config,
-                st.session_state.tool_to_server,
-                "call_api",
-                login_args,
-            )
+        result = call_mcp_tool_by_name(
+            st.session_state.mcp_config,
+            st.session_state.tool_to_server,
+            "call_api",
+            login_args,
+            connect_timeout=connect_timeout,
+            call_timeout=call_timeout,
         )
 
     body = result.get("body")
@@ -114,7 +205,7 @@ def _handle_login(login_path: str, username: str, password: str) -> None:
     st.caption(f"Details: {error_msg}")
 
 
-def _render_login_form() -> None:
+def _render_login_form(connect_timeout: float, call_timeout: float) -> None:
     st.subheader("🔐 API Authentication")
     if "api_bearer_token" not in st.session_state:
         st.session_state.api_bearer_token = os.getenv("API_BEARER_TOKEN", "")
@@ -134,12 +225,12 @@ def _render_login_form() -> None:
             st.error("Username and password are required!")
         else:
             try:
-                _handle_login(login_path, username, password)
+                _handle_login(login_path, username, password, connect_timeout, call_timeout)
             except Exception as exc:
                 st.error(f"❌ Error calling MCP tool: {exc}")
 
 
-def _render_mcp_tools_status() -> None:
+def _render_mcp_tools_status(connect_timeout: float) -> None:
     if st.button("🔄 Refresh MCP tools"):
         st.session_state.pop("mcp_tools", None)
         st.session_state.pop("tool_to_server", None)
@@ -148,7 +239,7 @@ def _render_mcp_tools_status() -> None:
 
     if "mcp_tools" not in st.session_state:
         try:
-            tools, mapping, errors = asyncio.run(fetch_all_mcp_tools(st.session_state.mcp_config))
+            tools, mapping, errors = fetch_all_mcp_tools(st.session_state.mcp_config, connect_timeout=connect_timeout)
             st.session_state.mcp_tools = tools
             st.session_state.tool_to_server = mapping
             st.session_state.server_errors = errors
@@ -189,10 +280,13 @@ def render_sidebar() -> SidebarSettings:
         api_key, model = _render_model_settings()
         st.divider()
 
+        tuning = _render_advanced_tuning()
+        st.divider()
+
         _render_mcp_server_list()
         st.divider()
 
-        _render_login_form()
+        _render_login_form(tuning.connect_timeout, tuning.call_timeout)
         st.divider()
 
         bearer_token = st.text_input(
@@ -213,15 +307,26 @@ def render_sidebar() -> SidebarSettings:
             value=True,
             help=(
                 "Ask for explicit confirmation before running a DELETE, PUT, "
-                "or PATCH method, or any tool whose name contains 'delete', "
-                "'write_file', or 'execute'."
+                "or PATCH method, or any tool whose name matches a keyword "
+                "from the Safe Mode keyword list above."
             ),
         )
         st.divider()
 
-        _render_mcp_tools_status()
+        _render_mcp_tools_status(tuning.connect_timeout)
         st.divider()
 
         _render_clear_conversation_button()
 
-    return SidebarSettings(api_key=api_key, model=model, safe_mode=safe_mode, bearer_token=bearer_token)
+    return SidebarSettings(
+        api_key=api_key,
+        model=model,
+        safe_mode=safe_mode,
+        bearer_token=bearer_token,
+        temperature=tuning.temperature,
+        max_tokens=tuning.max_tokens,
+        max_tool_rounds=tuning.max_tool_rounds,
+        connect_timeout=tuning.connect_timeout,
+        call_timeout=tuning.call_timeout,
+        dangerous_keywords=tuning.dangerous_keywords,
+    )
