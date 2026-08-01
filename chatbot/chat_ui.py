@@ -27,6 +27,7 @@ from config import (
     TOOL_RESULT_TRUNCATE_CHARS,
 )
 from history_manager import get_default_session_title, save_session
+from mcp_client import call_mcp_tool_by_name
 from sidebar import SidebarSettings
 from tool_execution import (
     cancelled_tool_result,
@@ -325,9 +326,8 @@ def _build_assistant_message(choice) -> dict:
     return assistant_msg
 
 
-def _build_create_kwargs(settings: SidebarSettings, stream: bool) -> dict:
+def _build_create_kwargs(settings: SidebarSettings, stream: bool, tools: list[dict] | None) -> dict:
     """Build kwargs for `client.chat.completions.create`."""
-    tools = st.session_state.get("mcp_tools") or None
     kwargs: dict = dict(
         model=settings.model,
         messages=st.session_state.messages,
@@ -343,11 +343,13 @@ def _build_create_kwargs(settings: SidebarSettings, stream: bool) -> dict:
     return kwargs
 
 
-def _stream_response(client: OpenAI, settings: SidebarSettings, placeholder):
+def _stream_response(client: OpenAI, settings: SidebarSettings, placeholder, tools: list[dict] | None):
     """Stream the response token by token. Returns (assistant_msg, raw_tool_calls, metrics)."""
     t_start = time.perf_counter()
     ttft = None
-    stream = client.chat.completions.create(**_build_create_kwargs(settings, stream=True))
+    stream = client.chat.completions.create(
+        **_build_create_kwargs(settings, stream=True, tools=tools)
+    )
 
     full_content = ""
     tool_calls_builder: dict[int, dict] = {}
@@ -398,8 +400,16 @@ def _stream_response(client: OpenAI, settings: SidebarSettings, placeholder):
 
     prompt_tokens = getattr(usage_data, "prompt_tokens", 0) if usage_data else 0
     completion_tokens = getattr(usage_data, "completion_tokens", 0) if usage_data else 0
-    total_tokens = getattr(usage_data, "total_tokens", 0) if usage_data else (prompt_tokens + completion_tokens)
-    tokens_per_sec = (completion_tokens / total_time) if total_time > 0 and completion_tokens > 0 else 0.0
+    total_tokens = (
+        getattr(usage_data, "total_tokens", 0)
+        if usage_data
+        else (prompt_tokens + completion_tokens)
+    )
+    tokens_per_sec = (
+        (completion_tokens / total_time)
+        if total_time > 0 and completion_tokens > 0
+        else 0.0
+    )
 
     metrics = {
         "total_time_s": total_time,
@@ -429,10 +439,12 @@ def _stream_response(client: OpenAI, settings: SidebarSettings, placeholder):
     return assistant_msg, tool_calls_list, metrics
 
 
-def _non_stream_response(client: OpenAI, settings: SidebarSettings, placeholder):
+def _non_stream_response(client: OpenAI, settings: SidebarSettings, placeholder, tools: list[dict] | None):
     """Non-streaming response. Returns (assistant_msg, raw_tool_calls, metrics, error)."""
     t_start = time.perf_counter()
-    response = client.chat.completions.create(**_build_create_kwargs(settings, stream=False))
+    response = client.chat.completions.create(
+        **_build_create_kwargs(settings, stream=False, tools=tools)
+    )
     elapsed = time.perf_counter() - t_start
 
     choice = response.choices[0].message
@@ -448,7 +460,9 @@ def _non_stream_response(client: OpenAI, settings: SidebarSettings, placeholder)
         prompt_tokens = getattr(usage, "prompt_tokens", 0) or 0
         completion_tokens = getattr(usage, "completion_tokens", 0) or 0
 
-    tokens_per_sec = (completion_tokens / elapsed) if elapsed > 0 and completion_tokens > 0 else 0.0
+    tokens_per_sec = (
+        (completion_tokens / elapsed) if elapsed > 0 and completion_tokens > 0 else 0.0
+    )
 
     metrics = {
         "total_time_s": elapsed,
@@ -465,6 +479,87 @@ def _non_stream_response(client: OpenAI, settings: SidebarSettings, placeholder)
             f"📊 tokens: {prompt_tokens} prompt + {completion_tokens} completion = {total_tokens} total"
         )
     return assistant_msg, raw_tool_calls, metrics, None
+
+
+def _filter_tools_with_thinking_tool(
+    settings: SidebarSettings, all_tools: list[dict], placeholder
+) -> list[dict]:
+    """Use the sequential-thinking tool to filter the tool list, if available."""
+    # Find the thinking tool
+    thinker_tool_name = next(
+        (
+            tool["function"]["name"]
+            for tool in all_tools
+            if tool["function"]["name"].startswith("sequential-thinking__")
+        ),
+        None,
+    )
+
+    if not thinker_tool_name:
+        return all_tools
+
+    # Get the last user message
+    last_user_message = next(
+        (m["content"] for m in reversed(st.session_state.messages) if m["role"] == "user"),
+        None,
+    )
+    if not last_user_message:
+        return all_tools
+
+    placeholder.markdown("_routing..._", unsafe_allow_html=True)
+
+    try:
+        tool_to_server = st.session_state.get("tool_to_server", {})
+        # The thinking tool expects the user query and a list of tool schemas
+        tool_schemas = [
+            tool["function"]
+            for tool in all_tools
+            if tool["function"]["name"] != thinker_tool_name
+        ]
+        args = {"query": last_user_message, "tools": tool_schemas}
+
+        # Call the tool directly
+        result = call_mcp_tool_by_name(
+            st.session_state.mcp_config,
+            tool_to_server,
+            thinker_tool_name,
+            args,
+            st.session_state.get("tool_to_real_name"),
+            settings.connect_timeout,
+            settings.call_timeout,
+        )
+
+        relevant_tool_names = []
+        if isinstance(result, dict) and "relevant_tools" in result:
+            relevant_tool_names = [
+                tool["name"] for tool in result["relevant_tools"] if "name" in tool
+            ]
+        elif isinstance(result, list):  # Handle if it just returns a list of strings
+            relevant_tool_names = result
+
+        if not relevant_tool_names:
+            return all_tools
+
+        # Filter the original tools
+        filtered_tools = [
+            tool
+            for tool in all_tools
+            if tool["function"]["name"] in relevant_tool_names
+        ]
+
+        if filtered_tools:
+            st.toast(
+                f"Router selected {len(filtered_tools)} tool(s).",
+                icon=":material/route:",
+            )
+            return filtered_tools
+
+    except Exception as e:
+        st.toast(f"Tool router failed: {e}", icon=":material/warning:")
+        # Fallback to all tools on error
+        return all_tools
+
+    return all_tools
 
 
 def run_chat_turn(settings: SidebarSettings) -> None:
@@ -486,19 +581,33 @@ def run_chat_turn(settings: SidebarSettings) -> None:
 
     with st.chat_message("assistant"):
         placeholder = st.empty()
+
+        all_tools = st.session_state.get("mcp_tools") or []
+        # Filter tools if a router is available
+        relevant_tools = _filter_tools_with_thinking_tool(
+            settings, all_tools, placeholder
+        )
+
         placeholder.markdown("_thinking..._", unsafe_allow_html=True)
 
         for _ in range(settings.max_tool_rounds):
             turn_start = time.perf_counter()
             try:
                 if settings.stream_response:
-                    assistant_msg, raw_tool_calls, _ = _stream_response(client, settings, placeholder)
+                    (
+                        assistant_msg,
+                        raw_tool_calls,
+                        _,
+                    ) = _stream_response(client, settings, placeholder, relevant_tools)
                 else:
-                    assistant_msg, raw_tool_calls, _, error = _non_stream_response(
-                        client, settings, placeholder
-                    )
+                    (
+                        assistant_msg,
+                        raw_tool_calls,
+                        _,
+                        error,
+                    ) = _non_stream_response(client, settings, placeholder, relevant_tools)
                     if error:
-                        raise error # Re-raise error to be caught by outer try-except
+                        raise error  # Re-raise error to be caught by outer try-except
             except Exception as exc:
                 placeholder.empty()
                 st.error(f"**LLM API Error:** {exc}", icon=":material/error:")
@@ -516,14 +625,21 @@ def run_chat_turn(settings: SidebarSettings) -> None:
                 tc["function"]["name"] if isinstance(tc, dict) else tc.function.name
                 for tc in raw_tool_calls
             ]
-            placeholder.markdown("_calling tool(s): " + ", ".join(tool_names) + "..._", unsafe_allow_html=True)
+            placeholder.markdown(
+                "_calling tool(s): " + ", ".join(tool_names) + "..._",
+                unsafe_allow_html=True,
+            )
 
             queue = []
             has_dangerous = False
             for tc in raw_tool_calls:
                 args = parse_tool_arguments(tc)
                 is_danger = is_dangerous_tool_call(
-                    tc, args, settings.safe_mode, settings.dangerous_keywords, settings.dry_run_mode
+                    tc,
+                    args,
+                    settings.safe_mode,
+                    settings.dangerous_keywords,
+                    settings.dry_run_mode,
                 )
                 queue.append((tc, args, is_danger))
                 if is_danger:
@@ -544,8 +660,11 @@ def run_chat_turn(settings: SidebarSettings) -> None:
                         settings.call_timeout,
                     )
                 )
-
-        placeholder.markdown("_Stopped after multiple tool calls without a final answer._", unsafe_allow_html=True)
+        
+        placeholder.markdown(
+            "_Stopped after multiple tool calls without a final answer._",
+            unsafe_allow_html=True,
+        )
 
 
 # ──────────────────────────────────────────────────────────────────────────────

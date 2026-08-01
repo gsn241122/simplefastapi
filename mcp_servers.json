@@ -1,5 +1,12 @@
 {
   "mcpServers": {
+    "sequential-thinking": {
+      "command": "bun",
+      "args": [
+        "x",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
+    },
     "fastapi": {
       "url": "http://localhost:8003/mcp"
     },

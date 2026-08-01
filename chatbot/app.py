@@ -49,7 +49,7 @@ st.set_page_config(
 init_session_state()
 settings = render_sidebar()
 
-
+@st.cache_data
 def load_css(file_name: str):
     with open(file_name) as f:
         return f"<style>{f.read()}</style>"
