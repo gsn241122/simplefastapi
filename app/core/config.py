@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: Optional[str] = None
     GEMINI_MODEL: Optional[str] = None
     GEMINI_API_ENDPOINT: Optional[str] = None
+    OPENROUTER_API_KEY: Optional[str] = None
 
     # CORS Settings — kosongkan untuk allow all (hanya di development)
     CORS_ORIGINS: List[str] = ["*"]
