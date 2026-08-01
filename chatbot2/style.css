@@ -1,0 +1,17 @@
+
+    .main .block-container {
+        padding-top: 1.5rem;
+        padding-bottom: 2rem;
+        padding-left: 2rem;
+        padding-right: 2rem;
+        max-width: 100%;
+    }
+    /* Hide Streamlit branding & menu for a cleaner look */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    /* Make badges wrap nicely on narrow viewports */
+    [data-testid="stHorizontalBlock"] {
+        flex-wrap: wrap;
+        gap: 0.35rem;
+    }

@@ -14,13 +14,19 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
+from config import MAX_SESSION_FILE_SIZE_BYTES, MAX_SESSION_ID_HEX_LEN
+
 SESSION_DIR = Path(__file__).resolve().parent / "chat_sessions"
-MAX_SESSION_FILE_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB limit per session
 
 
 def generate_session_id() -> str:
-    """Generate a unique session ID incorporating datetime and a short UUID suffix."""
-    return f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:4]}"
+    """Generate a unique session ID incorporating datetime and a UUID suffix.
+
+    The suffix was widened from 4 to 8 hex chars — collisions were already
+    unlikely with 4, but the cost of the extra characters is effectively
+    zero and it removes the risk entirely for rapid-fire session creation.
+    """
+    return f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:MAX_SESSION_ID_HEX_LEN]}"
 
 
 def ensure_session_dir() -> None:

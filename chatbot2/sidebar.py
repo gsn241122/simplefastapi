@@ -1,20 +1,12 @@
 """Sidebar UI: model settings, advanced tuning, MCP server status, login
 form, and Safe Mode.
-
-Tuning yang diterapkan:
-- Validated `number_input` (no negative values, no invalid token limits).
-- Slider step 0.05 untuk temperature (lebih granular).
-- Tombol "Reset to defaults" di expander Advanced tuning.
-- Better empty-state messages untuk MCP server list.
-- Konsisten pakai `key=` di semua widget untuk hindari DuplicateWidgetId.
-- Default nilai sinkron dengan `config.py` & `state.py`.
 """
 from __future__ import annotations
 
 import json
 import os
-from datetime import datetime
 from dataclasses import dataclass, field
+from datetime import datetime
 
 import streamlit as st
 
@@ -29,18 +21,19 @@ from config import (
     MCP_CONFIG_PATH,
     PROVIDERS,
     SYSTEM_PROMPT,
+    SYSTEM_PROMPT_WARN_CHARS,
 )
 from history_manager import (
     delete_session,
+    export_messages_to_markdown,
+    export_messages_to_text,
     generate_session_id,
     get_default_session_title,
     list_saved_sessions,
     load_session,
-    save_session,
-    export_messages_to_markdown,
-    export_messages_to_text,
-    search_saved_sessions,
     rename_session,
+    save_session,
+    search_saved_sessions,
 )
 from mcp_client import call_mcp_tool_by_name, fetch_all_mcp_tools, load_mcp_config
 
@@ -57,7 +50,7 @@ class SidebarSettings:
     api_key: str
     model: str
     safe_mode: bool
-    dry_run_mode: bool  # tuned: dry-run / preview mode
+    dry_run_mode: bool
     stream_response: bool
     bearer_token: str
     temperature: float
@@ -145,11 +138,7 @@ def _render_model_settings() -> tuple[str, str, str, str]:
     if current_model not in models_list:
         st.session_state["llm_model"] = p_info["default_model"]
 
-    model = st.selectbox(
-        "Model",
-        options=models_list,
-        key="llm_model",
-    )
+    model = st.selectbox("Model", options=models_list, key="llm_model")
     custom_model = st.text_input(
         "Custom model ID",
         key="llm_custom_model",
@@ -173,7 +162,6 @@ def _render_model_settings() -> tuple[str, str, str, str]:
 # ──────────────────────────────────────────────────────────────────────────────
 def _render_advanced_tuning() -> _Tuning:
     with st.expander("Advanced tuning", icon=":material/tune:"):
-        # Persisted defaults via st.session_state (so reset works)
         st.session_state.setdefault("adv_temperature", DEFAULT_TEMPERATURE)
         st.session_state.setdefault("adv_limit_tokens", False)
         st.session_state.setdefault("adv_max_tokens", DEFAULT_MAX_OUTPUT_TOKENS)
@@ -186,7 +174,7 @@ def _render_advanced_tuning() -> _Tuning:
             "Temperature",
             min_value=0.0,
             max_value=2.0,
-            step=0.05,  # tuned: lebih granular dari 0.1
+            step=0.05,
             key="adv_temperature",
             help="Higher = more creative/random, lower = more focused/deterministic.",
         )
@@ -239,7 +227,11 @@ def _render_advanced_tuning() -> _Tuning:
         keywords_raw = st.text_input(
             "Safe mode keywords (comma-separated)",
             key="adv_dangerous_keywords",
-            help="Tool names containing any of these words require confirmation when Safe Mode is on.",
+            help=(
+                "Tool names containing any of these words require confirmation when Safe "
+                "Mode is on. Matched as whole words, not raw substrings. All POST/PUT/PATCH/"
+                "DELETE `call_api` calls always require confirmation regardless of this list."
+            ),
         )
         dangerous_keywords = tuple(k.strip().lower() for k in keywords_raw.split(",") if k.strip())
 
@@ -251,6 +243,12 @@ def _render_advanced_tuning() -> _Tuning:
             height=120,
             help="Instruct the AI assistant on its persona, behavior, and constraints.",
         )
+        if len(system_prompt) > SYSTEM_PROMPT_WARN_CHARS:
+            st.caption(
+                f":material/warning: This system prompt is {len(system_prompt):,} characters "
+                f"long — every character is resent on every single LLM call, which adds "
+                f"latency and cost. Consider trimming it."
+            )
 
         st.button(
             "Reset to defaults",
@@ -279,7 +277,7 @@ def _render_mcp_server_list() -> None:
     if not cfg:
         st.caption(
             f":material/info: No `mcp_servers.json` found at `{MCP_CONFIG_PATH}`.",
-            help="Tambahkan konfigurasi server di file mcp_servers.json untuk mengaktifkan tools.",
+            help="Add a server configuration to mcp_servers.json to enable tools.",
         )
         return
     server_errors = st.session_state.get("server_errors") or {}
@@ -393,7 +391,7 @@ def _render_login_form(connect_timeout: float, call_timeout: float) -> None:
         key="login_path",
         help="Login endpoint path, e.g. /auth/login, /token",
     )
-    with st.form("login_form", clear_on_submit=False):  # tuned: keep creds for retry
+    with st.form("login_form", clear_on_submit=False):
         username = st.text_input("Username", key="login_username")
         password = st.text_input("Password", type="password", key="login_password")
         submitted = st.form_submit_button("Login via MCP", icon=":material/key:")
@@ -406,6 +404,12 @@ def _render_login_form(connect_timeout: float, call_timeout: float) -> None:
                 _handle_login(login_path, username, password, connect_timeout, call_timeout)
             except Exception as exc:
                 st.error(f"❌ Error calling MCP tool: {exc}")
+
+    st.caption(
+        ":material/info: Prefer this form over asking the assistant to log in for you in "
+        "chat — credentials typed directly into the chat box are stored in the visible, "
+        "exportable conversation history."
+    )
 
 
 def _render_mcp_tools_status(connect_timeout: float) -> None:
@@ -431,10 +435,7 @@ def _render_mcp_tools_status(connect_timeout: float) -> None:
             st.session_state.mcp_error = str(exc)
 
     if st.session_state.get("mcp_error"):
-        st.error(
-            f"Could not reach MCP server:\n{st.session_state.mcp_error}",
-            icon=":material/error:",
-        )
+        st.error(f"Could not reach MCP server:\n{st.session_state.mcp_error}", icon=":material/error:")
         return
 
     if st.session_state.get("server_errors"):
@@ -460,54 +461,40 @@ def _render_mcp_tools_status(connect_timeout: float) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 # Chat history / clear callbacks
 # ──────────────────────────────────────────────────────────────────────────────
-def _on_new_chat_click() -> None:
-    """Callback: start a brand-new conversation session."""
-    new_id = generate_session_id()
-    save_session(session_id=new_id, title="New conversation", messages=[{"role": "system", "content": SYSTEM_PROMPT}])
-    
+def _reset_active_conversation(new_id: str) -> None:
     st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     st.session_state.current_session_id = new_id
     st.session_state.saved_session_select = new_id
     for k in ("pending_tool_call", "pending_args", "pending_tool_queue", "resume_llm"):
         st.session_state.pop(k, None)
+
+
+def _on_new_chat_click() -> None:
+    _reset_active_conversation(generate_session_id())
     st.toast("New conversation started!", icon=":material/add_comment:")
     st.rerun()
 
 
 def _on_delete_session_click(target_id: str) -> None:
-    """Callback: delete a saved session by ID."""
     delete_session(target_id)
     if st.session_state.get("current_session_id") == target_id:
-        new_id = generate_session_id()
-        st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-        st.session_state.current_session_id = new_id
-        st.session_state.saved_session_select = new_id
+        _reset_active_conversation(generate_session_id())
     else:
         st.session_state.saved_session_select = st.session_state.get("current_session_id")
     st.toast("Session deleted.", icon=":material/delete:")
 
 
 def _on_clear_chat_click() -> None:
-    """Callback: clear the active conversation and start a fresh session."""
-    new_id = generate_session_id()
-    st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-    st.session_state.current_session_id = new_id
-    st.session_state.saved_session_select = new_id
-    for k in ("pending_tool_call", "pending_args", "pending_tool_queue", "resume_llm"):
-        st.session_state.pop(k, None)
+    _reset_active_conversation(generate_session_id())
     st.toast("Active chat cleared.", icon=":material/cleaning_services:")
 
 
 def _on_session_select_change() -> None:
-    """Auto-load chosen session into session_state as soon as user changes dropdown."""
     selected_id = st.session_state.get("saved_session_select")
     current_id = st.session_state.get("current_session_id")
     if selected_id and selected_id != current_id:
         loaded_msgs = load_session(selected_id)
-        if loaded_msgs:
-            st.session_state.messages = loaded_msgs
-        else:
-            st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        st.session_state.messages = loaded_msgs or [{"role": "system", "content": SYSTEM_PROMPT}]
         st.session_state.current_session_id = selected_id
         for k in ("pending_tool_call", "pending_args", "pending_tool_queue", "resume_llm"):
             st.session_state.pop(k, None)
@@ -518,16 +505,11 @@ def _render_chat_history_management() -> None:
     st.subheader(":material/history: Chat history")
 
     with st.container(horizontal=True):
-        st.button(
-            "New chat",
-            icon=":material/add:",
-            on_click=_on_new_chat_click,
-            key="btn_new_chat",
-        )
+        st.button("New chat", icon=":material/add:", on_click=_on_new_chat_click, key="btn_new_chat")
 
         if st.session_state.messages and len(st.session_state.messages) > 1:
             current_id = st.session_state.get("current_session_id")
-            if current_id:  # Only show export if there's a valid session ID
+            if current_id:
                 export_format = st.selectbox(
                     "Export format",
                     options=["Markdown (.md)", "JSON (.json)", "Text (.txt)"],
@@ -537,16 +519,13 @@ def _render_chat_history_management() -> None:
 
                 if "Markdown" in export_format:
                     data = export_messages_to_markdown(st.session_state.messages)
-                    filename = f"{current_id}.md"
-                    mime = "text/markdown"
+                    filename, mime = f"{current_id}.md", "text/markdown"
                 elif "Text" in export_format:
                     data = export_messages_to_text(st.session_state.messages)
-                    filename = f"{current_id}.txt"
-                    mime = "text/plain"
+                    filename, mime = f"{current_id}.txt", "text/plain"
                 else:
                     data = json.dumps(st.session_state.messages, ensure_ascii=False, indent=2)
-                    filename = f"{current_id}.json"
-                    mime = "application/json"
+                    filename, mime = f"{current_id}.json", "application/json"
 
                 st.download_button(
                     label="Export",
@@ -555,6 +534,8 @@ def _render_chat_history_management() -> None:
                     file_name=filename,
                     mime=mime,
                     key="btn_export_chat",
+                    help="Tool results are already redacted before they enter the "
+                    "conversation, so exports are safe to share.",
                 )
 
     col_search, col_sort = st.columns([3, 2])
@@ -578,7 +559,11 @@ def _render_chat_history_management() -> None:
 
     if search_query and search_query.strip():
         saved_sessions = search_saved_sessions(search_query, sort_by=sort_by_val)
-        st.caption(f":material/search: Found {len(saved_sessions)} matching session{'s' if len(saved_sessions) != 1 else ''}" if saved_sessions else f":material/search_off: No sessions match '{search_query.strip()}'")
+        st.caption(
+            f":material/search: Found {len(saved_sessions)} matching session{'s' if len(saved_sessions) != 1 else ''}"
+            if saved_sessions
+            else f":material/search_off: No sessions match '{search_query.strip()}'"
+        )
     else:
         saved_sessions = list_saved_sessions(sort_by=sort_by_val)
 
@@ -653,6 +638,10 @@ def _render_clear_conversation_button() -> None:
 def _render_debug_panel() -> None:
     st.divider()
     st.header(":material/bug_report: Debug & Audit Log")
+    st.caption(
+        ":material/shield: Secrets (tokens, passwords, headers) are redacted before "
+        "entering this log — see `security.redact_secrets`."
+    )
     enable_debug = st.checkbox(
         "Enable audit logging",
         value=st.session_state.get("enable_debug_panel", False),
@@ -669,7 +658,6 @@ def _render_debug_panel() -> None:
                 st.rerun()
         with col2:
             if logs and st.button("Export JSON", key="btn_export_audit_logs"):
-                import json
                 log_json = json.dumps(logs, indent=2)
                 st.download_button(
                     label="Download JSON",
@@ -683,7 +671,7 @@ def _render_debug_panel() -> None:
             with st.expander("Recent Audit Events", expanded=False):
                 for i, entry in enumerate(logs[:20]):
                     st.text(f"[{entry['timestamp']}] {entry['type']}")
-                    st.json(entry['data'])
+                    st.json(entry["data"])
                     if i < len(logs[:20]) - 1:
                         st.divider()
 
@@ -694,18 +682,15 @@ def _render_debug_panel() -> None:
 def render_sidebar() -> SidebarSettings:
     """Render the full sidebar and return the settings the main app needs."""
     with st.sidebar:
-        # 1. Chat history management & clear
         _render_chat_history_management()
         _render_clear_conversation_button()
         st.divider()
 
-        # 2. Model settings & advanced tuning
         st.header(":material/settings: Settings")
         provider, base_url, api_key, model = _render_model_settings()
         tuning = _render_advanced_tuning()
         st.divider()
 
-        # 3. API authentication & bearer token
         _render_login_form(tuning.connect_timeout, tuning.call_timeout)
 
         bearer_token = st.text_input(
@@ -713,33 +698,28 @@ def render_sidebar() -> SidebarSettings:
             key="api_bearer_token",
             type="password",
             help=(
-                "This token is automatically added as an "
-                "'Authorization: Bearer <token>' header every time the "
-                "`call_api` tool is called. Filled in automatically after a "
-                "successful login."
+                "Automatically added as an 'Authorization: Bearer <token>' header on every "
+                "`call_api` call, overriding any Authorization header the model itself "
+                "tries to supply. Filled in automatically after a successful login."
             ),
         )
         st.divider()
 
-        # 4. Security & safety
         safe_mode = st.checkbox(
             ":material/shield: Safe mode (confirm dangerous actions)",
             value=True,
             key="safe_mode",
             help=(
-                "Ask for explicit confirmation before running a DELETE, PUT, "
-                "or PATCH method, or any tool whose name matches a keyword "
-                "from the Safe Mode keyword list above."
+                "Ask for explicit confirmation before running a POST, DELETE, PUT, or PATCH "
+                "`call_api` call, or any tool whose name matches a keyword from the Safe "
+                "Mode keyword list above."
             ),
         )
         dry_run_mode = st.checkbox(
             ":material/preview: Dry-run mode (preview all tool calls)",
             value=False,
             key="dry_run_mode",
-            help=(
-                "When enabled, EVERY tool call (including read/GET actions) "
-                "requires manual confirmation before execution."
-            ),
+            help="When enabled, EVERY tool call (including read/GET actions) requires manual confirmation before execution.",
         )
         stream_response = st.checkbox(
             ":material/bolt: Stream response (typewriter effect)",
@@ -749,11 +729,9 @@ def render_sidebar() -> SidebarSettings:
         )
         st.divider()
 
-        # 5. MCP servers & tools status
         _render_mcp_server_list()
         _render_mcp_tools_status(tuning.connect_timeout)
 
-        # 6. Debug & Audit Log panel
         _render_debug_panel()
 
     return SidebarSettings(

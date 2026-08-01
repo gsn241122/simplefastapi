@@ -43,3 +43,4 @@ test.db
 .playwright-mcp/
 chatbot/chat_sessions/*
 chatbot/.simple/*
+chatbot2/chat_sessions/*
