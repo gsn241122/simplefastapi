@@ -106,13 +106,13 @@ def render_chat_history() -> None:
         # ── User / plain-text assistant messages ────────────────────────────
         if role == "user" and content:
             with st.chat_message("user"):
-                st.markdown(content)
+                st.markdown(content, unsafe_allow_html=True)
 
         elif role == "assistant":
             if content or tool_calls:
                 with st.chat_message("assistant"):
                     if content:
-                        st.markdown(content)
+                        st.markdown(content, unsafe_allow_html=True)
                     if tool_calls:
                         for tc in tool_calls:
                             func_name = tc["function"]["name"]
@@ -367,7 +367,7 @@ def _stream_response(client: OpenAI, settings: SidebarSettings, placeholder):
 
         if delta.content and not delta.tool_calls:
             full_content += delta.content
-            placeholder.markdown(full_content + "▌")
+            placeholder.markdown(full_content + "▌", unsafe_allow_html=True)
 
         if delta.tool_calls:
             for tc_delta in delta.tool_calls:
@@ -394,7 +394,7 @@ def _stream_response(client: OpenAI, settings: SidebarSettings, placeholder):
     if ttft is None:
         ttft = total_time
 
-    placeholder.markdown(full_content if full_content else "")
+    placeholder.markdown(full_content if full_content else "", unsafe_allow_html=True)
 
     prompt_tokens = getattr(usage_data, "prompt_tokens", 0) if usage_data else 0
     completion_tokens = getattr(usage_data, "completion_tokens", 0) if usage_data else 0
@@ -486,7 +486,7 @@ def run_chat_turn(settings: SidebarSettings) -> None:
 
     with st.chat_message("assistant"):
         placeholder = st.empty()
-        placeholder.markdown("_thinking..._")
+        placeholder.markdown("_thinking..._", unsafe_allow_html=True)
 
         for _ in range(settings.max_tool_rounds):
             turn_start = time.perf_counter()
@@ -516,7 +516,7 @@ def run_chat_turn(settings: SidebarSettings) -> None:
                 tc["function"]["name"] if isinstance(tc, dict) else tc.function.name
                 for tc in raw_tool_calls
             ]
-            placeholder.markdown("_calling tool(s): " + ", ".join(tool_names) + "..._")
+            placeholder.markdown("_calling tool(s): " + ", ".join(tool_names) + "..._", unsafe_allow_html=True)
 
             queue = []
             has_dangerous = False
@@ -545,7 +545,7 @@ def run_chat_turn(settings: SidebarSettings) -> None:
                     )
                 )
 
-        placeholder.markdown("_Stopped after multiple tool calls without a final answer._")
+        placeholder.markdown("_Stopped after multiple tool calls without a final answer._", unsafe_allow_html=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────

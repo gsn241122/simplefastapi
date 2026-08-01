@@ -524,10 +524,6 @@ def _render_chat_history_management() -> None:
 
         if st.session_state.messages and len(st.session_state.messages) > 1:
             current_id = st.session_state.get("current_session_id", generate_session_id())
-            title = get_default_session_title(st.session_state.messages)
-            save_session(current_id, title, st.session_state.messages)
-
-            # tuned: Multi-format export dropdown / selectbox & buttons
             export_format = st.selectbox(
                 "Export format",
                 options=["Markdown (.md)", "JSON (.json)", "Text (.txt)"],
@@ -557,7 +553,6 @@ def _render_chat_history_management() -> None:
                 key="btn_export_chat",
             )
 
-    # tuned: Chat Search & Filter input with Sort By
     col_search, col_sort = st.columns([3, 2])
     with col_search:
         search_query = st.text_input(
@@ -579,26 +574,34 @@ def _render_chat_history_management() -> None:
 
     if search_query and search_query.strip():
         saved_sessions = search_saved_sessions(search_query, sort_by=sort_by_val)
-        if saved_sessions:
-            st.caption(f":material/search: Found {len(saved_sessions)} matching session{'s' if len(saved_sessions) != 1 else ''}")
-        else:
-            st.caption(f":material/search_off: No sessions match '{search_query.strip()}'")
+        st.caption(f":material/search: Found {len(saved_sessions)} matching session{'s' if len(saved_sessions) != 1 else ''}" if saved_sessions else f":material/search_off: No sessions match '{search_query.strip()}'")
     else:
         saved_sessions = list_saved_sessions(sort_by=sort_by_val)
-    current_id = st.session_state.get("current_session_id")
-    if saved_sessions or current_id:
-        session_ids, session_labels = _build_saved_session_selection(saved_sessions)
-        if current_id:
-            if current_id in session_ids:
-                session_ids.remove(current_id)
-            session_ids.insert(0, current_id)
-            if current_id not in session_labels:
-                session_labels[current_id] = "New conversation (active)"
 
+    current_id = st.session_state.get("current_session_id")
+    if not (saved_sessions or current_id):
+        return
+
+    session_ids, session_labels = _build_saved_session_selection(saved_sessions)
+
+    if current_id:
+        if current_id in session_ids:
+            session_ids.remove(current_id)
+        
+        current_messages = st.session_state.get("messages", [])
+        if len(current_messages) > 1:
+            current_title = get_default_session_title(current_messages)
+            session_labels[current_id] = current_title
+        else:
+            session_labels[current_id] = "New conversation (active)"
+
+        session_ids.insert(0, current_id)
+
+    if session_ids:
         st.selectbox(
             "Saved sessions",
             options=session_ids,
-            index=0,
+            index=session_ids.index(current_id) if current_id in session_ids else 0,
             format_func=lambda sid: session_labels.get(sid, sid),
             key="saved_session_select",
             on_change=_on_session_select_change,
