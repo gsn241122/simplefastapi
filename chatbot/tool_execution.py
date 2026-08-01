@@ -124,6 +124,19 @@ def run_tool_call(
         result = {"error": str(exc)}
     duration = time.perf_counter() - t0
 
+    # Log audit event
+    try:
+        from state import log_audit
+        log_audit("TOOL_EXECUTION", {
+            "tool_name": name,
+            "tool_id": tool_id,
+            "arguments": args,
+            "duration_s": round(duration, 3),
+            "result": result,
+        })
+    except Exception:
+        pass
+
     return {
         "role": "tool",
         "tool_call_id": tool_id,

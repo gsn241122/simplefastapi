@@ -643,6 +643,44 @@ def _render_clear_conversation_button() -> None:
     )
 
 
+def _render_debug_panel() -> None:
+    st.divider()
+    st.header(":material/bug_report: Debug & Audit Log")
+    enable_debug = st.checkbox(
+        "Enable audit logging",
+        value=st.session_state.get("enable_debug_panel", False),
+        key="enable_debug_panel",
+        help="Record and inspect tool executions and system events in real-time.",
+    )
+    if enable_debug:
+        logs = st.session_state.get("audit_logs", [])
+        st.caption(f"Total logged events: {len(logs)}")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Clear logs", key="btn_clear_audit_logs"):
+                st.session_state.audit_logs = []
+                st.rerun()
+        with col2:
+            if logs and st.button("Export JSON", key="btn_export_audit_logs"):
+                import json
+                log_json = json.dumps(logs, indent=2)
+                st.download_button(
+                    label="Download JSON",
+                    data=log_json,
+                    file_name="audit_logs.json",
+                    mime="application/json",
+                    key="download_audit_json",
+                )
+
+        if logs:
+            with st.expander("Recent Audit Events", expanded=False):
+                for i, entry in enumerate(logs[:20]):
+                    st.text(f"[{entry['timestamp']}] {entry['type']}")
+                    st.json(entry['data'])
+                    if i < len(logs[:20]) - 1:
+                        st.divider()
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Public entry point
 # ──────────────────────────────────────────────────────────────────────────────
@@ -707,6 +745,9 @@ def render_sidebar() -> SidebarSettings:
         # 5. MCP servers & tools status
         _render_mcp_server_list()
         _render_mcp_tools_status(tuning.connect_timeout)
+
+        # 6. Debug & Audit Log panel
+        _render_debug_panel()
 
     return SidebarSettings(
         provider=provider,

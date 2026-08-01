@@ -45,6 +45,8 @@ def init_session_state() -> None:
     _set_default("pending_args", None)
     _set_default("pending_tool_queue", None)
     _set_default("resume_llm", False)
+    _set_default("enable_debug_panel", False)
+    _set_default("audit_logs", [])
 
     # ── Tool / MCP mapping ──────────────────────────────────────────────────
     _set_default("tool_to_server", {})
@@ -69,3 +71,23 @@ def init_session_state() -> None:
     elif st.session_state.messages[0].get("role") == "system":
         # Keep system prompt in sync if updated
         st.session_state.messages[0]["content"] = current_prompt
+
+
+def log_audit(event_type: str, details: dict) -> None:
+    """Record an audit/debug event if the debug panel is enabled."""
+    if not st.session_state.get("enable_debug_panel", False):
+        return
+
+    if "audit_logs" not in st.session_state:
+        st.session_state.audit_logs = []
+
+    from datetime import datetime
+    entry = {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "type": event_type,
+        "data": details,
+    }
+    st.session_state.audit_logs.insert(0, entry)
+    if len(st.session_state.audit_logs) > 100:
+        st.session_state.audit_logs.pop()
+
