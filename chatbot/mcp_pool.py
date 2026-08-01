@@ -141,6 +141,7 @@ class MCPConnectionPool:
                 return name, (tools, None)
             except Exception as e:
                 await self._drop_connection(name)
+                # Return a tuple (None, error_message) even if list_tools() itself returns a non-tuple
                 return name, (None, f"{type(e).__name__}: {e}")
 
         async def _run_all() -> dict:

@@ -16,6 +16,7 @@ PROVIDERS: dict[str, dict] = {
         "default_api_key_env": "GEMINI_API_KEY",
         "api_key_help": "Get one at https://aistudio.google.com/apikey",
         "models": [
+            "gemini-3.6-flash",
             "gemini-3.5-flash-lite",
             "gemini-3.5-flash",
             "gemini-2.5-flash",
@@ -76,6 +77,37 @@ PROVIDERS: dict[str, dict] = {
         ],
         "default_model": "minimax-m3:cloud",
     },
+    "OpenRouter": {
+        "base_url": "https://openrouter.ai/api/v1",
+        "default_api_key_env": "OPENROUTER_API_KEY",
+        "api_key_help": "Get one at https://openrouter.ai/keys",
+        "models": [
+            "nvidia/nemotron-3-nano-30b-a3b:free",
+            "poolside/laguna-xs-2.1:free",
+            "openrouter/free",
+            "openai/gpt-oss-20b:free",
+            "deepseek/deepseek-r1",
+            "meta-llama/llama-3.3-70b-instruct",
+            "anthropic/claude-3.5-sonnet",
+            "google/gemini-2.5-flash-thinking-exp:free",
+        ],
+        "default_model": "poolside/laguna-xs-2.1:free",
+    },
+    "Qwen (Alibaba Cloud / DashScope)": {
+        "base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+        "default_api_key_env": "DASHSCOPE_API_KEY",
+        "api_key_help": "Get one at https://dashscope.console.aliyun.com/",
+        "models": [
+            "qwen-max",
+            "qwen-plus",
+            "qwen-turbo",
+            "qwen2.5-72b-instruct",
+            "qwen2.5-32b-instruct",
+            "qwen2.5-14b-instruct",
+            "qwen2.5-7b-instruct",
+        ],
+        "default_model": "qwen-max",
+    },
 }
 
 DEFAULT_PROVIDER = "Gemini (Google AI Studio)"
@@ -100,7 +132,7 @@ DEFAULT_MAX_OUTPUT_TOKENS: int = 4096
 
 # Maximum number of automatic tool-call rounds before the assistant gives up
 # and reports that it couldn't reach a final answer.
-DEFAULT_MAX_TOOL_ROUNDS: int = 5
+DEFAULT_MAX_TOOL_ROUNDS: int = 20
 
 # Timeouts: how long to wait when opening a new MCP connection / spawning a
 # stdio subprocess, and how long to wait for a single tool call to finish.
@@ -118,7 +150,7 @@ DANGEROUS_NAME_KEYWORDS: tuple[str, ...] = ("delete", "write_file", "execute")
 # ──────────────────────────────────────────────────────────────────────────────
 # Tool result outputs longer than this will be truncated in the chat UI
 # (the full result is still passed back to the LLM).
-TOOL_RESULT_TRUNCATE_CHARS: int = 5000
+TOOL_RESULT_TRUNCATE_CHARS: int = 50000
 
 # Hex chars used when synthesizing a fallback tool_call_id.
 MAX_TOOL_CALL_ID_HEX_LEN: int = 8

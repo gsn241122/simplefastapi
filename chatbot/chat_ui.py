@@ -121,6 +121,13 @@ def render_chat_history() -> None:
                                 icon=":material/build:",
                             ):
                                 st.code(tc["function"]["arguments"], language="json")
+                    if metrics := msg.get("metrics"):
+                        st.caption(
+                            f":material/timer: {metrics.get('total_time_s', 0):.2f}s "
+                            f"(TTFT: {metrics.get('ttft_s', 0):.2f}s) • "
+                            f"📊 {metrics.get('total_tokens', 0)} tokens "
+                            f"({metrics.get('tokens_per_sec', 0):.1f} t/s)"
+                        )
 
         # ── Tool results ────────────────────────────────────────────────────
         elif role == "tool":
@@ -145,8 +152,10 @@ def render_chat_history() -> None:
 
             result_icon = ":material/cancel:" if is_error else ":material/check_circle:"
             status_text = "Failed" if is_error else "Success"
+            exec_time = msg.get("execution_time_s")
+            time_str = f" ({exec_time:.2f}s)" if exec_time else ""
             with st.chat_message("assistant"):
-                expander_label = f"Tool result: `{func_name}` — {status_text}"
+                expander_label = f"Tool result: `{func_name}` — {status_text}{time_str}"
                 if is_truncated:
                     expander_label += " (truncated)"
                 with st.expander(expander_label, icon=result_icon):
@@ -330,20 +339,31 @@ def _build_create_kwargs(settings: SidebarSettings, stream: bool) -> dict:
         kwargs["max_tokens"] = settings.max_tokens
     if stream:
         kwargs["stream"] = True
+        kwargs["stream_options"] = {"include_usage": True}
     return kwargs
 
 
 def _stream_response(client: OpenAI, settings: SidebarSettings, placeholder):
-    """Stream the response token by token. Returns (assistant_msg, raw_tool_calls)."""
+    """Stream the response token by token. Returns (assistant_msg, raw_tool_calls, metrics)."""
+    t_start = time.perf_counter()
+    ttft = None
     stream = client.chat.completions.create(**_build_create_kwargs(settings, stream=True))
 
     full_content = ""
     tool_calls_builder: dict[int, dict] = {}
+    usage_data = None
 
     for chunk in stream:
+        if hasattr(chunk, "usage") and chunk.usage:
+            usage_data = chunk.usage
+
         if not chunk.choices:
             continue
         delta = chunk.choices[0].delta
+
+        if delta.content or delta.tool_calls:
+            if ttft is None:
+                ttft = time.perf_counter() - t_start
 
         if delta.content and not delta.tool_calls:
             full_content += delta.content
@@ -370,9 +390,27 @@ def _stream_response(client: OpenAI, settings: SidebarSettings, placeholder):
                 if thought_sig:
                     tool_calls_builder[idx]["extra_content"] = thought_sig
 
+    total_time = time.perf_counter() - t_start
+    if ttft is None:
+        ttft = total_time
+
     placeholder.markdown(full_content if full_content else "")
 
-    assistant_msg: dict = {"role": "assistant", "content": full_content}
+    prompt_tokens = getattr(usage_data, "prompt_tokens", 0) if usage_data else 0
+    completion_tokens = getattr(usage_data, "completion_tokens", 0) if usage_data else 0
+    total_tokens = getattr(usage_data, "total_tokens", 0) if usage_data else (prompt_tokens + completion_tokens)
+    tokens_per_sec = (completion_tokens / total_time) if total_time > 0 and completion_tokens > 0 else 0.0
+
+    metrics = {
+        "total_time_s": total_time,
+        "ttft_s": ttft,
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": total_tokens,
+        "tokens_per_sec": tokens_per_sec,
+    }
+
+    assistant_msg: dict = {"role": "assistant", "content": full_content, "metrics": metrics}
     tool_calls_list = []
     for idx in sorted(tool_calls_builder.keys()):
         tc = tool_calls_builder[idx]
@@ -388,27 +426,45 @@ def _stream_response(client: OpenAI, settings: SidebarSettings, placeholder):
 
     if tool_calls_list:
         assistant_msg["tool_calls"] = tool_calls_list
-    return assistant_msg, tool_calls_list
+    return assistant_msg, tool_calls_list, metrics
 
 
 def _non_stream_response(client: OpenAI, settings: SidebarSettings, placeholder):
-    """Non-streaming response. Returns (assistant_msg, raw_tool_calls, error)."""
+    """Non-streaming response. Returns (assistant_msg, raw_tool_calls, metrics, error)."""
+    t_start = time.perf_counter()
     response = client.chat.completions.create(**_build_create_kwargs(settings, stream=False))
+    elapsed = time.perf_counter() - t_start
+
     choice = response.choices[0].message
     assistant_msg = _build_assistant_message(choice)
     raw_tool_calls = choice.tool_calls or []
 
-    # Show token usage if available
+    prompt_tokens = 0
+    completion_tokens = 0
+    total_tokens = 0
     if hasattr(response, "usage") and response.usage:
         usage = response.usage
-        total = getattr(usage, "total_tokens", None)
-        prompt = getattr(usage, "prompt_tokens", None)
-        completion = getattr(usage, "completion_tokens", None)
-        if total:
-            placeholder.caption(
-                f"📊 tokens: {prompt} prompt + {completion} completion = {total} total"
-            )
-    return assistant_msg, raw_tool_calls, None
+        total_tokens = getattr(usage, "total_tokens", 0) or 0
+        prompt_tokens = getattr(usage, "prompt_tokens", 0) or 0
+        completion_tokens = getattr(usage, "completion_tokens", 0) or 0
+
+    tokens_per_sec = (completion_tokens / elapsed) if elapsed > 0 and completion_tokens > 0 else 0.0
+
+    metrics = {
+        "total_time_s": elapsed,
+        "ttft_s": elapsed,
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": total_tokens,
+        "tokens_per_sec": tokens_per_sec,
+    }
+    assistant_msg["metrics"] = metrics
+
+    if total_tokens:
+        placeholder.caption(
+            f"📊 tokens: {prompt_tokens} prompt + {completion_tokens} completion = {total_tokens} total"
+        )
+    return assistant_msg, raw_tool_calls, metrics, None
 
 
 def run_chat_turn(settings: SidebarSettings) -> None:
@@ -436,11 +492,13 @@ def run_chat_turn(settings: SidebarSettings) -> None:
             turn_start = time.perf_counter()
             try:
                 if settings.stream_response:
-                    assistant_msg, raw_tool_calls = _stream_response(client, settings, placeholder)
+                    assistant_msg, raw_tool_calls, _ = _stream_response(client, settings, placeholder)
                 else:
-                    assistant_msg, raw_tool_calls, _ = _non_stream_response(
+                    assistant_msg, raw_tool_calls, _, error = _non_stream_response(
                         client, settings, placeholder
                     )
+                    if error:
+                        raise error # Re-raise error to be caught by outer try-except
             except Exception as exc:
                 placeholder.empty()
                 st.error(f"**LLM API Error:** {exc}", icon=":material/error:")

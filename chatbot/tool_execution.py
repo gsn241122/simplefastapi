@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 import json
+import time
 from typing import Any
 
 from config import DANGEROUS_HTTP_METHODS
@@ -77,7 +78,7 @@ def is_dangerous_tool_call(
 
     name = get_tool_call_name(tool_call)
 
-    if name.endswith("call_api") and args.get("method", "").upper() in DANGEROUS_HTTP_METHODS:
+    if (name == "call_api" or name.endswith("__call_api")) and args.get("method", "").upper() in DANGEROUS_HTTP_METHODS:
         return True
 
     return any(keyword in name.lower() for keyword in dangerous_keywords)
@@ -104,11 +105,12 @@ def run_tool_call(
 
     # Auto-inject the Bearer token for call_api so the model never has to
     # know or ask about credentials.
-    if name.endswith("call_api") and bearer_token:
+    if (name == "call_api" or name.endswith("__call_api")) and bearer_token:
         headers = dict(args.get("headers") or {})
         headers.setdefault("Authorization", f"Bearer {bearer_token}")
         args["headers"] = headers
 
+    t0 = time.perf_counter()
     try:
         result = call_mcp_tool_by_name(
             mcp_config,
@@ -120,11 +122,13 @@ def run_tool_call(
         )
     except Exception as exc:
         result = {"error": str(exc)}
+    duration = time.perf_counter() - t0
 
     return {
         "role": "tool",
         "tool_call_id": tool_id,
         "content": json.dumps(result, default=_json_default),
+        "execution_time_s": duration,
     }
 
 

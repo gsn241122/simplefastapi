@@ -11,12 +11,18 @@ from __future__ import annotations
 
 import streamlit as st
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 try:
     from dotenv import load_dotenv
 
     load_dotenv()
-except Exception:
-    pass
+except ModuleNotFoundError:
+    logger.warning("python-dotenv not found, skipping .env loading.")
+except Exception as e:
+    logger.error(f"Error loading .env file: {e}")
 
 from chat_ui import handle_chat_input, render_chat_history, render_pending_confirmation
 from sidebar import render_sidebar
@@ -96,7 +102,8 @@ active_server_count: int = max(0, len(all_servers) - len(server_errors))
 tool_count: int = len(mcp_tools) if mcp_tools is not None else 0
 
 # tuned: 2:1 ratio untuk memberi lebih ruang pada status panel
-col_title, col_status = st.columns([2, 1], vertical_alignment="center")
+cols = st.columns([2, 1])
+col_title, col_status = cols[0], cols[1]
 
 with col_title:
     st.title(":material/smart_toy: FastAPI MCP Chatbot")
@@ -130,7 +137,7 @@ with col_status:
         if all_servers:
             server_chips = [
                 f":material/check_circle: `{s}`" if s not in server_errors
-                else f":material/cancel: `{s}`"
+                else f":material/cancel: `{s}` ({server_errors[s]})"
                 for s in all_servers
             ]
             st.caption(

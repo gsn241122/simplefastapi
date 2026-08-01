@@ -1,10 +1,4 @@
-"""Thin, synchronous MCP client API used by the rest of the app.
-
-Tuning yang diterapkan:
-- Mengganti `print` mentah dengan standar Python `logging`.
-- Retry otomatis dengan backoff saat tool call mengalami transient error.
-- Caching/Safe validation pada load_mcp_config.
-"""
+"""Thin, synchronous MCP client API used by the rest of the app."""
 from __future__ import annotations
 
 import json
@@ -84,9 +78,23 @@ def fetch_all_mcp_tools(
     logger.info(f"Connecting to {len(config)} server(s) in parallel...")
     results = get_pool().list_tools_many(config, connect_timeout=connect_timeout)
 
-    for server_name, (tools, error) in results.items():
+    # Guard against unexpected type from list_tools_many
+    if not isinstance(results, dict):
+        logger.error(f"Unexpected results type from list_tools_many: {type(results)}")
+        return openai_tools, tool_to_server, tool_to_real_name, server_errors
+
+    for server_name, result_data in results.items():
+        # Validate result_data structure
+        if not isinstance(result_data, (list, tuple)) or len(result_data) != 2:
+            logger.error(f"Invalid result format from server \'{server_name}\': {result_data}")
+            server_errors[server_name] = "Invalid response format from pool"
+            continue
+
+        tools = result_data[0]
+        error = result_data[1]
+
         if error:
-            logger.error(f"Error fetching tools from '{server_name}': {error}")
+            logger.error(f"Error fetching tools from \'{server_name}\': {error}")
             server_errors[server_name] = error
             continue
 

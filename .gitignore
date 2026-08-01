@@ -42,3 +42,4 @@ app.db-wal
 test.db
 .playwright-mcp/
 chatbot/chat_sessions/*
+chatbot/.simple/*
