@@ -32,12 +32,12 @@ from state import init_session_state
 # Page Config (tuned: added initial_sidebar_state + menu_items)
 # ──────────────────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="FastAPI MCP Chatbot",
+    page_title="MCP Chatbot",
     page_icon=":material/smart_toy:",
     layout="wide",
     initial_sidebar_state="expanded",  # tuned: auto → expanded (better discoverability)
     menu_items={
-        "About": "Agentic Orchestration Platform powered by MCP Tool Servers",
+        "About": "MCP Chatbot",
         "Get Help": "https://modelcontextprotocol.io/",
         "Report a bug": None,  # tuned: hide Report a bug menu
     },
@@ -49,32 +49,16 @@ st.set_page_config(
 init_session_state()
 settings = render_sidebar()
 
+
+def load_css(file_name: str):
+    with open(file_name) as f:
+        return f"<style>{f.read()}</style>"
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Custom Styling (tuned: full padding control + hide Streamlit chrome)
 # ──────────────────────────────────────────────────────────────────────────────
-st.markdown(
-    """
-    <style>
-    .main .block-container {
-        padding-top: 1.5rem;
-        padding-bottom: 2rem;
-        padding-left: 2rem;
-        padding-right: 2rem;
-        max-width: 100%;
-    }
-    /* Hide Streamlit branding & menu for a cleaner look */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    /* Make badges wrap nicely on narrow viewports */
-    [data-testid="stHorizontalBlock"] {
-        flex-wrap: wrap;
-        gap: 0.35rem;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+st.markdown(load_css("chatbot/style.css"), unsafe_allow_html=True)
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Early-exit guard: ensure MCP state is initialised
@@ -106,8 +90,8 @@ cols = st.columns([2, 1])
 col_title, col_status = cols[0], cols[1]
 
 with col_title:
-    st.title(":material/smart_toy: FastAPI MCP Chatbot")
-    st.caption(":material/hub: Agentic Orchestration Platform powered by MCP Tool Servers")
+    st.title(":material/smart_toy: MCP Chatbot")
+    st.caption(":material/hub: Powered by MCP Tool Servers")
 
 with col_status:
     with st.container(border=True):

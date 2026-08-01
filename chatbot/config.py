@@ -68,6 +68,7 @@ PROVIDERS: dict[str, dict] = {
         "default_api_key_env": "OLLAMA_API_KEY",
         "api_key_help": "Leave blank or put 'ollama' for local Ollama",
         "models": [
+            "llama3.2:1b",
             "minimax-m3:cloud",
             "deepseek-r1:latest",
             "llama3.3",
@@ -75,7 +76,7 @@ PROVIDERS: dict[str, dict] = {
             "qwen2.5",
             "mistral",
         ],
-        "default_model": "minimax-m3:cloud",
+        "default_model": "llama3.2:1b",
     },
     "OpenRouter": {
         "base_url": "https://openrouter.ai/api/v1",
