@@ -9,6 +9,7 @@ Run:
 """
 from __future__ import annotations
 
+import subprocess
 import streamlit as st
 
 import logging
@@ -137,6 +138,47 @@ st.divider()
 # ──────────────────────────────────────────────────────────────────────────────
 # Chat
 # ──────────────────────────────────────────────────────────────────────────────
+# Buat layout 2 kolom di area utama
+st.subheader("💬 Chat Area")
 render_chat_history()
 render_pending_confirmation(settings)
 handle_chat_input(settings)
+# col_chat, col_right_bar = st.columns([7, 3])
+
+# with col_chat:
+#     st.subheader("💬 Chat Area")
+#     render_chat_history()
+#     render_pending_confirmation(settings)
+#     handle_chat_input(settings)
+
+# with col_right_bar:
+#     with st.container(border=True):
+#         st.subheader("📊 Right Panel / Inspector")
+#         st.caption("Panel informasi tambahan atau Live Debug Log.")
+
+#         # --- Git Status ---
+#         st.markdown("### 🗂️ Git Status")
+#         try:
+#             result = subprocess.run(
+#                 ["git", "status"],
+#                 capture_output=True,
+#                 text=True,
+#                 cwd="/home/dell/Desktop/workspace/simplefastapi"
+#             )
+#             if result.returncode == 0:
+#                 st.code(result.stdout, language="text")
+#             else:
+#                 st.error(result.stderr or "Gagal menjalankan git status.")
+#         except Exception as e:
+#             st.error(f"Error: {e}")
+#         # ------------------
+
+#         # Contoh isi Panel Kanan (misal: Audit Log)
+#         logs = st.session_state.get("audit_logs", [])
+#         if st.button("Clear Logs", key="right_clear_logs"):
+#             st.session_state.audit_logs = []
+#             st.rerun()
+
+#         for log in logs[:10]:
+#             with st.expander(f"[{log['type']}] {log['timestamp']}", expanded=False):
+#                 st.json(log['data'])

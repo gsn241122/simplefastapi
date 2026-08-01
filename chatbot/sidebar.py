@@ -523,35 +523,36 @@ def _render_chat_history_management() -> None:
         )
 
         if st.session_state.messages and len(st.session_state.messages) > 1:
-            current_id = st.session_state.get("current_session_id", generate_session_id())
-            export_format = st.selectbox(
-                "Export format",
-                options=["Markdown (.md)", "JSON (.json)", "Text (.txt)"],
-                label_visibility="collapsed",
-                key="export_format_select",
-            )
-            
-            if "Markdown" in export_format:
-                data = export_messages_to_markdown(st.session_state.messages)
-                filename = f"{current_id}.md"
-                mime = "text/markdown"
-            elif "Text" in export_format:
-                data = export_messages_to_text(st.session_state.messages)
-                filename = f"{current_id}.txt"
-                mime = "text/plain"
-            else:
-                data = json.dumps(st.session_state.messages, ensure_ascii=False, indent=2)
-                filename = f"{current_id}.json"
-                mime = "application/json"
+            current_id = st.session_state.get("current_session_id")
+            if current_id:  # Only show export if there's a valid session ID
+                export_format = st.selectbox(
+                    "Export format",
+                    options=["Markdown (.md)", "JSON (.json)", "Text (.txt)"],
+                    label_visibility="collapsed",
+                    key="export_format_select",
+                )
 
-            st.download_button(
-                label="Export",
-                icon=":material/download:",
-                data=data,
-                file_name=filename,
-                mime=mime,
-                key="btn_export_chat",
-            )
+                if "Markdown" in export_format:
+                    data = export_messages_to_markdown(st.session_state.messages)
+                    filename = f"{current_id}.md"
+                    mime = "text/markdown"
+                elif "Text" in export_format:
+                    data = export_messages_to_text(st.session_state.messages)
+                    filename = f"{current_id}.txt"
+                    mime = "text/plain"
+                else:
+                    data = json.dumps(st.session_state.messages, ensure_ascii=False, indent=2)
+                    filename = f"{current_id}.json"
+                    mime = "application/json"
+
+                st.download_button(
+                    label="Export",
+                    icon=":material/download:",
+                    data=data,
+                    file_name=filename,
+                    mime=mime,
+                    key="btn_export_chat",
+                )
 
     col_search, col_sort = st.columns([3, 2])
     with col_search:

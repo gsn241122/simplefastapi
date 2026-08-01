@@ -616,6 +616,16 @@ def run_chat_turn(settings: SidebarSettings) -> None:
 
             st.session_state.messages.append(assistant_msg)
 
+            # --- BUG FIX: Auto-save session immediately after appending a message ---
+            # This prevents data loss if the script reruns for Safe Mode confirmation
+            # before the end of the handle_chat_input function is reached.
+            current_id = st.session_state.get("current_session_id")
+            messages = st.session_state.get("messages") or []
+            if current_id and len(messages) > 1:
+                title = get_default_session_title(messages)
+                save_session(current_id, title, messages)
+            # --- END BUG FIX ---
+
             if not raw_tool_calls:
                 elapsed = time.perf_counter() - turn_start
                 st.caption(f":material/timer: {elapsed:.2f}s")
@@ -668,18 +678,6 @@ def run_chat_turn(settings: SidebarSettings) -> None:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Persistence
-# ──────────────────────────────────────────────────────────────────────────────
-def _auto_save_current_session() -> None:
-    """Save active session messages to disk immediately after user/LLM interactions."""
-    current_id = st.session_state.get("current_session_id")
-    messages = st.session_state.get("messages") or []
-    if current_id and len(messages) > 1:
-        title = get_default_session_title(messages)
-        save_session(current_id, title, messages)
-
-
-# ──────────────────────────────────────────────────────────────────────────────
 # Suggestion chips & chat input
 # ──────────────────────────────────────────────────────────────────────────────
 _SUGGESTIONS: dict[str, str] = {
@@ -708,7 +706,6 @@ def handle_chat_input(settings: SidebarSettings) -> None:
             prompt = _SUGGESTIONS[selected]
             st.session_state.messages.append({"role": "user", "content": prompt})
             run_chat_turn(settings)
-            _auto_save_current_session()
             st.rerun()
 
     user_input = st.chat_input(
@@ -726,5 +723,4 @@ def handle_chat_input(settings: SidebarSettings) -> None:
         return
 
     run_chat_turn(settings)
-    _auto_save_current_session()
     st.rerun()

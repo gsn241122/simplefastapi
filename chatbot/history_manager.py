@@ -9,6 +9,7 @@ Tuning yang diterapkan:
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -35,8 +36,17 @@ def save_session(session_id: str, title: str, messages: list) -> None:
             with open(filepath, "r", encoding="utf-8") as f:
                 old_data = json.load(f)
                 created_at = old_data.get("created_at", created_at)
-        except Exception:
-            pass
+        except json.JSONDecodeError as e:
+            logging.warning(
+                f"Could not read original created_at from corrupt session file {filepath}. "
+                f"A new timestamp will be generated. Error: {e}"
+            )
+        except Exception as e:
+            logging.error(
+                f"An unexpected error occurred while reading {filepath}. "
+                f"A new timestamp will be generated. Error: {e}"
+            )
+
     data = {
         "session_id": session_id,
         "title": title.strip() or "New conversation",
@@ -59,6 +69,7 @@ def list_saved_sessions(sort_by: str = "newest") -> list[dict]:
     for filepath in SESSION_DIR.glob("*.json"):
         try:
             if filepath.stat().st_size > MAX_SESSION_FILE_SIZE_BYTES:
+                logging.warning(f"Skipping oversized session file: {filepath}")
                 continue
             with open(filepath, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -69,8 +80,10 @@ def list_saved_sessions(sort_by: str = "newest") -> list[dict]:
                         "created_at": data.get("created_at", ""),
                     }
                 )
-        except Exception:
-            pass
+        except json.JSONDecodeError as e:
+            logging.warning(f"Skipping corrupt session file: {filepath}. Error: {e}")
+        except Exception as e:
+            logging.error(f"Could not process session file {filepath}: {e}")
 
     if sort_by == "oldest":
         sessions.sort(key=lambda x: x["created_at"])
@@ -89,22 +102,33 @@ def search_saved_sessions(query: str, sort_by: str = "newest") -> list[dict]:
         return all_sessions
 
     q = query.strip().lower()
+    filtered_ids = set()
     filtered = []
+
     for s in all_sessions:
         # Check title and session_id first
         if q in s.get("title", "").lower() or q in s.get("session_id", "").lower():
-            filtered.append(s)
+            if s["session_id"] not in filtered_ids:
+                filtered.append(s)
+                filtered_ids.add(s["session_id"])
             continue
-        
-        # Check inside session messages JSON file
+
+        # Check inside session messages JSON file (memory-efficiently)
         filepath = SESSION_DIR / f"{s['session_id']}.json"
         try:
-            if filepath.exists() and filepath.stat().st_size <= MAX_SESSION_FILE_SIZE_BYTES:
-                text_content = filepath.read_text(encoding="utf-8").lower()
-                if q in text_content:
-                    filtered.append(s)
-        except Exception:
-            pass
+            if not filepath.exists() or filepath.stat().st_size > MAX_SESSION_FILE_SIZE_BYTES:
+                continue
+            
+            with open(filepath, "r", encoding="utf-8") as f:
+                for line in f:
+                    if q in line.lower():
+                        if s["session_id"] not in filtered_ids:
+                            filtered.append(s)
+                            filtered_ids.add(s["session_id"])
+                        break  # Found a match, move to the next session file
+        except Exception as e:
+            logging.warning(f"Could not search inside file {filepath}: {e}")
+            
     return filtered
 
 
@@ -114,11 +138,16 @@ def load_session(session_id: str) -> list:
         return []
     try:
         if filepath.stat().st_size > MAX_SESSION_FILE_SIZE_BYTES:
+            logging.warning(f"Attempted to load oversized session file: {filepath}")
             return []
         with open(filepath, "r", encoding="utf-8") as f:
             data = json.load(f)
             return data.get("messages", [])
-    except Exception:
+    except json.JSONDecodeError as e:
+        logging.error(f"Failed to load corrupt session file: {filepath}. Error: {e}")
+        return []
+    except Exception as e:
+        logging.error(f"Could not load session file {filepath}: {e}")
         return []
 
 
@@ -127,8 +156,8 @@ def delete_session(session_id: str) -> None:
     try:
         if filepath.exists():
             filepath.unlink()
-    except Exception:
-        pass
+    except Exception as e:
+        logging.error(f"Failed to delete session file {filepath}: {e}")
 
 
 def rename_session(session_id: str, new_title: str) -> bool:
@@ -138,6 +167,7 @@ def rename_session(session_id: str, new_title: str) -> bool:
         return False
     try:
         if filepath.stat().st_size > MAX_SESSION_FILE_SIZE_BYTES:
+            logging.warning(f"Cannot rename oversized session file: {filepath}")
             return False
         with open(filepath, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -147,7 +177,11 @@ def rename_session(session_id: str, new_title: str) -> bool:
             json.dump(data, f, ensure_ascii=False, indent=2)
         tmp_path.replace(filepath)
         return True
-    except Exception:
+    except json.JSONDecodeError as e:
+        logging.error(f"Failed to rename corrupt session file: {filepath}. Error: {e}")
+        return False
+    except Exception as e:
+        logging.error(f"Could not rename session file {filepath}: {e}")
         return False
 
 
