@@ -1505,10 +1505,23 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
     module_dir.mkdir(parents=True)
     class_name = "".join(word.capitalize() for word in module_name.split("_"))
 
+    # Parse custom fields
+    custom_fields = []
+    if getattr(args, "fields", None):
+        for f in args.fields.split(","):
+            if ":" in f:
+                fname, ftype = f.split(":")
+                custom_fields.append((fname.strip(), ftype.strip()))
+
     # __init__.py
     (module_dir / "__init__.py").write_text("")
 
     # models.py
+    model_cols = ""
+    for fname, ftype in custom_fields:
+        sa_type = "String" if ftype == "str" else "Integer" if ftype == "int" else "Boolean" if ftype == "bool" else "DateTime"
+        model_cols += f"            {fname} = Column({sa_type}, nullable=True)\n"
+
     models_content = textwrap.dedent(f'''\
         from __future__ import annotations
 
@@ -1526,6 +1539,7 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
             id = Column(Integer, primary_key=True, index=True, autoincrement=True)
             name = Column(String(255), nullable=False, index=True)
             description = Column(String(1000), nullable=True)
+{model_cols}            
             is_active = Column(Boolean, default=True, nullable=False)
             created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
             updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
@@ -1536,6 +1550,10 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
     (module_dir / "models.py").write_text(models_content)
 
     # schemas.py
+    schema_fields = ""
+    for fname, ftype in custom_fields:
+        schema_fields += f"            {fname}: Optional[{ftype}] = None\n"
+
     schemas_content = textwrap.dedent(f'''\
         from __future__ import annotations
 
@@ -1549,7 +1567,7 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
 
             name: str = Field(..., min_length=1, max_length=255, description="Nama {module_name}")
             description: Optional[str] = Field(None, max_length=1000, description="Deskripsi {module_name}")
-
+{schema_fields}
 
         class {class_name}Create({class_name}Base):
             """Schema untuk membuat {class_name} baru."""
@@ -1561,6 +1579,7 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
 
             name: Optional[str] = Field(None, min_length=1, max_length=255)
             description: Optional[str] = Field(None, max_length=1000)
+{schema_fields} 
             is_active: Optional[bool] = None
 
 
@@ -1740,6 +1759,27 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
             if not success:
                 raise HTTPException(status_code=404, detail="{class_name} tidak ditemukan.")
             return StandardJSONResponse.success(message="{class_name} berhasil dihapus.")
+        
+        # Summary provider for aggregator
+        def get_{module_name}_summary(db, _redis=None):
+            """Return summary data for the {module_name} module."""
+            try:
+                _, total = service.get_{module_name}_list(
+                    db,
+                    skip=0,
+                    limit=1
+                )
+            except Exception:
+                total = 0
+
+            return {{
+                "counts": {{
+                    "{module_name}": total
+                }},
+                "meta": {{
+                    "module": "{module_name}"
+                }}
+            }}
     ''')
     (module_dir / "routes.py").write_text(routes_content)
 
@@ -3862,6 +3902,7 @@ def _build_parser() -> argparse.ArgumentParser:
               python devtoolkit.py db tables                  # Lihat schema DB
               python devtoolkit.py gen secret                 # Generate secret key
               python devtoolkit.py scaffold invoice           # Buat module baru
+              python devtoolkit.py scaffold product --fields "name:str,price:float,stock:int"
               python devtoolkit.py lint                       # Analisis kode
               python devtoolkit.py api GET /health            # Panggil API
               python devtoolkit.py env init                   # Setup .env
@@ -3929,6 +3970,7 @@ def _build_parser() -> argparse.ArgumentParser:
     # scaffold
     sp_scaffold = subparsers.add_parser("scaffold", help="Scaffold module CRUD baru")
     sp_scaffold.add_argument("name", help="Nama module (contoh: invoice, category)")
+    sp_scaffold.add_argument("--fields", help="List kolom kustom format: nama:tipe,nama:tipe (contoh: email:str,age:int)")
 
     # test
     sp_test = subparsers.add_parser("test", help="Jalankan test suite")
