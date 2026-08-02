@@ -10,6 +10,8 @@ class ConversationBase(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=255, description="Nama conversation")
     description: Optional[str] = Field(None, max_length=1000, description="Deskripsi conversation")
+    model_id: int = Field(..., description="ID Model AI")
+    provider_id: int = Field(..., description="ID Provider AI")
 
 
 class ConversationCreate(ConversationBase):
@@ -32,5 +34,7 @@ class ConversationResponse(ConversationBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    model_name: Optional[str] = None
+    provider_name: Optional[str] = None
 
     model_config = {"from_attributes": True}

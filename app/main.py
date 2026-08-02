@@ -26,6 +26,7 @@ from app.modules.invoice.routes import router as invoice_router
 from app.modules.provider.routes import router as provider_router
 from app.modules.model.routes import router as model_router
 from app.modules.conversation.routes import router as conversation_router
+from app.modules.message.routes import router as message_router
 from app.modules.doc.routes import router as doc_router
 from app.modules.permission.routes import router as permission_router
 from app.modules.payment.routes import router as payment_router
@@ -125,6 +126,7 @@ app.include_router(invoice_router)
 app.include_router(provider_router)
 app.include_router(model_router)
 app.include_router(conversation_router)
+app.include_router(message_router)
 app.include_router(doc_router)
 app.include_router(payment_router)
 app.include_router(summary_router)
