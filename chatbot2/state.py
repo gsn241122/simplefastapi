@@ -6,6 +6,7 @@ tune the runtime behavior of the chatbot.
 from __future__ import annotations
 
 import os
+from sidebar import load_tool_prefs
 
 import streamlit as st
 
@@ -49,6 +50,7 @@ def init_session_state() -> None:
     # ── Tool / MCP mapping ──────────────────────────────────────────────────
     _set_default("tool_to_server", {})
     _set_default("tool_to_real_name", {})
+    _set_default("disabled_tools", load_tool_prefs())
 
     # ── Session / history ───────────────────────────────────────────────────
     _set_default("current_session_id", initial_session_id)

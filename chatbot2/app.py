@@ -78,7 +78,9 @@ server_errors: dict = st.session_state.get("server_errors") or {}
 mcp_tools = st.session_state.get("mcp_tools")
 
 active_server_count: int = max(0, len(all_servers) - len(server_errors))
-tool_count: int = len(mcp_tools) if mcp_tools is not None else 0
+disabled_tools = st.session_state.get("disabled_tools") or set()
+total_tool_count: int = len(mcp_tools) if mcp_tools is not None else 0
+active_tool_count: int = len([t for t in (mcp_tools or []) if t.get("function", {}).get("name") not in disabled_tools])
 
 cols = st.columns([2, 1])
 col_title, col_status = cols[0], cols[1]
@@ -91,7 +93,7 @@ with col_status:
     with st.container(border=True):
         with st.container(horizontal=True):
             st.badge(f"{settings.model}", icon=":material/model_training:", color="blue")
-            st.badge(f"{tool_count} Tools", icon=":material/build:", color="violet")
+            st.badge(f"{active_tool_count}/{total_tool_count} Tools", icon=":material/build:", color="violet")
             st.badge(
                 "Safe Mode: ON" if settings.safe_mode else "Safe Mode: OFF",
                 icon=":material/shield:" if settings.safe_mode else ":material/gpp_maybe:",

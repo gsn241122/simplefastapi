@@ -37,6 +37,27 @@ from history_manager import (
 )
 from mcp_client import call_mcp_tool_by_name, fetch_all_mcp_tools, load_mcp_config
 
+TOOL_PREFS_FILE = os.path.join(os.path.dirname(__file__), 'tool_prefs.json')
+
+def load_tool_prefs() -> set[str]:
+    if not os.path.exists(TOOL_PREFS_FILE):
+        return set()
+    try:
+        with open(TOOL_PREFS_FILE, 'r', encoding='utf-8') as f:
+            prefs = json.load(f)
+            return set(prefs.get("disabled_tools", []))
+    except Exception as e:
+        st.toast(f"Error loading tool preferences: {e}", icon=":material/warning:")
+        return set()
+
+def save_tool_prefs(disabled_tools: set[str]) -> None:
+    try:
+        with open(TOOL_PREFS_FILE, 'w', encoding='utf-8') as f:
+            json.dump({"disabled_tools": list(disabled_tools)}, f, indent=4)
+    except Exception as e:
+        st.toast(f"Error saving tool preferences: {e}", icon=":material/warning:")
+
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Data classes
@@ -447,15 +468,60 @@ def _render_mcp_tools_status(connect_timeout: float) -> None:
             with st.expander(server_name, icon=":material/cancel:"):
                 st.code(error)
 
+        # Tool Management
     tool_count = len(st.session_state.mcp_tools)
+    disabled_tools = st.session_state.setdefault("disabled_tools", set())
+    active_count = tool_count - len([t for t in st.session_state.mcp_tools if t["function"]["name"] in disabled_tools])
+    
     st.badge(
-        f"Connected — {tool_count} tool{'s' if tool_count != 1 else ''} available",
+        f"Connected — {active_count}/{tool_count} tools active",
         icon=":material/check_circle:",
         color="green",
     )
-    for tool in st.session_state.mcp_tools:
-        server_name = st.session_state.tool_to_server.get(tool["function"]["name"], "?")
-        st.caption(f":material/build: {tool['function']['name']} — {server_name}")
+
+    with st.expander("🛠️ Tool Management", icon=":material/build:"):
+        search_query = st.text_input("Search tools...", key="tool_search_input", placeholder="Filter by name...", label_visibility="collapsed")
+        
+        # Group tools by server
+        tools_by_server = {}
+        for tool in st.session_state.mcp_tools:
+            func_name = tool["function"]["name"]
+            # Filter by search query
+            if search_query and search_query.lower() not in func_name.lower():
+                continue
+            server_name = st.session_state.tool_to_server.get(func_name, "unknown")
+            tools_by_server.setdefault(server_name, []).append(tool)
+
+        for server_name, tools in tools_by_server.items():
+            with st.expander(f"📦 {server_name}"):
+                col1, col2 = st.columns(2)
+                if col1.button("Enable All", key=f"enable_{server_name}", use_container_width=True):
+                    for t in tools:
+                        name = t["function"]["name"]
+                        disabled_tools.discard(name)
+                        st.session_state[f"tool_toggle_{name}"] = True
+                    save_tool_prefs(disabled_tools)
+                    st.rerun()
+                if col2.button("Disable All", key=f"disable_{server_name}", use_container_width=True):
+                    for t in tools:
+                        name = t["function"]["name"]
+                        disabled_tools.add(name)
+                        st.session_state[f"tool_toggle_{name}"] = False
+                    save_tool_prefs(disabled_tools)
+                    st.rerun()
+                
+                for tool in tools:
+                    func_name = tool["function"]["name"]
+                    desc = tool["function"].get("description", "No description")
+                    is_enabled = func_name not in disabled_tools
+                    if st.checkbox(func_name, value=is_enabled, key=f"tool_toggle_{func_name}", help=desc):
+                        if func_name in disabled_tools:
+                            disabled_tools.discard(func_name)
+                            save_tool_prefs(disabled_tools)
+                    else:
+                        if func_name not in disabled_tools:
+                            disabled_tools.add(func_name)
+                            save_tool_prefs(disabled_tools)
 
 
 # ──────────────────────────────────────────────────────────────────────────────

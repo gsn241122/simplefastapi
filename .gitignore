@@ -44,3 +44,4 @@ test.db
 chatbot/chat_sessions/*
 chatbot/.simple/*
 chatbot2/chat_sessions/*
+chatbot2/tool_prefs.json

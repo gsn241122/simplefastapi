@@ -520,7 +520,12 @@ def run_chat_turn(settings: SidebarSettings) -> None:
         placeholder = st.empty()
 
         all_tools = st.session_state.get("mcp_tools") or []
-        relevant_tools = _filter_tools_with_thinking_tool(settings, all_tools, placeholder)
+        disabled_tools = st.session_state.get("disabled_tools") or set()
+        active_tools = [
+            t for t in all_tools
+            if t.get("function", {}).get("name") not in disabled_tools
+        ]
+        relevant_tools = _filter_tools_with_thinking_tool(settings, active_tools, placeholder)
 
         placeholder.markdown("_thinking..._")
 
