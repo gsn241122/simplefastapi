@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import Optional
 
 from app.modules.order.models import Order, OrderItem
@@ -13,11 +13,17 @@ def get_order_list(
     skip: int = 0,
     limit: int = 20,
     search: Optional[str] = None,
+    status: Optional[str] = None,
+    user_id: Optional[int] = None,
 ) -> tuple[list[Order], int]:
-    query = db.query(Order).filter(Order.is_active == True)  # noqa: E712
+    query = db.query(Order).options(joinedload(Order.items)).filter(Order.is_active == True)  # noqa: E712
 
     if search:
         query = query.filter(Order.name.ilike(f"%{search}%"))
+    if status:
+        query = query.filter(Order.status == status)
+    if user_id is not None:
+        query = query.filter(Order.user_id == user_id)
 
     total = query.count()
     items = query.offset(skip).limit(limit).all()
@@ -25,7 +31,7 @@ def get_order_list(
 
 
 def get_order_by_id(db: Session, order_id: int) -> Optional[Order]:
-    return db.query(Order).filter(
+    return db.query(Order).options(joinedload(Order.items)).filter(
         Order.id == order_id,
         Order.is_active == True,  # noqa: E712
     ).first()
@@ -33,6 +39,9 @@ def get_order_by_id(db: Session, order_id: int) -> Optional[Order]:
 
 def create_order(db: Session, payload: OrderCreate, user_id: Optional[int] = None) -> Order:
     """Buat order baru beserta item produknya dan hitung otomatis total harga."""
+    if not payload.items:
+        raise ValueError("Order harus memiliki minimal 1 item produk.")
+
     calculated_amount = 0
     order_items_to_create = []
 

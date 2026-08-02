@@ -472,7 +472,7 @@ def _reset_active_conversation(new_id: str) -> None:
 def _on_new_chat_click() -> None:
     _reset_active_conversation(generate_session_id())
     st.toast("New conversation started!", icon=":material/add_comment:")
-    st.rerun()
+    # st.rerun()
 
 
 def _on_delete_session_click(target_id: str) -> None:

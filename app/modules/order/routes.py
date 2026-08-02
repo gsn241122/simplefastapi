@@ -22,9 +22,11 @@ def list_orders(
     skip: int = Query(0, ge=0, description="Offset"),
     limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE, description="Items per page"),
     search: str | None = Query(None, description="Search by name"),
+    status: str | None = Query(None, description="Filter by order status"),
+    user_id: int | None = Query(None, description="Filter by user ID"),
     db: Session = Depends(get_db),
 ):
-    items, total = service.get_order_list(db, skip=skip, limit=limit, search=search)
+    items, total = service.get_order_list(db, skip=skip, limit=limit, search=search, status=status, user_id=user_id)
     return StandardJSONResponse.success(
         data=[OrderResponse.model_validate(i) for i in items],
         message=f"Berhasil mengambil {len(items)} order.",
