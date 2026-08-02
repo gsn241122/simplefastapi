@@ -8,6 +8,7 @@ from datetime import datetime
 class InvoiceBase(BaseModel):
     """Schema dasar untuk Invoice."""
 
+    order_id: Optional[int] = Field(None, description="ID Order terkait (opsional)")
     name: str = Field(..., min_length=1, max_length=255, description="Nama invoice")
     description: Optional[str] = Field(None, max_length=1000, description="Deskripsi invoice")
     invoice_type: str = Field(default="invoice", max_length=50, description="Tipe invoice (invoice, receipt, dll.)")
@@ -26,6 +27,7 @@ class InvoiceCreate(InvoiceBase):
 class InvoiceUpdate(BaseModel):
     """Schema untuk mengupdate Invoice (semua field opsional)."""
 
+    order_id: Optional[int] = None
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = Field(None, max_length=1000)
     invoice_type: Optional[str] = Field(None, max_length=50)

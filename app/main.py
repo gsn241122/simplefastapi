@@ -28,6 +28,7 @@ from app.modules.model.routes import router as model_router
 from app.modules.conversation.routes import router as conversation_router
 from app.modules.doc.routes import router as doc_router
 from app.modules.permission.routes import router as permission_router  # ← NEW
+from app.modules.payment.routes import router as payment_router
 from app.modules.summary.routes import router as summary_router
 
 # Setup logging sebelum apapun
@@ -123,6 +124,7 @@ app.include_router(provider_router)
 app.include_router(model_router)
 app.include_router(conversation_router)
 app.include_router(doc_router)
+app.include_router(payment_router)
 app.include_router(summary_router)
 
 

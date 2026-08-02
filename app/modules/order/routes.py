@@ -24,7 +24,6 @@ def list_orders(
     search: str | None = Query(None, description="Search by name"),
     db: Session = Depends(get_db),
 ):
-    """Ambil daftar order dengan paginasi."""
     items, total = service.get_order_list(db, skip=skip, limit=limit, search=search)
     return StandardJSONResponse.success(
         data=[OrderResponse.model_validate(i) for i in items],
@@ -35,7 +34,6 @@ def list_orders(
 
 @router.get("/{id}", response_model=APIResponse, summary="Get order by ID")
 def get_order(id: int, db: Session = Depends(get_db)):
-    """Ambil detail order berdasarkan ID."""
     item = service.get_order_by_id(db, id)
     if not item:
         raise HTTPException(status_code=404, detail="Order tidak ditemukan.")
@@ -46,18 +44,25 @@ def get_order(id: int, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=APIResponse, status_code=201, summary="Create order")
-def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
-    """Buat order baru."""
-    item = service.create_order(db, payload)
-    return StandardJSONResponse.success(
-        data=OrderResponse.model_validate(item),
-        message="Order berhasil dibuat.",
-    )
+def create_order(
+    payload: OrderCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Buat order baru beserta item produk."""
+    try:
+        user_id = getattr(current_user, "id", None)
+        item = service.create_order(db, payload, user_id=user_id)
+        return StandardJSONResponse.success(
+            data=OrderResponse.model_validate(item),
+            message="Order berhasil dibuat.",
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.put("/{id}", response_model=APIResponse, summary="Update order")
 def update_order(id: int, payload: OrderUpdate, db: Session = Depends(get_db)):
-    """Update order berdasarkan ID."""
     item = service.update_order(db, id, payload)
     if not item:
         raise HTTPException(status_code=404, detail="Order tidak ditemukan.")
@@ -69,7 +74,6 @@ def update_order(id: int, payload: OrderUpdate, db: Session = Depends(get_db)):
 
 @router.delete("/{id}", response_model=APIResponse, summary="Delete order")
 def delete_order(id: int, db: Session = Depends(get_db)):
-    """Soft-delete order berdasarkan ID."""
     success = service.delete_order(db, id)
     if not success:
         raise HTTPException(status_code=404, detail="Order tidak ditemukan.")
