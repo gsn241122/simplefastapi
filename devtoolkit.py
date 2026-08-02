@@ -31,6 +31,7 @@ import string
 import subprocess
 import sys
 import textwrap
+import keyword
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -1486,6 +1487,78 @@ def _env_validate() -> None:
 # ══════════════════════════════════════════════════════════════════
 #  COMMAND: scaffold — Scaffold module baru
 # ══════════════════════════════════════════════════════════════════
+#
+# NOTE: this file assumes the surrounding devtoolkit module already
+# provides: argparse, re, textwrap, keyword, pathlib.Path, APP_DIR,
+# and the _header/_error/_success/_info/_dim print helpers.
+# `import keyword` needs to be added alongside the existing imports
+# if it isn't already present.
+
+# Whitelisted custom-field types. Anything not in this map is a hard
+# error at scaffold time instead of silently falling through to
+# DateTime (the previous behavior for any unrecognized type string).
+FIELD_TYPE_MAP = {
+    "str": {"sa": "String(255)", "py": "str", "is_string": True},
+    "text": {"sa": "String(2000)", "py": "str", "is_string": True},
+    "int": {"sa": "Integer", "py": "int", "is_string": False},
+    "bool": {"sa": "Boolean", "py": "bool", "is_string": False},
+    "float": {"sa": "Float", "py": "float", "is_string": False},
+    "datetime": {"sa": "DateTime(timezone=True)", "py": "datetime", "is_string": False},
+}
+
+# Columns already defined by the base template — a custom field reusing
+# one of these would silently duplicate a class attribute.
+RESERVED_FIELD_NAMES = {"id", "name", "description", "is_active", "created_at", "updated_at"}
+
+_FIELD_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+
+
+def _parse_custom_fields(raw: str) -> list[tuple[str, str]]:
+    """
+    Parse and validate '--fields' input like 'author:str,pages:int'.
+
+    Raises ValueError with a human-readable message on anything invalid,
+    since field names are interpolated directly into generated Python
+    source and must be safe identifiers.
+    """
+    fields: list[tuple[str, str]] = []
+    seen: set[str] = set()
+
+    for raw_field in raw.split(","):
+        raw_field = raw_field.strip()
+        if not raw_field:
+            continue
+        if ":" not in raw_field:
+            raise ValueError(
+                f"Field '{raw_field}' harus dalam format 'nama:tipe' (contoh: 'author:str')."
+            )
+
+        fname, ftype = raw_field.split(":", 1)
+        fname, ftype = fname.strip(), ftype.strip()
+
+        if not _FIELD_NAME_RE.match(fname):
+            raise ValueError(
+                f"Nama field '{fname}' tidak valid. Harus lowercase alphanumeric/underscore, "
+                "diawali huruf (contoh: 'author', 'page_count')."
+            )
+        if keyword.iskeyword(fname):
+            raise ValueError(f"Nama field '{fname}' adalah keyword Python dan tidak bisa dipakai.")
+        if fname in RESERVED_FIELD_NAMES:
+            raise ValueError(
+                f"Nama field '{fname}' sudah dipakai oleh kolom bawaan module "
+                f"({', '.join(sorted(RESERVED_FIELD_NAMES))})."
+            )
+        if fname in seen:
+            raise ValueError(f"Field '{fname}' didefinisikan lebih dari sekali.")
+        if ftype not in FIELD_TYPE_MAP:
+            allowed = ", ".join(sorted(FIELD_TYPE_MAP))
+            raise ValueError(f"Tipe '{ftype}' untuk field '{fname}' tidak dikenal. Pilihan: {allowed}.")
+
+        seen.add(fname)
+        fields.append((fname, ftype))
+
+    return fields
+
 
 def cmd_scaffold(args: argparse.Namespace) -> None:
     """Scaffold module CRUD baru dengan boilerplate lengkap."""
@@ -1495,6 +1568,9 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
     if not re.match(r"^[a-z][a-z0-9_]*$", module_name):
         _error("Nama module harus alphanumeric lowercase (contoh: 'invoice', 'category').")
         return
+    if keyword.iskeyword(module_name):
+        _error(f"Nama module '{module_name}' adalah keyword Python dan tidak bisa dipakai.")
+        return
 
     module_dir = APP_DIR / "modules" / module_name
 
@@ -1502,30 +1578,39 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
         _error(f"Module '{module_name}' sudah ada di {module_dir}")
         return
 
+    # Parse + validate custom fields before creating anything on disk.
+    custom_fields: list[tuple[str, str]] = []
+    if getattr(args, "fields", None):
+        try:
+            custom_fields = _parse_custom_fields(args.fields)
+        except ValueError as exc:
+            _error(str(exc))
+            return
+
     module_dir.mkdir(parents=True)
     class_name = "".join(word.capitalize() for word in module_name.split("_"))
 
-    # Parse custom fields
-    custom_fields = []
-    if getattr(args, "fields", None):
-        for f in args.fields.split(","):
-            if ":" in f:
-                fname, ftype = f.split(":")
-                custom_fields.append((fname.strip(), ftype.strip()))
+    string_field_names = [fname for fname, ftype in custom_fields if FIELD_TYPE_MAP[ftype]["is_string"]]
 
     # __init__.py
     (module_dir / "__init__.py").write_text("")
 
-    # models.py
+    # ── models.py ────────────────────────────────────────────────
     model_cols = ""
     for fname, ftype in custom_fields:
-        sa_type = "String" if ftype == "str" else "Integer" if ftype == "int" else "Boolean" if ftype == "bool" else "DateTime"
+        sa_type = FIELD_TYPE_MAP[ftype]["sa"]
         model_cols += f"            {fname} = Column({sa_type}, nullable=True)\n"
+
+    # Only import the SQLAlchemy column types actually used.
+    used_sa_types = {"Integer", "String", "Boolean", "DateTime"} | {
+        FIELD_TYPE_MAP[ftype]["sa"].split("(")[0] for _, ftype in custom_fields
+    }
+    sa_import_line = ", ".join(sorted(used_sa_types))
 
     models_content = textwrap.dedent(f'''\
         from __future__ import annotations
 
-        from sqlalchemy import Column, Integer, String, Boolean, DateTime
+        from sqlalchemy import Column, {sa_import_line}, Index
         from sqlalchemy.sql import func
 
         from app.core.database import Base
@@ -1535,31 +1620,56 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
             """SQLAlchemy model untuk {class_name}."""
 
             __tablename__ = "{module_name}s"
+            __table_args__ = (
+                Index("ix_{module_name}s_is_active_id", "is_active", "id"),
+            )
 
             id = Column(Integer, primary_key=True, index=True, autoincrement=True)
             name = Column(String(255), nullable=False, index=True)
             description = Column(String(1000), nullable=True)
-{model_cols}            
+{model_cols}
             is_active = Column(Boolean, default=True, nullable=False)
             created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
             updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
             def __repr__(self) -> str:
-                return f"<{class_name}(id={{self.id}}, name={{self.name!r}})>"
+                return f"<{class_name}(id={{self.id}}, name={{self.name!r}}, is_active={{self.is_active}})>"
     ''')
     (module_dir / "models.py").write_text(models_content)
 
-    # schemas.py
+    # ── schemas.py ───────────────────────────────────────────────
     schema_fields = ""
+    string_strip_targets = ["description"] + string_field_names
     for fname, ftype in custom_fields:
-        schema_fields += f"            {fname}: Optional[{ftype}] = None\n"
+        py_type = FIELD_TYPE_MAP[ftype]["py"]
+        # NOTE: indent is baked in literally (matching the 12-space class-body
+        # convention used elsewhere in this template) rather than relying on
+        # textwrap.dedent to fix it up — dedent computes its strip margin from
+        # the *shortest* leading whitespace across every line in the final
+        # string, so a mismatched literal indent here would silently corrupt
+        # indentation for the entire generated file, not just this block.
+        if FIELD_TYPE_MAP[ftype]["is_string"]:
+            max_len = 2000 if ftype == "text" else 255
+            schema_fields += f"            {fname}: Optional[{py_type}] = Field(None, max_length={max_len})\n"
+        else:
+            schema_fields += f"            {fname}: Optional[{py_type}] = None\n"
+
+    strip_targets_repr = ", ".join(f'"{f}"' for f in string_strip_targets)
 
     schemas_content = textwrap.dedent(f'''\
         from __future__ import annotations
 
-        from pydantic import BaseModel, Field
+        from pydantic import BaseModel, Field, field_validator
         from typing import Optional
         from datetime import datetime
+
+
+        def _strip_or_none(v: Optional[str]) -> Optional[str]:
+            """Strip whitespace; convert empty/whitespace-only strings to None."""
+            if v is None:
+                return v
+            v = v.strip()
+            return v or None
 
 
         class {class_name}Base(BaseModel):
@@ -1568,6 +1678,19 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
             name: str = Field(..., min_length=1, max_length=255, description="Nama {module_name}")
             description: Optional[str] = Field(None, max_length=1000, description="Deskripsi {module_name}")
 {schema_fields}
+            @field_validator("name")
+            @classmethod
+            def name_not_blank(cls, v: str) -> str:
+                v = v.strip()
+                if not v:
+                    raise ValueError("name tidak boleh kosong atau hanya berisi spasi")
+                return v
+
+            @field_validator({strip_targets_repr})
+            @classmethod
+            def strip_optional_fields(cls, v: Optional[str]) -> Optional[str]:
+                return _strip_or_none(v)
+
 
         class {class_name}Create({class_name}Base):
             """Schema untuk membuat {class_name} baru."""
@@ -1579,8 +1702,23 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
 
             name: Optional[str] = Field(None, min_length=1, max_length=255)
             description: Optional[str] = Field(None, max_length=1000)
-{schema_fields} 
+{schema_fields}
             is_active: Optional[bool] = None
+
+            @field_validator("name")
+            @classmethod
+            def name_not_blank(cls, v: Optional[str]) -> Optional[str]:
+                if v is None:
+                    return v
+                v = v.strip()
+                if not v:
+                    raise ValueError("name tidak boleh kosong atau hanya berisi spasi")
+                return v
+
+            @field_validator({strip_targets_repr})
+            @classmethod
+            def strip_optional_fields(cls, v: Optional[str]) -> Optional[str]:
+                return _strip_or_none(v)
 
 
         class {class_name}Response({class_name}Base):
@@ -1595,15 +1733,42 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
     ''')
     (module_dir / "schemas.py").write_text(schemas_content)
 
-    # service.py
+    # ── service.py ───────────────────────────────────────────────
+    search_columns = [f"{class_name}.name"] + [f"{class_name}.{f}" for f in string_field_names]
+    if len(search_columns) > 1:
+        search_filter = "or_(\n                    " + ",\n                    ".join(
+            f"{col}.ilike(like)" for col in search_columns
+        ) + ",\n                )"
+    else:
+        search_filter = f"{search_columns[0]}.ilike(like)"
+
+    sortable_fields = {"id", "name", "created_at", "updated_at"} | {f for f, _ in custom_fields}
+    sortable_fields_repr = ", ".join(f'"{f}"' for f in sorted(sortable_fields))
+
+    # NOTE: this placeholder occupies its own template line (rather than being
+    # spliced into the middle of the following import line) so that, once the
+    # f-string is evaluated, every resulting line still carries a real leading
+    # indent. A mid-line splice would leave the *next* line at 0 indent, which
+    # drags textwrap.dedent's global margin calculation down to 0 and breaks
+    # indentation for the entire generated file.
+    or_import = "        from sqlalchemy import or_" if len(search_columns) > 1 else ""
+
     service_content = textwrap.dedent(f'''\
         from __future__ import annotations
 
+        import logging
+
+{or_import}
+        from sqlalchemy.exc import SQLAlchemyError
         from sqlalchemy.orm import Session
         from typing import Optional
 
         from app.modules.{module_name}.models import {class_name}
         from app.modules.{module_name}.schemas import {class_name}Create, {class_name}Update
+
+        logger = logging.getLogger(__name__)
+
+        SORTABLE_FIELDS = {{{sortable_fields_repr}}}
 
 
         def get_{module_name}_list(
@@ -1611,6 +1776,8 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
             skip: int = 0,
             limit: int = 20,
             search: Optional[str] = None,
+            sort_by: str = "id",
+            sort_order: str = "asc",
         ) -> tuple[list[{class_name}], int]:
             """
             Ambil daftar {module_name} dengan paginasi dan pencarian.
@@ -1621,15 +1788,22 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
             query = db.query({class_name}).filter({class_name}.is_active == True)  # noqa: E712
 
             if search:
-                query = query.filter({class_name}.name.ilike(f"%{{search}}%"))
+                like = f"%{{search}}%"
+                query = query.filter({search_filter})
 
             total = query.count()
+
+            sort_column = getattr({class_name}, sort_by if sort_by in SORTABLE_FIELDS else "id")
+            if sort_order.lower() == "desc":
+                sort_column = sort_column.desc()
+            query = query.order_by(sort_column)
+
             items = query.offset(skip).limit(limit).all()
             return items, total
 
 
         def get_{module_name}_by_id(db: Session, {module_name}_id: int) -> Optional[{class_name}]:
-            """Ambil satu {module_name} berdasarkan ID."""
+            """Ambil satu {module_name} (aktif) berdasarkan ID."""
             return db.query({class_name}).filter(
                 {class_name}.id == {module_name}_id,
                 {class_name}.is_active == True,  # noqa: E712
@@ -1640,7 +1814,12 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
             """Buat {module_name} baru."""
             db_item = {class_name}(**payload.model_dump())
             db.add(db_item)
-            db.commit()
+            try:
+                db.commit()
+            except SQLAlchemyError:
+                db.rollback()
+                logger.exception("Gagal membuat {module_name}: %s", payload.name)
+                raise
             db.refresh(db_item)
             return db_item
 
@@ -1650,7 +1829,7 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
             {module_name}_id: int,
             payload: {class_name}Update,
         ) -> Optional[{class_name}]:
-            """Update {module_name} berdasarkan ID."""
+            """Update {module_name} (aktif) berdasarkan ID."""
             db_item = get_{module_name}_by_id(db, {module_name}_id)
             if not db_item:
                 return None
@@ -1659,28 +1838,46 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
             for key, value in update_data.items():
                 setattr(db_item, key, value)
 
-            db.commit()
+            try:
+                db.commit()
+            except SQLAlchemyError:
+                db.rollback()
+                logger.exception("Gagal mengupdate {module_name} id=%s", {module_name}_id)
+                raise
             db.refresh(db_item)
             return db_item
 
 
         def delete_{module_name}(db: Session, {module_name}_id: int) -> bool:
-            """Soft-delete {module_name} berdasarkan ID."""
-            db_item = db.query({class_name}).filter({class_name}.id == {module_name}_id).first()
+            """
+            Soft-delete {module_name} berdasarkan ID.
+
+            Hanya menghapus {module_name} yang masih aktif — memanggil delete pada
+            item yang sudah nonaktif (atau tidak ada) mengembalikan False.
+            """
+            db_item = get_{module_name}_by_id(db, {module_name}_id)
             if not db_item:
                 return False
 
             db_item.is_active = False
-            db.commit()
+            try:
+                db.commit()
+            except SQLAlchemyError:
+                db.rollback()
+                logger.exception("Gagal menghapus {module_name} id=%s", {module_name}_id)
+                raise
             return True
     ''')
     (module_dir / "service.py").write_text(service_content)
 
-    # routes.py
+    # ── routes.py ────────────────────────────────────────────────
     routes_content = textwrap.dedent(f'''\
         from __future__ import annotations
 
+        import logging
+
         from fastapi import APIRouter, Depends, HTTPException, Query
+        from sqlalchemy.exc import IntegrityError, SQLAlchemyError
         from sqlalchemy.orm import Session
 
         from app.core.database import get_db
@@ -1695,6 +1892,8 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
 
         from app.modules.auth.routes import get_current_user
 
+        logger = logging.getLogger(__name__)
+
         router = APIRouter(
             prefix="/{module_name}s",
             tags=["{class_name}s"],
@@ -1707,10 +1906,14 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
             skip: int = Query(0, ge=0, description="Offset"),
             limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE, description="Items per page"),
             search: str | None = Query(None, description="Search by name"),
+            sort_by: str = Query("id", description="Kolom untuk sorting"),
+            sort_order: str = Query("asc", pattern="^(asc|desc)$", description="Urutan sorting"),
             db: Session = Depends(get_db),
         ):
             """Ambil daftar {module_name} dengan paginasi."""
-            items, total = service.get_{module_name}_list(db, skip=skip, limit=limit, search=search)
+            items, total = service.get_{module_name}_list(
+                db, skip=skip, limit=limit, search=search, sort_by=sort_by, sort_order=sort_order
+            )
             return StandardJSONResponse.success(
                 data=[{class_name}Response.model_validate(i) for i in items],
                 message=f"Berhasil mengambil {{len(items)}} {module_name}.",
@@ -1733,7 +1936,12 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
         @router.post("", response_model=APIResponse, status_code=201, summary="Create {module_name}")
         def create_{module_name}(payload: {class_name}Create, db: Session = Depends(get_db)):
             """Buat {module_name} baru."""
-            item = service.create_{module_name}(db, payload)
+            try:
+                item = service.create_{module_name}(db, payload)
+            except IntegrityError:
+                raise HTTPException(status_code=409, detail="{class_name} dengan data tersebut sudah ada.")
+            except SQLAlchemyError:
+                raise HTTPException(status_code=500, detail="Gagal membuat {module_name}, silakan coba lagi.")
             return StandardJSONResponse.success(
                 data={class_name}Response.model_validate(item),
                 message="{class_name} berhasil dibuat.",
@@ -1743,7 +1951,12 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
         @router.put("/{{id}}", response_model=APIResponse, summary="Update {module_name}")
         def update_{module_name}(id: int, payload: {class_name}Update, db: Session = Depends(get_db)):
             """Update {module_name} berdasarkan ID."""
-            item = service.update_{module_name}(db, id, payload)
+            try:
+                item = service.update_{module_name}(db, id, payload)
+            except IntegrityError:
+                raise HTTPException(status_code=409, detail="Update menyebabkan konflik data.")
+            except SQLAlchemyError:
+                raise HTTPException(status_code=500, detail="Gagal mengupdate {module_name}, silakan coba lagi.")
             if not item:
                 raise HTTPException(status_code=404, detail="{class_name} tidak ditemukan.")
             return StandardJSONResponse.success(
@@ -1759,7 +1972,8 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
             if not success:
                 raise HTTPException(status_code=404, detail="{class_name} tidak ditemukan.")
             return StandardJSONResponse.success(message="{class_name} berhasil dihapus.")
-        
+
+
         # Summary provider for aggregator
         def get_{module_name}_summary(db, _redis=None):
             """Return summary data for the {module_name} module."""
@@ -1767,9 +1981,10 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
                 _, total = service.get_{module_name}_list(
                     db,
                     skip=0,
-                    limit=1
+                    limit=1,
                 )
-            except Exception:
+            except SQLAlchemyError:
+                logger.exception("Gagal mengambil summary {module_name}")
                 total = 0
 
             return {{
@@ -1795,7 +2010,7 @@ def cmd_scaffold(args: argparse.Namespace) -> None:
     _dim("    1. Register router di app/main.py:")
     _dim(f"       from app.modules.{module_name}.routes import router as {module_name}_router")
     _dim(f"       app.include_router({module_name}_router)")
-    _dim(f"    2. Buat migration: python devtoolkit.py db migrate --message \"add {module_name} table\"")
+    _dim(f'    2. Buat migration: python devtoolkit.py db migrate --message "add {module_name} table"')
     _dim("    3. Apply migration: alembic upgrade head")
     print()
 

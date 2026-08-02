@@ -13,13 +13,17 @@ def _strip_or_none(v: Optional[str]) -> Optional[str]:
     return v or None
 
 
-class BookBase(BaseModel):
-    """Schema dasar untuk Book."""
+class FilmBase(BaseModel):
+    """Schema dasar untuk Film."""
 
-    name: str = Field(..., min_length=1, max_length=255, description="Nama book")
-    description: Optional[str] = Field(None, max_length=1000, description="Deskripsi book")
-    judul: Optional[str] = Field(None, max_length=255, description="Judul book")
-    penerbit: Optional[str] = Field(None, max_length=255, description="Penerbit book")
+    name: str = Field(..., min_length=1, max_length=255, description="Nama film")
+    description: Optional[str] = Field(None, max_length=1000, description="Deskripsi film")
+    genre: Optional[str] = Field(None, max_length=255)
+    director: Optional[str] = Field(None, max_length=255)
+    duration_minutes: Optional[int] = None
+    release_date: Optional[datetime] = None
+    rating: Optional[float] = None
+    synopsis: Optional[str] = Field(None, max_length=2000)
 
     @field_validator("name")
     @classmethod
@@ -29,24 +33,28 @@ class BookBase(BaseModel):
             raise ValueError("name tidak boleh kosong atau hanya berisi spasi")
         return v
 
-    @field_validator("description", "judul", "penerbit")
+    @field_validator("description", "genre", "director", "synopsis")
     @classmethod
     def strip_optional_fields(cls, v: Optional[str]) -> Optional[str]:
         return _strip_or_none(v)
 
 
-class BookCreate(BookBase):
-    """Schema untuk membuat Book baru."""
+class FilmCreate(FilmBase):
+    """Schema untuk membuat Film baru."""
     pass
 
 
-class BookUpdate(BaseModel):
-    """Schema untuk mengupdate Book (semua field opsional)."""
+class FilmUpdate(BaseModel):
+    """Schema untuk mengupdate Film (semua field opsional)."""
 
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = Field(None, max_length=1000)
-    judul: Optional[str] = Field(None, max_length=255)
-    penerbit: Optional[str] = Field(None, max_length=255)
+    genre: Optional[str] = Field(None, max_length=255)
+    director: Optional[str] = Field(None, max_length=255)
+    duration_minutes: Optional[int] = None
+    release_date: Optional[datetime] = None
+    rating: Optional[float] = None
+    synopsis: Optional[str] = Field(None, max_length=2000)
 
     is_active: Optional[bool] = None
 
@@ -60,14 +68,14 @@ class BookUpdate(BaseModel):
             raise ValueError("name tidak boleh kosong atau hanya berisi spasi")
         return v
 
-    @field_validator("description", "judul", "penerbit")
+    @field_validator("description", "genre", "director", "synopsis")
     @classmethod
     def strip_optional_fields(cls, v: Optional[str]) -> Optional[str]:
         return _strip_or_none(v)
 
 
-class BookResponse(BookBase):
-    """Schema response untuk Book."""
+class FilmResponse(FilmBase):
+    """Schema response untuk Film."""
 
     id: int
     is_active: bool

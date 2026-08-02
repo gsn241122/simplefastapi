@@ -13,13 +13,15 @@ def _strip_or_none(v: Optional[str]) -> Optional[str]:
     return v or None
 
 
-class BookBase(BaseModel):
-    """Schema dasar untuk Book."""
+class CustomerBase(BaseModel):
+    """Schema dasar untuk Customer."""
 
-    name: str = Field(..., min_length=1, max_length=255, description="Nama book")
-    description: Optional[str] = Field(None, max_length=1000, description="Deskripsi book")
-    judul: Optional[str] = Field(None, max_length=255, description="Judul book")
-    penerbit: Optional[str] = Field(None, max_length=255, description="Penerbit book")
+    name: str = Field(..., min_length=1, max_length=255, description="Nama customer")
+    description: Optional[str] = Field(None, max_length=1000, description="Deskripsi customer")
+    email: Optional[str] = Field(None, max_length=255)
+    phone: Optional[str] = Field(None, max_length=255)
+    address: Optional[str] = Field(None, max_length=255)
+    city: Optional[str] = Field(None, max_length=255)
 
     @field_validator("name")
     @classmethod
@@ -29,24 +31,26 @@ class BookBase(BaseModel):
             raise ValueError("name tidak boleh kosong atau hanya berisi spasi")
         return v
 
-    @field_validator("description", "judul", "penerbit")
+    @field_validator("description", "email", "phone", "address", "city")
     @classmethod
     def strip_optional_fields(cls, v: Optional[str]) -> Optional[str]:
         return _strip_or_none(v)
 
 
-class BookCreate(BookBase):
-    """Schema untuk membuat Book baru."""
+class CustomerCreate(CustomerBase):
+    """Schema untuk membuat Customer baru."""
     pass
 
 
-class BookUpdate(BaseModel):
-    """Schema untuk mengupdate Book (semua field opsional)."""
+class CustomerUpdate(BaseModel):
+    """Schema untuk mengupdate Customer (semua field opsional)."""
 
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = Field(None, max_length=1000)
-    judul: Optional[str] = Field(None, max_length=255)
-    penerbit: Optional[str] = Field(None, max_length=255)
+    email: Optional[str] = Field(None, max_length=255)
+    phone: Optional[str] = Field(None, max_length=255)
+    address: Optional[str] = Field(None, max_length=255)
+    city: Optional[str] = Field(None, max_length=255)
 
     is_active: Optional[bool] = None
 
@@ -60,14 +64,14 @@ class BookUpdate(BaseModel):
             raise ValueError("name tidak boleh kosong atau hanya berisi spasi")
         return v
 
-    @field_validator("description", "judul", "penerbit")
+    @field_validator("description", "email", "phone", "address", "city")
     @classmethod
     def strip_optional_fields(cls, v: Optional[str]) -> Optional[str]:
         return _strip_or_none(v)
 
 
-class BookResponse(BookBase):
-    """Schema response untuk Book."""
+class CustomerResponse(CustomerBase):
+    """Schema response untuk Customer."""
 
     id: int
     is_active: bool

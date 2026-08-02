@@ -31,6 +31,7 @@ from app.modules.permission.routes import router as permission_router
 from app.modules.payment.routes import router as payment_router
 from app.modules.summary.routes import router as summary_router
 from app.modules.book.routes import router as book_router
+from app.modules.customer.routes import router as customer_router
 
 # Setup logging sebelum apapun
 setup_logging()
@@ -128,6 +129,7 @@ app.include_router(doc_router)
 app.include_router(payment_router)
 app.include_router(summary_router)
 app.include_router(book_router)
+app.include_router(customer_router)
 
 
 @app.get("/", tags=["General"], summary="Welcome message")
