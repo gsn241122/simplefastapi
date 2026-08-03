@@ -39,27 +39,8 @@ from history_manager import (
     save_session,
     search_saved_sessions,
 )
+from state import get_current_system_prompt, load_tool_prefs, save_tool_prefs
 from mcp_client import call_mcp_tool_by_name, fetch_all_mcp_tools, load_mcp_config
-
-TOOL_PREFS_FILE = os.path.join(os.path.dirname(__file__), 'tool_prefs.json')
-
-def load_tool_prefs() -> set[str]:
-    if not os.path.exists(TOOL_PREFS_FILE):
-        return set()
-    try:
-        with open(TOOL_PREFS_FILE, 'r', encoding='utf-8') as f:
-            prefs = json.load(f)
-            return set(prefs.get("disabled_tools", []))
-    except Exception as e:
-        st.toast(f"Error loading tool preferences: {e}", icon=":material/warning:")
-        return set()
-
-def save_tool_prefs(disabled_tools: set[str]) -> None:
-    try:
-        with open(TOOL_PREFS_FILE, 'w', encoding='utf-8') as f:
-            json.dump({"disabled_tools": list(disabled_tools)}, f, indent=4)
-    except Exception as e:
-        st.toast(f"Error saving tool preferences: {e}", icon=":material/warning:")
 
 
 
@@ -591,7 +572,11 @@ def _render_mcp_tools_status(connect_timeout: float) -> None:
 # Chat history / clear callbacks
 # ──────────────────────────────────────────────────────────────────────────────
 def _reset_active_conversation(new_id: str) -> None:
-    st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    # Single source of truth: ask `state.get_current_system_prompt` so the
+    # same helper that `init_session_state` uses is the only place that
+    # knows how to resolve the system prompt. Keeps behaviour identical
+    # between a fresh boot and a "New chat" click.
+    st.session_state.messages = [{"role": "system", "content": get_current_system_prompt()}]
     st.session_state.current_session_id = new_id
     st.session_state.saved_session_select = new_id
     for k in ("pending_tool_call", "pending_args", "pending_tool_queue", "resume_llm"):

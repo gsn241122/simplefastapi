@@ -664,6 +664,7 @@ def run_chat_turn(settings: SidebarSettings) -> None:
             if current_id and len(messages) > 1:
                 title = get_default_session_title(messages)
                 save_session(current_id, title, messages)
+                st.session_state.pop("saved_session_select", None)
 
             if not raw_tool_calls:
                 elapsed = time.perf_counter() - turn_start
@@ -728,6 +729,7 @@ def handle_chat_input(settings: SidebarSettings) -> None:
             st.session_state.messages.append({"role": "user", "content": prompt})
             run_chat_turn(settings)
             st.rerun()
+            return
 
     user_input = st.chat_input(
         "Ask something about the API, files, bash, or git...", submit_mode="disable"
