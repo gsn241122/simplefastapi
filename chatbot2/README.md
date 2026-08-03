@@ -137,3 +137,28 @@ injected automatically).
   are redacted only for on-screen display, not before being sent to the
   LLM API itself — they have to reach the model as-is for tool execution to
   work; the risk here is specifically a user typing secrets into chat.
+
+## Theming
+
+The sidebar has an **Appearance** section with a theme selector. Four themes ship
+out of the box:
+
+- ☀️ **Light** — default clean/bright theme
+- 🌙 **Dark** — easy on the eyes in low-light environments
+- 🌊 **Ocean** — calming sea-blue palette
+- ⚡ **Neon** — bold cyberpunk-inspired colors
+
+The selected theme is persisted in `st.session_state.current_theme` for the
+duration of the browser session. All color values are injected as CSS custom
+properties (`:root { --primary: ...; --background: ...; }`), so a theme switch
+takes effect on the very next Streamlit rerun without reloading the page.
+
+### Adding a new theme
+
+1. Create `chatbot2/themes/<name>.py` exporting a `THEME` dict with the same
+   keys as `light.py` (plus optional `name`, `icon`, `description` for the
+   selector).
+2. Register it in `chatbot2/themes/theme_manager.py` by adding an import and an
+   entry in the `THEMES` dict.
+
+That's it — the selector picks it up automatically.

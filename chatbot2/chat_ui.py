@@ -731,8 +731,11 @@ def handle_chat_input(settings: SidebarSettings) -> None:
             st.rerun()
             return
 
+    # Default submit_mode keeps the send button always visible/clickable
+    # (with "disable" the button greys out when the textarea is empty, which
+    # is harder to discover on a fresh page).
     user_input = st.chat_input(
-        "Ask something about the API, files, bash, or git...", submit_mode="disable"
+        "Ask something about the API, files, bash, or git...",
     )
 
     if user_input:

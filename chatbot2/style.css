@@ -1,24 +1,179 @@
+/* ────────────────────────────────────────────────────────────────────────────
+ * Base layout styles for the MCP Chatbot.
+ *
+ * Color-related rules live in the theme CSS injected at runtime
+ * (see themes/theme_manager.py → apply_theme_css). This file only
+ * handles structural layout so the theme variables can paint colors.
+ * ──────────────────────────────────────────────────────────────────────────── */
 
-    .main .block-container {
-        padding-top: 1.5rem;
-        padding-bottom: 2rem;
-        padding-left: 2rem;
-        padding-right: 2rem;
-        max-width: 100%;
+/* Main block container */
+.main .block-container {
+    padding-top: 1.5rem;
+    padding-bottom: 2rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
+    max-width: 100%;
+}
+
+/* Override Streamlit's default main-block padding using theme variables */
+[data-testid="stMainBlockContainer"] {
+    padding-top: 1.5rem !important;
+    padding-bottom: 2rem !important;
+    padding-left: 2rem !important;
+    padding-right: 2rem !important;
+}
+
+/* Hide Streamlit branding & menu for a cleaner look */
+#MainMenu { visibility: hidden; }
+footer { visibility: hidden; }
+header { visibility: hidden; }
+
+/* Make badges wrap nicely on narrow viewports */
+[data-testid="stHorizontalBlock"] {
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+/* Smooth theme transitions so switching themes doesn't feel jarring */
+* {
+    transition: background-color 0.2s ease,
+                color 0.2s ease,
+                border-color 0.2s ease;
+}
+
+/* Disable transitions on input/textarea to avoid caret flicker */
+input, textarea, [contenteditable="true"] {
+    transition: none !important;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Chat input layout
+ *
+ * Streamlit renders st.chat_input as three nested elements:
+ *   [data-testid="stChatInput"]                → outer container (bottom bar)
+ *     [data-testid="stChatInputTextArea"]      → the textarea itself
+ *     [data-testid="stChatInputSubmitButton"]  → the send button
+ *
+ * The defaults are visually unbalanced: the textarea is short, the button
+ * is huge and the whole bar floats awkwardly. These rules give it a more
+ * polished, chat-app-style appearance while staying fully theme-driven.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/* Outer container: stick to bottom, comfortable padding, themed background */
+[data-testid="stChatInput"] {
+    padding: 0.5rem 0 !important;
+    background-color: transparent !important;
+}
+
+/* Inner wrapper that holds textarea + button */
+[data-testid="stChatInput"] > div {
+    align-items: flex-end !important;
+    gap: 0.5rem !important;
+    background-color: var(--background-tertiary) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 1.25rem !important;
+    padding: 0.5rem 0.5rem 0.5rem 1rem !important;
+    box-shadow: 0 2px 8px var(--shadow) !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+/* Focus state: highlight border in primary color */
+[data-testid="stChatInput"] > div:focus-within {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 2px var(--primary), 0 2px 8px var(--shadow) !important;
+}
+
+/* The textarea itself: comfortable height, themed colors, no default border */
+[data-testid="stChatInputTextArea"] {
+    flex: 1 1 auto !important;
+    min-height: 2.5rem !important;
+    max-height: 12rem !important;
+    width: 100% !important;
+    background-color: transparent !important;
+    color: var(--text) !important;
+    border: none !important;
+    outline: none !important;
+    resize: none !important;
+    padding: 0.4rem 0.25rem !important;
+    font-size: 0.95rem !important;
+    line-height: 1.5 !important;
+    box-shadow: none !important;
+}
+
+[data-testid="stChatInputTextArea"]::placeholder {
+    color: var(--text-muted) !important;
+    opacity: 1 !important;
+}
+
+/* Send button: circular, aligned with textarea bottom, theme-colored */
+[data-testid="stChatInputSubmitButton"] {
+    flex: 0 0 auto !important;
+    width: 2.4rem !important;
+    height: 2.4rem !important;
+    min-width: 2.4rem !important;
+    min-height: 2.4rem !important;
+    max-width: 2.4rem !important;
+    max-height: 2.4rem !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border-radius: 50% !important;
+    background-color: var(--primary) !important;
+    color: #ffffff !important;
+    border: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    align-self: flex-end !important;
+    cursor: pointer !important;
+    transition: background-color 0.15s ease, transform 0.1s ease !important;
+    box-shadow: none !important;
+}
+
+[data-testid="stChatInputSubmitButton"]:hover {
+    background-color: var(--primary-hover) !important;
+    transform: scale(1.05) !important;
+}
+
+[data-testid="stChatInputSubmitButton"]:active {
+    transform: scale(0.95) !important;
+}
+
+[data-testid="stChatInputSubmitButton"]:disabled,
+[data-testid="stChatInputSubmitButton"][disabled] {
+    background-color: var(--text-muted) !important;
+    cursor: not-allowed !important;
+    opacity: 0.5 !important;
+    transform: none !important;
+}
+
+/* Send button icon (the arrow svg inside it) */
+[data-testid="stChatInputSubmitButton"] svg {
+    width: 1.1rem !important;
+    height: 1.1rem !important;
+    fill: #ffffff !important;
+    stroke: #ffffff !important;
+}
+
+/* Make sure the form (parent of chat input) doesn't add extra borders/shadows */
+[data-testid="stChatInput"] form,
+[data-testid="stChatInput"] [data-testid="stForm"] {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+
+/* Mobile: stack more compactly, prevent textarea from overflowing viewport */
+@media (max-width: 640px) {
+    [data-testid="stChatInputTextArea"] {
+        font-size: 0.9rem !important;
     }
-    /* Hide Streamlit branding & menu for a cleaner look */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    /* Make badges wrap nicely on narrow viewports */
-    [data-testid="stHorizontalBlock"] {
-        flex-wrap: wrap;
-        gap: 0.35rem;
+    [data-testid="stChatInputSubmitButton"] {
+        width: 2.2rem !important;
+        height: 2.2rem !important;
+        min-width: 2.2rem !important;
+        min-height: 2.2rem !important;
+        max-width: 2.2rem !important;
+        max-height: 2.2rem !important;
     }
-    /* Custom padding applied to main block container */
-    [data-testid="stMainBlockContainer"] {
-        padding-top: 1.5rem !important;
-        padding-bottom: 2rem !important;
-        padding-left: 2rem !important;
-        padding-right: 2rem !important;
-    }
+}

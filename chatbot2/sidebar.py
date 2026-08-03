@@ -41,6 +41,7 @@ from history_manager import (
 )
 from state import get_current_system_prompt, load_tool_prefs, save_tool_prefs
 from mcp_client import call_mcp_tool_by_name, fetch_all_mcp_tools, load_mcp_config
+from themes import render_theme_selector
 
 
 
@@ -798,6 +799,11 @@ def render_sidebar() -> SidebarSettings:
     with st.sidebar:
         _render_chat_history_management()
         _render_clear_conversation_button()
+        st.divider()
+
+        # ── Theme picker ───────────────────────────────────────────────────────────
+        st.header(":material/palette: Appearance")
+        render_theme_selector()
         st.divider()
 
         st.header(":material/settings: Settings")

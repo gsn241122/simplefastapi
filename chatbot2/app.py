@@ -24,6 +24,7 @@ except Exception as e:
 from chat_ui import handle_chat_input, render_chat_history, render_pending_confirmation
 from sidebar import render_sidebar
 from state import init_session_state
+from themes import apply_theme_css, get_theme
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Page Config
@@ -53,7 +54,17 @@ def load_css(file_name: str) -> str:
         return f"<style>{f.read()}</style>"
 
 
-st.markdown(load_css("chatbot/style.css"), unsafe_allow_html=True)
+# Load the base layout CSS (path corrected: was "chatbot/style.css", which 404'd)
+try:
+    st.markdown(load_css("chatbot2/style.css"), unsafe_allow_html=True)
+except FileNotFoundError:
+    logger.warning("style.css not found at app startup; using default Streamlit styling.")
+
+# Apply the active theme (driven by the sidebar theme selector).
+# Done after the base layout CSS so the theme variables can override it.
+_active_theme_name = st.session_state.get("current_theme", "light")
+_active_theme_css = apply_theme_css(get_theme(_active_theme_name))
+st.markdown(_active_theme_css, unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Early-exit guard: ensure MCP state is initialised

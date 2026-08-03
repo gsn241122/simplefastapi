@@ -100,6 +100,9 @@ def init_session_state() -> None:
     if "mcp_config" not in st.session_state:
         st.session_state.mcp_config = load_mcp_config(MCP_CONFIG_PATH)
 
+    # Theme selection (default: light; sidebar selector may override on first render)
+    _set_default("current_theme", "light")
+
     # ── Seed the conversation with the system prompt ───────────────────────
     # Helper ensures we always read from the same single source of truth
     # (the sidebar text area) instead of duplicating the lookup logic.
