@@ -624,6 +624,7 @@ def run_chat_turn(settings: SidebarSettings) -> None:
             if current_id and len(messages) > 1:
                 title = get_default_session_title(messages)
                 save_session(current_id, title, messages)
+                st.session_state.pop("saved_session_select", None)
             # --- END BUG FIX ---
 
             if not raw_tool_calls:
