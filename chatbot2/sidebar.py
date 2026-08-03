@@ -16,10 +16,14 @@ from config import (
     DEFAULT_CONNECT_TIMEOUT_SECONDS,
     DEFAULT_MAX_OUTPUT_TOKENS,
     DEFAULT_MAX_TOOL_ROUNDS,
+    DEFAULT_REASONING_BUDGET_TOKENS,
+    DEFAULT_REASONING_ENABLED,
+    DEFAULT_REASONING_EFFORT,
     DEFAULT_PROVIDER,
     DEFAULT_TEMPERATURE,
     MCP_CONFIG_PATH,
     PROVIDERS,
+    REASONING_EFFORT_LEVELS,
     SYSTEM_PROMPT,
     SYSTEM_PROMPT_WARN_CHARS,
 )
@@ -77,6 +81,9 @@ class SidebarSettings:
     temperature: float
     max_tokens: int | None
     max_tool_rounds: int
+    reasoning_enabled: bool
+    reasoning_budget_tokens: int | None
+    reasoning_effort: str | None
     connect_timeout: float
     call_timeout: float
     dangerous_keywords: tuple[str, ...]
@@ -88,6 +95,9 @@ class _Tuning:
     temperature: float
     max_tokens: int | None
     max_tool_rounds: int
+    reasoning_enabled: bool
+    reasoning_budget_tokens: int | None
+    reasoning_effort: str | None
     connect_timeout: float
     call_timeout: float
     dangerous_keywords: tuple[str, ...] = field(default_factory=tuple)
@@ -114,6 +124,10 @@ def _on_reset_tuning_click() -> None:
     st.session_state["adv_limit_tokens"] = False
     st.session_state["adv_max_tokens"] = DEFAULT_MAX_OUTPUT_TOKENS
     st.session_state["adv_max_tool_rounds"] = DEFAULT_MAX_TOOL_ROUNDS
+    st.session_state["adv_reasoning_enabled"] = DEFAULT_REASONING_ENABLED
+    st.session_state["adv_reasoning_budget_enabled"] = DEFAULT_REASONING_BUDGET_TOKENS is not None
+    st.session_state["adv_reasoning_budget_tokens"] = DEFAULT_REASONING_BUDGET_TOKENS or 8192
+    st.session_state["adv_reasoning_effort"] = DEFAULT_REASONING_EFFORT
     st.session_state["adv_connect_timeout"] = DEFAULT_CONNECT_TIMEOUT_SECONDS
     st.session_state["adv_call_timeout"] = DEFAULT_CALL_TIMEOUT_SECONDS
     st.session_state["adv_dangerous_keywords"] = ", ".join(DANGEROUS_NAME_KEYWORDS)
@@ -187,6 +201,10 @@ def _render_advanced_tuning() -> _Tuning:
         st.session_state.setdefault("adv_limit_tokens", False)
         st.session_state.setdefault("adv_max_tokens", DEFAULT_MAX_OUTPUT_TOKENS)
         st.session_state.setdefault("adv_max_tool_rounds", DEFAULT_MAX_TOOL_ROUNDS)
+        st.session_state.setdefault("adv_reasoning_enabled", DEFAULT_REASONING_ENABLED)
+        st.session_state.setdefault("adv_reasoning_budget_enabled", DEFAULT_REASONING_BUDGET_TOKENS is not None)
+        st.session_state.setdefault("adv_reasoning_budget_tokens", DEFAULT_REASONING_BUDGET_TOKENS or 8192)
+        st.session_state.setdefault("adv_reasoning_effort", DEFAULT_REASONING_EFFORT)
         st.session_state.setdefault("adv_connect_timeout", DEFAULT_CONNECT_TIMEOUT_SECONDS)
         st.session_state.setdefault("adv_call_timeout", DEFAULT_CALL_TIMEOUT_SECONDS)
         st.session_state.setdefault("adv_dangerous_keywords", ", ".join(DANGEROUS_NAME_KEYWORDS))
@@ -198,6 +216,48 @@ def _render_advanced_tuning() -> _Tuning:
             step=0.05,
             key="adv_temperature",
             help="Higher = more creative/random, lower = more focused/deterministic.",
+        )
+
+        reasoning_enabled = st.checkbox("Enable Reasoning", key="adv_reasoning_enabled")
+
+        # Reasoning sub-controls are only meaningful when reasoning is on, but
+        # we render them regardless (and disable them when off) so the layout
+        # is stable and the user can see what options exist.
+        reasoning_effort: str | None = st.selectbox(
+            "Reasoning effort",
+            options=list(REASONING_EFFORT_LEVELS),
+            key="adv_reasoning_effort",
+            index=REASONING_EFFORT_LEVELS.index(DEFAULT_REASONING_EFFORT),
+            disabled=not reasoning_enabled,
+            help=(
+                "Used by OpenAI o-series, Groq reasoning models, and similar. "
+                "Higher = more thorough (and slower / more expensive). "
+                "Ignored by providers that don't accept a `reasoning_effort`."
+            ),
+        )
+        reasoning_budget_enabled = st.checkbox(
+            "Set reasoning token budget",
+            key="adv_reasoning_budget_enabled",
+            disabled=not reasoning_enabled,
+            help=(
+                "Cap how many tokens the model may spend on internal reasoning. "
+                "Leave off to let the provider decide. Honored by Gemini "
+                "`thinking_budget` and Anthropic `budget_tokens`."
+            ),
+        )
+        reasoning_budget_tokens: int | None = (
+            int(
+                st.number_input(
+                    "Reasoning budget (tokens)",
+                    min_value=128,
+                    max_value=32000,
+                    step=128,
+                    key="adv_reasoning_budget_tokens",
+                    disabled=not reasoning_enabled or not reasoning_budget_enabled,
+                )
+            )
+            if reasoning_budget_enabled
+            else None
         )
 
         limit_tokens = st.checkbox("Limit max output tokens", key="adv_limit_tokens")
@@ -282,6 +342,9 @@ def _render_advanced_tuning() -> _Tuning:
         temperature=temperature,
         max_tokens=max_tokens,
         max_tool_rounds=max_tool_rounds,
+        reasoning_enabled=reasoning_enabled,
+        reasoning_budget_tokens=reasoning_budget_tokens,
+        reasoning_effort=reasoning_effort,
         connect_timeout=connect_timeout,
         call_timeout=call_timeout,
         dangerous_keywords=dangerous_keywords or DANGEROUS_NAME_KEYWORDS,
@@ -812,6 +875,9 @@ def render_sidebar() -> SidebarSettings:
         temperature=tuning.temperature,
         max_tokens=tuning.max_tokens,
         max_tool_rounds=tuning.max_tool_rounds,
+        reasoning_enabled=tuning.reasoning_enabled,
+        reasoning_budget_tokens=tuning.reasoning_budget_tokens,
+        reasoning_effort=tuning.reasoning_effort,
         connect_timeout=tuning.connect_timeout,
         call_timeout=tuning.call_timeout,
         dangerous_keywords=tuning.dangerous_keywords,

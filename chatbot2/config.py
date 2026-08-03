@@ -151,6 +151,81 @@ DEFAULT_TEMPERATURE: float = 0.7
 DEFAULT_TEMPERATURE_TOOL_CALLING: float = 0.2
 DEFAULT_MAX_OUTPUT_TOKENS: int = 4096
 DEFAULT_MAX_TOOL_ROUNDS: int = 20
+DEFAULT_REASONING_ENABLED: bool = False
+
+# Reasoning budget tokens (for providers that accept a token budget, e.g. Gemini
+# thinking_config, Anthropic thinking). Set to None to let the provider decide.
+DEFAULT_REASONING_BUDGET_TOKENS: int | None = None
+
+# When `reasoning_enabled` is True and the active provider/model has no native
+# reasoning parameter, this suffix is appended to the system prompt so the model
+# is nudged into chain-of-thought behavior. Kept short so it doesn't dominate
+# the prompt.
+REASONING_SYSTEM_PROMPT_HINT: str = (
+    "\n\n[Reasoning mode is enabled. Think step by step internally before "
+    "producing your final answer. You may use the sequential-thinking tool if "
+    "it is available.]"
+)
+
+# Which providers natively accept a reasoning parameter via the OpenAI-compatible
+# `extra_body` field. The value is forwarded as-is in the chat.completions call.
+# - Gemini: uses Google's `thinking_config` (newer Gemini 2.5/3.x models).
+# - Ollama: uses Ollama's `think` flag (qwen3, deepseek-r1, gpt-oss, etc).
+# - OpenAI o-series: uses `reasoning_effort` (o1, o3-mini, ...).
+# - Anthropic: uses `thinking` block (only via a proxy that speaks it).
+# - Groq / OpenRouter: pass-through; OpenRouter auto-detects reasoning models.
+# Each entry maps provider name -> dict of `extra_body` fields to merge in.
+REASONING_EXTRA_BODY: dict[str, dict] = {
+    "Ollama (Local)": {"think": True},
+    "OpenAI": {"reasoning_effort": "medium"},
+    "Groq": {"reasoning_effort": "medium"},
+    "Anthropic (via compatible proxy/OpenAI endpoint)": {
+        "thinking": {"type": "enabled"}
+    },
+    # Gemini needs a non-standard shape; an empty dict here is the marker that
+    # tells `get_reasoning_extra_body` to build the `google.thinking_config`
+    # payload itself.
+    "Gemini (Google AI Studio)": {},
+}
+
+
+# Reasoning effort levels (OpenAI o-series, Groq, etc.). Order is significant:
+# the index doubles as a numeric weight when the user picks via slider.
+REASONING_EFFORT_LEVELS: tuple[str, ...] = ("low", "medium", "high")
+DEFAULT_REASONING_EFFORT: str = "medium"
+
+
+def get_reasoning_extra_body(
+    provider: str,
+    model: str,
+    budget: int | None,
+    effort: str | None = None,
+) -> dict | None:
+    """Return provider-specific `extra_body` to enable native reasoning.
+
+    Returns an empty dict if the provider is unknown or the model is not a
+    reasoning-capable one. Returning `{}` (not None) signals "I tried, no
+    native param applies" so the caller knows to fall back to the system
+    prompt hint instead of silently doing nothing.
+    """
+    if provider not in REASONING_EXTRA_BODY:
+        return None
+    # Gemini needs a different shape; build it on the fly.
+    if "Gemini" in provider:
+        thinking_config: dict = {"include_thoughts": True}
+        if budget is not None:
+            thinking_config["thinking_budget"] = int(budget)
+        return {"google": {"thinking_config": thinking_config}}
+    body = dict(REASONING_EXTRA_BODY[provider])
+    # OpenAI / Groq: reasoning_effort is a free-form string.
+    if "reasoning_effort" in body:
+        if effort and effort in REASONING_EFFORT_LEVELS:
+            body["reasoning_effort"] = effort
+        elif effort is None:
+            body["reasoning_effort"] = DEFAULT_REASONING_EFFORT
+    if "thinking" in body and isinstance(body["thinking"], dict) and budget is not None:
+        body["thinking"] = {**body["thinking"], "budget_tokens": int(budget)}
+    return body or None
 
 DEFAULT_CONNECT_TIMEOUT_SECONDS: float = 10.0
 DEFAULT_CALL_TIMEOUT_SECONDS: float = 60.0

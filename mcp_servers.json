@@ -21,6 +21,40 @@
     "git": {
       "command": "uvx",
       "args": ["mcp-server-git", "--repository", "./"]
+    },
+    "fetch": {
+      "command": "uv",
+      "args": ["run", "mcp-server-fetch"],
+      "env": {}
+    },
+    "time": {
+      "command": "uv",
+      "args": ["run", "mcp-server-time"],
+      "env": {}
+    },
+    "tmux": {
+      "command": "bun",
+      "args": ["x", "tmux-mcp"],
+      "env": {}
+    },
+    "ollama": {
+      "command": "bun",
+      "args": ["x", "ollama-mcp"],
+      "env": {}
+    },
+    "adb": {
+      "command": "bun",
+      "args": ["x", "adb-mcp"],
+      "env": {}
+    },
+    "playwright": {
+      "command": "bun",
+      "args": ["x", "@playwright/mcp@latest"],
+      "env": {}
+    },
+    "app-manager": {
+      "command": "/home/dell/Desktop/workspace/appmanager/.venv/bin/python",
+      "args": ["/home/dell/Desktop/workspace/appmanager/app_manager_mcp.py"]
     }
   }
 }

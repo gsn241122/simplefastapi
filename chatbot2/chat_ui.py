@@ -11,7 +11,13 @@ from typing import Any
 import streamlit as st
 from openai import OpenAI
 
-from config import GEMINI_BASE_URL, MAX_TOOL_CALL_ID_HEX_LEN, TOOL_RESULT_TRUNCATE_CHARS
+from config import (
+    GEMINI_BASE_URL,
+    MAX_TOOL_CALL_ID_HEX_LEN,
+    REASONING_SYSTEM_PROMPT_HINT,
+    TOOL_RESULT_TRUNCATE_CHARS,
+    get_reasoning_extra_body,
+)
 from history_manager import get_default_session_title, save_session
 from mcp_client import call_mcp_tool_by_name
 from security import redact_secrets
@@ -111,8 +117,20 @@ def render_chat_history() -> None:
                 st.markdown(content)
 
         elif role == "assistant":
-            if content or tool_calls:
+            reasoning = msg.get("reasoning")
+            if content or tool_calls or reasoning:
                 with st.chat_message("assistant"):
+                    # Render the model's internal reasoning first (if any) in a
+                    # collapsible block so it doesn't drown the actual answer.
+                    # It's only ever populated when reasoning was enabled, so
+                    # users who never toggle the option never see this.
+                    if reasoning:
+                        with st.expander(
+                            f":material/psychology: Reasoning ({len(reasoning):,} chars)",
+                            icon=":material/psychology:",
+                            expanded=False,
+                        ):
+                            st.markdown(reasoning)
                     if content:
                         st.markdown(content)
                     if tool_calls:
@@ -303,6 +321,18 @@ def _build_assistant_message(choice) -> dict:
 
 
 def _build_create_kwargs(settings: SidebarSettings, stream: bool, tools: list[dict] | None) -> dict:
+    """Assemble the kwargs for `client.chat.completions.create`.
+
+    When `settings.reasoning_enabled` is True, this function:
+      1. Adds a provider-specific `extra_body` payload if the provider supports
+         a native reasoning/thinking parameter (Ollama, Gemini, OpenAI o-series,
+         Anthropic via proxy, Groq). The OpenAI Python SDK forwards `extra_body`
+         verbatim to the upstream HTTP API.
+      2. As a universal fallback (and for providers without a native param
+         such as OpenRouter generic models), appends a short chain-of-thought
+         hint to the system message. The original `st.session_state.messages`
+         is NEVER mutated: we build a shallow copy and patch the copy.
+    """
     kwargs: dict = dict(
         model=settings.model,
         messages=st.session_state.messages,
@@ -315,16 +345,67 @@ def _build_create_kwargs(settings: SidebarSettings, stream: bool, tools: list[di
     if stream:
         kwargs["stream"] = True
         kwargs["stream_options"] = {"include_usage": True}
+
+    # ── Reasoning mode ─────────────────────────────────────────────────────
+    if getattr(settings, "reasoning_enabled", False):
+        provider = getattr(settings, "provider", "") or ""
+        budget = getattr(settings, "reasoning_budget_tokens", None)
+        effort = getattr(settings, "reasoning_effort", None)
+
+        # 1) Native provider param via extra_body (Ollama/Gemini/OpenAI/etc.).
+        extra_body = get_reasoning_extra_body(provider, settings.model, budget, effort)
+        if extra_body:
+            kwargs["extra_body"] = extra_body
+        else:
+            # 2) Fallback: nudge the model via system prompt. Mutate a copy,
+            #    not session_state, so the on-disk chat history stays clean.
+            messages = list(kwargs["messages"])
+            for i, m in enumerate(messages):
+                if m.get("role") == "system":
+                    messages[i] = {**m, "content": (m.get("content") or "") + REASONING_SYSTEM_PROMPT_HINT}
+                    break
+            else:
+                messages.insert(0, {"role": "system", "content": REASONING_SYSTEM_PROMPT_HINT.lstrip()})
+            kwargs["messages"] = messages
     return kwargs
 
 
+def _extract_reasoning_delta(delta: Any) -> str:
+    """Pull a reasoning chunk out of a streaming delta, tolerating the
+    different shapes providers actually emit:
+      - Ollama:            delta.reasoning  (str)            [primary]
+      - DeepSeek / Qwen:   delta.reasoning_content  (str)    [primary]
+      - Anthropic:         delta.reasoning / delta.thinking (varies)
+      - Gemini (extra):    delta.extra_content / model_extra
+    Returns "" if nothing was found.
+    """
+    for attr in ("reasoning", "reasoning_content", "thinking", "thought"):
+        val = getattr(delta, attr, None)
+        if isinstance(val, str) and val:
+            return val
+    extra = getattr(delta, "model_extra", None)
+    if isinstance(extra, dict):
+        for key in ("reasoning", "reasoning_content", "thinking", "thought"):
+            val = extra.get(key)
+            if isinstance(val, str) and val:
+                return val
+    return ""
+
+
 def _stream_response(client: OpenAI, settings: SidebarSettings, placeholder, tools: list[dict] | None):
-    """Stream the response token by token. Returns (assistant_msg, raw_tool_calls, metrics)."""
+    """Stream the response token by token. Returns (assistant_msg, raw_tool_calls, metrics).
+
+    When `settings.reasoning_enabled` is on, any reasoning content the model
+    streams (e.g. Ollama `delta.reasoning`) is captured into a separate field
+    on the assistant message and rendered in a collapsible block by
+    `render_chat_history` rather than dumped into the main answer.
+    """
     t_start = time.perf_counter()
     ttft = None
     stream = client.chat.completions.create(**_build_create_kwargs(settings, stream=True, tools=tools))
 
     full_content = ""
+    full_reasoning = ""
     tool_calls_builder: dict[int, dict] = {}
     usage_data = None
 
@@ -339,6 +420,15 @@ def _stream_response(client: OpenAI, settings: SidebarSettings, placeholder, too
         if delta.content or delta.tool_calls:
             if ttft is None:
                 ttft = time.perf_counter() - t_start
+
+        # Capture reasoning BEFORE the main content so the placeholder
+        # never flashes the answer without its "thought" header.
+        reasoning_chunk = _extract_reasoning_delta(delta) if getattr(settings, "reasoning_enabled", False) else ""
+        if reasoning_chunk:
+            full_reasoning += reasoning_chunk
+            # Stream the tail of the reasoning in a small muted caption so the
+            # user can see the model is thinking, not stuck.
+            placeholder.caption(f":material/psychology: _thinking… {full_reasoning[-120:]}_")
 
         if delta.content and not delta.tool_calls:
             full_content += delta.content
@@ -385,6 +475,8 @@ def _stream_response(client: OpenAI, settings: SidebarSettings, placeholder, too
     }
 
     assistant_msg: dict = {"role": "assistant", "content": full_content, "metrics": metrics}
+    if full_reasoning:
+        assistant_msg["reasoning"] = full_reasoning
     tool_calls_list = []
     for idx in sorted(tool_calls_builder.keys()):
         tc = tool_calls_builder[idx]
@@ -402,9 +494,14 @@ def _stream_response(client: OpenAI, settings: SidebarSettings, placeholder, too
         assistant_msg["tool_calls"] = tool_calls_list
     return assistant_msg, tool_calls_list, metrics
 
-
 def _non_stream_response(client: OpenAI, settings: SidebarSettings, placeholder, tools: list[dict] | None):
-    """Non-streaming response. Returns (assistant_msg, raw_tool_calls, metrics, error)."""
+    """Non-streaming response. Returns (assistant_msg, raw_tool_calls, metrics, error).
+
+    When reasoning is enabled, the non-stream path may also receive a
+    `reasoning` / `reasoning_content` field on the assistant message. We
+    surface that as a separate `reasoning` key on the stored message so the
+    chat-history renderer can show it in a collapsible block.
+    """
     t_start = time.perf_counter()
     response = client.chat.completions.create(**_build_create_kwargs(settings, stream=False, tools=tools))
     elapsed = time.perf_counter() - t_start
@@ -412,6 +509,19 @@ def _non_stream_response(client: OpenAI, settings: SidebarSettings, placeholder,
     choice = response.choices[0].message
     assistant_msg = _build_assistant_message(choice)
     raw_tool_calls = choice.tool_calls or []
+
+    # Pull a reasoning field off the choice if the provider attached one.
+    for attr in ("reasoning", "reasoning_content", "thinking", "thought"):
+        val = getattr(choice, attr, None)
+        if isinstance(val, str) and val:
+            assistant_msg["reasoning"] = val
+            break
+    # Some providers use model_extra / extra_content.
+    if "reasoning" not in assistant_msg:
+        for src in (getattr(choice, "model_extra", None) or {}).items() if hasattr(choice, "model_extra") else []:
+            if isinstance(src, tuple) and len(src) == 2 and src[0] in ("reasoning", "reasoning_content", "thinking") and isinstance(src[1], str):
+                assistant_msg["reasoning"] = src[1]
+                break
 
     prompt_tokens = completion_tokens = total_tokens = 0
     if hasattr(response, "usage") and response.usage:
@@ -437,7 +547,6 @@ def _non_stream_response(client: OpenAI, settings: SidebarSettings, placeholder,
             f"📊 tokens: {prompt_tokens} prompt + {completion_tokens} completion = {total_tokens} total"
         )
     return assistant_msg, raw_tool_calls, metrics, None
-
 
 def _filter_tools_with_thinking_tool(settings: SidebarSettings, all_tools: list[dict], placeholder) -> list[dict]:
     """Use the sequential-thinking tool to filter the tool list, if available."""

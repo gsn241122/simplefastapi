@@ -82,7 +82,7 @@ disabled_tools = st.session_state.get("disabled_tools") or set()
 total_tool_count: int = len(mcp_tools) if mcp_tools is not None else 0
 active_tool_count: int = len([t for t in (mcp_tools or []) if t.get("function", {}).get("name") not in disabled_tools])
 
-cols = st.columns([2, 1])
+cols = st.columns([2, 3])
 col_title, col_status = cols[0], cols[1]
 
 with col_title:
