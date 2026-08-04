@@ -251,3 +251,38 @@ def export_messages_to_text(messages: list[dict]) -> str:
         elif role == "tool":
             lines.append(f"[TOOL RESULT]: {content}\n")
     return "\n".join(lines)
+
+def trim_messages_for_context(messages: list[dict], max_tokens_approx: int = 30_000) -> list[dict]:
+    """
+    Memotong riwayat pesan agar tidak melebihi perkiraan batas token,
+    dengan tetap menjaga integritas System Prompt dan pasangan Tool Calls.
+    """
+    if not messages:
+        return []
+
+    # 1. Selalu pertahankan System Prompt di index 0
+    system_msg = None
+    chat_messages = messages
+    if messages[0].get("role") == "system":
+        system_msg = messages[0]
+        chat_messages = messages[1:]
+
+    # 2. Dari belakang (pesan terbaru), kumpulkan pesan sampai mendekati limit
+    # Pendekatan aman: Pertahankan N turn terakhir secara utuh.
+    # Contoh: Ambil 10 pesan terakhir secara utuh
+    recent_messages = chat_messages[-10:] if len(chat_messages) > 10 else chat_messages
+
+    # Pastikan tidak memotong di tengah-tengah tool sequence
+    # Jika pesan pertama di  adalah role="tool", kita harus tarik
+    # ke atas sampai menemukan pesan "assistant" yang memicu tool tersebut.
+    while recent_messages and recent_messages[0].get("role") == "tool":
+        idx = len(messages) - len(recent_messages) - 1
+        if idx >= 1:
+            recent_messages.insert(0, messages[idx])
+        else:
+            break
+
+    # Gabungkan kembali dengan system prompt
+    result = [system_msg] if system_msg else []
+    result.extend(recent_messages)
+    return result

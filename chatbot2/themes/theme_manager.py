@@ -74,6 +74,7 @@ def apply_theme_css(theme: dict) -> str:
     .stApp {{
         background-color: var(--background);
         color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }}
 
     /* Main block container */
@@ -84,18 +85,27 @@ def apply_theme_css(theme: dict) -> str:
 
     /* Sidebar */
     [data-testid="stSidebar"] {{
-        background-color: var(--background-secondary);
-        color: var(--text);
+        background-color: var(--background-secondary) !important;
+        border-right: 1px solid var(--border) !important;
     }}
 
     [data-testid="stSidebar"] .stMarkdown,
-    [data-testid="stSidebar"] label {{
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] span {{
         color: var(--text) !important;
     }}
 
-    /* Headers & text */
+    [data-testid="stSidebar"] .stCaption,
+    [data-testid="stSidebar"] [data-testid="stCaptionContainer"] {{
+        color: var(--text-muted) !important;
+    }}
+
+    /* Typography & Headers */
     h1, h2, h3, h4, h5, h6 {{
         color: var(--text) !important;
+        font-weight: 600 !important;
+        letter-spacing: -0.01em !important;
     }}
 
     p, span, div, li {{
@@ -106,93 +116,227 @@ def apply_theme_css(theme: dict) -> str:
         color: var(--text-muted) !important;
     }}
 
-    /* Buttons */
-    .stButton > button {{
-        background-color: var(--primary);
-        color: white;
-        border: 1px solid var(--primary);
-        transition: all 0.2s ease;
+    small {{
+        color: var(--text-secondary) !important;
     }}
 
-    .stButton > button:hover {{
-        background-color: var(--primary-hover);
-        border-color: var(--primary-hover);
-    }}
-
-    /* Inputs */
-    .stTextInput input,
-    .stTextArea textarea,
-    .stChatInput textarea {{
+    /* Default / Secondary Buttons */
+    .stButton > button,
+    [data-testid="stBaseButton-secondary"] {{
         background-color: var(--background-tertiary) !important;
         color: var(--text) !important;
         border: 1px solid var(--border) !important;
+        border-radius: 0.5rem !important;
+        padding: 0.4rem 1rem !important;
+        font-weight: 500 !important;
+        transition: all 0.2s ease !important;
+        box-shadow: 0 1px 2px var(--shadow, rgba(0,0,0,0.05)) !important;
+    }}
+
+    .stButton > button:hover,
+    [data-testid="stBaseButton-secondary"]:hover {{
+        background-color: var(--background-secondary) !important;
+        border-color: var(--primary) !important;
+        color: var(--primary) !important;
+        transform: translateY(-1px);
+    }}
+
+    /* Primary Buttons */
+    .stButton > button[kind="primary"],
+    [data-testid="stBaseButton-primary"] {{
+        background-color: var(--primary) !important;
+        color: #ffffff !important;
+        border: 1px solid var(--primary) !important;
+        border-radius: 0.5rem !important;
+        font-weight: 500 !important;
+        transition: all 0.2s ease !important;
+        box-shadow: 0 2px 4px var(--shadow, rgba(0,0,0,0.1)) !important;
+    }}
+
+    .stButton > button[kind="primary"]:hover,
+    [data-testid="stBaseButton-primary"]:hover {{
+        background-color: var(--primary-hover) !important;
+        border-color: var(--primary-hover) !important;
+        color: #ffffff !important;
+        box-shadow: 0 4px 8px var(--shadow, rgba(0,0,0,0.15)) !important;
+        transform: translateY(-1px);
+    }}
+
+    .stButton > button:active,
+    [data-testid="stBaseButton-primary"]:active {{
+        transform: translateY(0);
+    }}
+
+    /* Inputs & Textareas */
+    .stTextInput input,
+    .stTextArea textarea,
+    .stNumberInput input {{
+        background-color: var(--background-tertiary) !important;
+        color: var(--text) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 0.5rem !important;
+        padding: 0.5rem 0.75rem !important;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
     }}
 
     .stTextInput input:focus,
     .stTextArea textarea:focus,
-    .stChatInput textarea:focus {{
+    .stNumberInput input:focus {{
         border-color: var(--primary) !important;
-        box-shadow: 0 0 0 1px var(--primary) !important;
+        box-shadow: 0 0 0 2px var(--primary) !important;
+        outline: none !important;
     }}
 
-    /* Selectbox */
+    ::placeholder {{
+        color: var(--text-muted) !important;
+        opacity: 0.75 !important;
+    }}
+
+    /* Selectbox & Dropdown menus */
     [data-testid="stSelectbox"] div[data-baseweb="select"] {{
         background-color: var(--background-tertiary) !important;
         color: var(--text) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 0.5rem !important;
     }}
 
-    /* Radio */
-    [data-testid="stRadio"] label {{
-        color: var(--text) !important;
+    [data-baseweb="popover"],
+    [data-baseweb="menu"] {{
+        background-color: var(--background-secondary) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 0.5rem !important;
+        box-shadow: 0 4px 12px var(--shadow, rgba(0,0,0,0.25)) !important;
     }}
 
-    /* Chat messages */
-    [data-testid="stChatMessage"] {{
+    [data-baseweb="option"] {{
         background-color: var(--background-secondary) !important;
         color: var(--text) !important;
+        border-radius: 0.25rem !important;
+        transition: background-color 0.15s ease !important;
+    }}
+
+    [data-baseweb="option"]:hover,
+    [data-baseweb="option"][aria-selected="true"] {{
+        background-color: var(--background-tertiary) !important;
+        color: var(--primary) !important;
+    }}
+
+    /* Radio & Checkbox */
+    [data-testid="stRadio"] label,
+    [data-testid="stCheckbox"] label {{
+        color: var(--text) !important;
+        cursor: pointer;
+    }}
+
+    /* Sliders */
+    [data-testid="stSlider"] [data-baseweb="slider"] {{
+        color: var(--primary) !important;
+    }}
+
+    /* Chat messages & Bubbles */
+    [data-testid="stChatMessage"] {{
+        background-color: var(--assistant-bubble-bg, var(--background-secondary)) !important;
+        color: var(--text) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 0.85rem !important;
+        padding: 1rem !important;
+        margin-bottom: 0.75rem !important;
+        box-shadow: 0 2px 6px var(--shadow, rgba(0,0,0,0.08)) !important;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+    }}
+
+    [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {{
+        background-color: var(--user-bubble-bg, var(--background-tertiary)) !important;
+        border-color: var(--border) !important;
     }}
 
     /* Code blocks */
-    code, pre {{
+    code {{
         background-color: var(--code-bg) !important;
         color: var(--text) !important;
+        padding: 0.2rem 0.4rem !important;
+        border-radius: 0.3rem !important;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+        font-size: 0.875em !important;
+    }}
+
+    pre {{
+        background-color: var(--code-bg) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 0.6rem !important;
+        padding: 0.85rem !important;
+    }}
+
+    pre code {{
+        padding: 0 !important;
+        background-color: transparent !important;
     }}
 
     /* Divider */
     hr {{
         border-color: var(--border) !important;
+        margin: 1.25rem 0 !important;
+        opacity: 0.7 !important;
     }}
 
     /* Containers with border */
     [data-testid="stContainer"] {{
-        border-color: var(--border);
+        border-color: var(--border) !important;
+        border-radius: 0.65rem !important;
     }}
 
     /* Expander */
     [data-testid="stExpander"] {{
-        background-color: var(--background-secondary);
-        border: 1px solid var(--border);
+        background-color: var(--background-secondary) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 0.65rem !important;
+        overflow: hidden !important;
+        box-shadow: 0 1px 3px var(--shadow, rgba(0,0,0,0.05)) !important;
     }}
 
-    /* Tooltips & popovers */
-    [data-baseweb="popover"] {{
-        background-color: var(--background-secondary) !important;
+    [data-testid="stExpander"] summary {{
         color: var(--text) !important;
+        font-weight: 500 !important;
+        padding: 0.6rem 1rem !important;
+        transition: background-color 0.15s ease, color 0.15s ease !important;
+    }}
+
+    [data-testid="stExpander"] summary:hover {{
+        color: var(--primary) !important;
+        background-color: var(--background-tertiary) !important;
+    }}
+
+    [data-testid="stExpander"] [data-testid="stExpanderDetails"] {{
+        border-top: 1px solid var(--border) !important;
+        padding: 0.85rem 1rem !important;
+    }}
+
+    /* Badges & Alerts */
+    [data-testid="stBadge"] {{
+        border-radius: 1rem !important;
+        font-weight: 500 !important;
+        letter-spacing: 0.02em !important;
+    }}
+
+    [data-testid="stAlert"] {{
+        border-radius: 0.6rem !important;
+        border: 1px solid var(--border) !important;
+        box-shadow: 0 2px 4px var(--shadow, rgba(0,0,0,0.05)) !important;
     }}
 
     /* Scrollbar */
     ::-webkit-scrollbar {{
-        width: 10px;
-        height: 10px;
+        width: 8px;
+        height: 8px;
     }}
 
     ::-webkit-scrollbar-track {{
-        background: var(--background-secondary);
+        background: var(--background);
     }}
 
     ::-webkit-scrollbar-thumb {{
         background: var(--border);
-        border-radius: 5px;
+        border-radius: 4px;
     }}
 
     ::-webkit-scrollbar-thumb:hover {{

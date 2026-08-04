@@ -62,7 +62,7 @@ except FileNotFoundError:
 
 # Apply the active theme (driven by the sidebar theme selector).
 # Done after the base layout CSS so the theme variables can override it.
-_active_theme_name = st.session_state.get("current_theme", "light")
+_active_theme_name = st.session_state.get("current_theme", "dark")
 _active_theme_css = apply_theme_css(get_theme(_active_theme_name))
 st.markdown(_active_theme_css, unsafe_allow_html=True)
 

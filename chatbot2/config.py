@@ -110,8 +110,8 @@ PROVIDERS: dict[str, dict] = {
         "base_url": "http://localhost:11434/v1",
         "default_api_key_env": "OLLAMA_API_KEY",
         "api_key_help": "Leave blank or put 'ollama' for local Ollama",
-        "models": ["llama3.2:1b", "llama3.3", "llama3.1", "qwen2.5", "mistral"],
-        "default_model": "llama3.2:1b",
+        "models": ["minimax-m3:cloud", "llama3.2:1b", "llama3.3", "llama3.1", "qwen2.5", "mistral"],
+        "default_model": "minimax-m3:cloud",
     },
     "OpenRouter": {
         "base_url": "https://openrouter.ai/api/v1",

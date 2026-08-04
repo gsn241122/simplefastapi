@@ -3,6 +3,7 @@ LLM ↔ tool-calling loop.
 """
 from __future__ import annotations
 
+import re
 import json
 import time
 import uuid
@@ -18,7 +19,11 @@ from config import (
     TOOL_RESULT_TRUNCATE_CHARS,
     get_reasoning_extra_body,
 )
-from history_manager import get_default_session_title, save_session
+from history_manager import (
+    get_default_session_title,
+    save_session,
+    trim_messages_for_context,
+)
 from mcp_client import call_mcp_tool_by_name
 from security import redact_secrets
 from sidebar import SidebarSettings
@@ -31,6 +36,37 @@ from tool_execution import (
     parse_tool_arguments,
     run_tool_call,
 )
+
+
+def _parse_thought_content(content: str) -> tuple[str, Optional[str]]:
+    """Extract <thought>...</thought> blocks from content."""
+
+    if not content:
+        return "", None
+
+    thought_pattern = r"<thought>(.*?)</thought>"
+
+    matches = re.findall(
+        thought_pattern,
+        content,
+        flags=re.DOTALL | re.IGNORECASE
+    )
+
+    if matches:
+        thought_text = "\n".join(
+            m.strip() for m in matches if m.strip()
+        )
+
+        clean_content = re.sub(
+            thought_pattern,
+            "",
+            content,
+            flags=re.DOTALL | re.IGNORECASE
+        ).strip()
+
+        return clean_content, thought_text
+
+    return content.strip(), None
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -357,6 +393,9 @@ def _build_create_kwargs(settings: SidebarSettings, stream: bool, tools: list[di
         if extra_body:
             kwargs["extra_body"] = extra_body
         else:
+            # Patch messages for context length
+            kwargs["messages"] = trim_messages_for_context(kwargs["messages"])
+
             # 2) Fallback: nudge the model via system prompt. Mutate a copy,
             #    not session_state, so the on-disk chat history stays clean.
             messages = list(kwargs["messages"])
