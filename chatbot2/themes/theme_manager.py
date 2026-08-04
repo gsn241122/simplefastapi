@@ -23,8 +23,8 @@ from . import (
 
 # Registry of all available themes
 THEMES: dict[str, dict] = {
-    "light": light.THEME,
     "dark": dark.THEME,
+    "light": light.THEME,
     "ocean": ocean.THEME,
     "neon": neon.THEME,
     "sunset": sunset.THEME,
@@ -40,7 +40,7 @@ THEMES: dict[str, dict] = {
     "high_contrast": high_contrast.THEME,
 }
 
-DEFAULT_THEME = "light"
+DEFAULT_THEME = "dark"
 
 
 def get_available_themes() -> list[str]:

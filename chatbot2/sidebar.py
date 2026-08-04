@@ -209,7 +209,6 @@ def _render_advanced_tuning() -> _Tuning:
             "Reasoning effort",
             options=list(REASONING_EFFORT_LEVELS),
             key="adv_reasoning_effort",
-            index=REASONING_EFFORT_LEVELS.index(DEFAULT_REASONING_EFFORT),
             disabled=not reasoning_enabled,
             help=(
                 "Used by OpenAI o-series, Groq reasoning models, and similar. "

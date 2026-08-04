@@ -549,7 +549,14 @@ def _non_stream_response(client: OpenAI, settings: SidebarSettings, placeholder,
     return assistant_msg, raw_tool_calls, metrics, None
 
 def _filter_tools_with_thinking_tool(settings: SidebarSettings, all_tools: list[dict], placeholder) -> list[dict]:
-    """Use the sequential-thinking tool to filter the tool list, if available."""
+    """Use the sequential-thinking tool to filter the tool list, if available.
+
+    IMPORTANT: The sequential-thinking tool is an INTERNAL routing helper only.
+    It must NEVER appear in the tools list sent to the LLM. If the LLM can see
+    it, it will call it directly as a regular tool call, causing the chat turn
+    to get stuck waiting for a tool result from a server that is only meant to
+    be called pre-flight as a router — not mid-conversation.
+    """
     thinker_tool_name = next(
         (
             tool["function"]["name"]
@@ -558,23 +565,27 @@ def _filter_tools_with_thinking_tool(settings: SidebarSettings, all_tools: list[
         ),
         None,
     )
+
+    # Strip the thinker from the list that will eventually be handed to the LLM.
+    # This must happen unconditionally — even on the fallback / error paths.
+    tools_for_llm = [t for t in all_tools if t["function"]["name"] != thinker_tool_name]
+
     if not thinker_tool_name:
-        return all_tools
+        return tools_for_llm
 
     last_user_message = next(
         (m["content"] for m in reversed(st.session_state.messages) if m["role"] == "user"),
         None,
     )
     if not last_user_message:
-        return all_tools
+        return tools_for_llm
 
     placeholder.markdown("_routing..._")
 
     try:
         tool_to_server = st.session_state.get("tool_to_server", {})
-        tool_schemas = [
-            tool["function"] for tool in all_tools if tool["function"]["name"] != thinker_tool_name
-        ]
+        # Build schemas only from non-thinker tools (thinker is already excluded)
+        tool_schemas = [tool["function"] for tool in tools_for_llm]
         args = {"query": last_user_message, "tools": tool_schemas}
 
         result = call_mcp_tool_by_name(
@@ -594,9 +605,9 @@ def _filter_tools_with_thinking_tool(settings: SidebarSettings, all_tools: list[
             relevant_tool_names = result
 
         if not relevant_tool_names:
-            return all_tools
+            return tools_for_llm
 
-        filtered_tools = [tool for tool in all_tools if tool["function"]["name"] in relevant_tool_names]
+        filtered_tools = [tool for tool in tools_for_llm if tool["function"]["name"] in relevant_tool_names]
 
         if filtered_tools:
             st.toast(f"Router selected {len(filtered_tools)} tool(s).", icon=":material/route:")
@@ -604,9 +615,8 @@ def _filter_tools_with_thinking_tool(settings: SidebarSettings, all_tools: list[
 
     except Exception as e:
         st.toast(f"Tool router failed: {e}", icon=":material/warning:")
-        return all_tools
 
-    return all_tools
+    return tools_for_llm
 
 
 def run_chat_turn(settings: SidebarSettings) -> None:
