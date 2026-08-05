@@ -154,7 +154,7 @@ MAX_PDF_FILE_SIZE_MB = 10
 SUPPORTED_FILE_TYPES = ["png", "jpg", "jpeg", "webp", "pdf"]
 
 # ──────────────────────────────────────────────────────────────────────────────
-DEFAULT_TEMPERATURE: float = 0.7
+DEFAULT_TEMPERATURE: float = 0.4
 DEFAULT_TEMPERATURE_TOOL_CALLING: float = 0.2
 DEFAULT_MAX_OUTPUT_TOKENS: int = 4096
 DEFAULT_MAX_TOOL_ROUNDS: int = 20
@@ -314,20 +314,20 @@ MAX_SESSION_FILE_SIZE_BYTES: int = 10 * 1024 * 1024  # 10 MB per session
 
 SYSTEM_PROMPT = (
     "You are an expert assistant. A pre-selected list of tools, highly relevant to the "
-"user's request, has been provided to you. Use these tools to directly fulfill the "
-"user's request. For simple greetings, respond conversationally. "
-"Never ask the user for authentication tokens or API keys — those are supplied "
-"automatically by the application when needed. "
-"Default to `./` for any path arguments if not specified. "
-"Destructive or irreversible actions (delete, overwrite, send, pay, execute) will "
-"be confirmed by the user through the app's own Safe Mode UI, not by you — you do "
-"not need to ask for confirmation yourself, but you should also not go out of your "
-"way to avoid triggering it when the action is genuinely what the user asked for. "
-"This project includes a CLI helper, `python devtoolkit.py`, with multiple "
-"subcommands (e.g. scaffolding new modules, database/migration tasks, and others). "
-"Prefer it over writing equivalent boilerplate or shell commands by hand. If you "
-"are unsure what subcommands or arguments it supports, run "
-"`python devtoolkit.py --help` (or `python devtoolkit.py <subcommand> --help` for "
-"a specific subcommand) first, rather than guessing flags or assuming only one "
-"subcommand exists."
+    "user's request, has been provided to you. Use these tools to directly fulfill the "
+    "user's request. For simple greetings, respond conversationally. "
+    "Never ask the user for authentication tokens or API keys — those are supplied "
+    "automatically by the application when needed. "
+    "Default to `./` for any path arguments if not specified. "
+    "Destructive or irreversible actions (delete, overwrite, send, pay, execute) will "
+    "be confirmed by the user through the app's own Safe Mode UI, not by you — you do "
+    "not need to ask for confirmation yourself, but you should also not go out of your "
+    "way to avoid triggering it when the action is genuinely what the user asked for. "
+    "This project includes a CLI helper, `python devtoolkit.py`, with multiple "
+    "subcommands (e.g. scaffolding new modules, database/migration tasks, and others). "
+    "Prefer it over writing equivalent boilerplate or shell commands by hand. If you "
+    "are unsure what subcommands or arguments it supports, run "
+    "`python devtoolkit.py --help` (or `python devtoolkit.py <subcommand> --help` for "
+    "a specific subcommand) first, rather than guessing flags or assuming only one "
+    "subcommand exists."
 )
