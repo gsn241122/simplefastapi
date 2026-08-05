@@ -19,6 +19,9 @@ from . import (
     rose_gold,
     sakura,
     sunset,
+    cyberpunk,
+    aura,
+    matrix,
 )
 
 # Registry of all available themes
@@ -38,6 +41,9 @@ THEMES: dict[str, dict] = {
     "rose_gold": rose_gold.THEME,
     "mocha": mocha.THEME,
     "high_contrast": high_contrast.THEME,
+    "cyberpunk": cyberpunk.THEME,
+    "aura": aura.THEME,
+    "matrix": matrix.THEME,
 }
 
 DEFAULT_THEME = "dark"
@@ -86,7 +92,7 @@ def apply_theme_css(theme: dict) -> str:
     /* Sidebar */
     [data-testid="stSidebar"] {{
         background-color: var(--background-secondary) !important;
-        border-right: 1px solid var(--border) !important;
+        border-right: 2px solid var(--border) !important;
     }}
 
     [data-testid="stSidebar"] .stMarkdown,
@@ -98,7 +104,7 @@ def apply_theme_css(theme: dict) -> str:
 
     [data-testid="stSidebar"] .stCaption,
     [data-testid="stSidebar"] [data-testid="stCaptionContainer"] {{
-        color: var(--text-muted) !important;
+        color: var(--text-secondary) !important;
     }}
 
     /* Typography & Headers */
@@ -113,58 +119,74 @@ def apply_theme_css(theme: dict) -> str:
     }}
 
     .stCaption, [data-testid="stCaptionContainer"] {{
-        color: var(--text-muted) !important;
+        color: var(--text-secondary) !important;
     }}
 
     small {{
         color: var(--text-secondary) !important;
     }}
 
-    /* Default / Secondary Buttons */
+    /* Chat messages & Bubbles - Modern Glassmorphism */
+    [data-testid="stChatMessage"] {{
+        background-color: var(--assistant-bubble-bg) !important;
+        color: var(--text) !important;
+        border: 2px solid var(--border) !important;
+        border-radius: 1.2rem !important;
+        padding: 1.2rem !important;
+        margin-bottom: 1rem !important;
+        box-shadow: 0 4px 15px var(--shadow, rgba(0,0,0,0.1)) !important;
+        backdrop-filter: blur(5px);
+    }}
+
+    [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {{
+        background-color: var(--user-bubble-bg) !important;
+        border: 2px solid var(--primary) !important;
+    }}
+
+    /* ALL Streamlit Buttons Universal Override */
+    button,
     .stButton > button,
-    [data-testid="stBaseButton-secondary"] {{
+    [data-testid="stBaseButton-secondary"],
+    [data-testid="stBaseButton-primary"],
+    [data-testid="stBaseButton-header"],
+    [data-testid="stBaseButton-minimal"],
+    [data-testid="stHeaderActionElements"] button {{
         background-color: var(--background-tertiary) !important;
         color: var(--text) !important;
-        border: 1px solid var(--border) !important;
-        border-radius: 0.5rem !important;
-        padding: 0.4rem 1rem !important;
-        font-weight: 500 !important;
+        border: 2px solid var(--primary) !important;
+        border-radius: 0.6rem !important;
+        font-weight: 700 !important;
         transition: all 0.2s ease !important;
-        box-shadow: 0 1px 2px var(--shadow, rgba(0,0,0,0.05)) !important;
     }}
 
+    button p,
+    button span,
+    button div,
+    .stButton > button p,
+    .stButton > button span,
+    [data-testid="stBaseButton-secondary"] p,
+    [data-testid="stBaseButton-primary"] p {{
+        color: var(--text) !important;
+    }}
+
+    /* Hover States */
+    button:hover,
     .stButton > button:hover,
-    [data-testid="stBaseButton-secondary"]:hover {{
-        background-color: var(--background-secondary) !important;
-        border-color: var(--primary) !important;
-        color: var(--primary) !important;
-        transform: translateY(-1px);
-    }}
-
-    /* Primary Buttons */
-    .stButton > button[kind="primary"],
-    [data-testid="stBaseButton-primary"] {{
-        background-color: var(--primary) !important;
-        color: #ffffff !important;
-        border: 1px solid var(--primary) !important;
-        border-radius: 0.5rem !important;
-        font-weight: 500 !important;
-        transition: all 0.2s ease !important;
-        box-shadow: 0 2px 4px var(--shadow, rgba(0,0,0,0.1)) !important;
-    }}
-
-    .stButton > button[kind="primary"]:hover,
+    [data-testid="stBaseButton-secondary"]:hover,
     [data-testid="stBaseButton-primary"]:hover {{
-        background-color: var(--primary-hover) !important;
-        border-color: var(--primary-hover) !important;
+        background-color: var(--primary) !important;
+        border-color: var(--primary) !important;
         color: #ffffff !important;
-        box-shadow: 0 4px 8px var(--shadow, rgba(0,0,0,0.15)) !important;
-        transform: translateY(-1px);
     }}
 
-    .stButton > button:active,
-    [data-testid="stBaseButton-primary"]:active {{
-        transform: translateY(0);
+    button:hover p,
+    button:hover span,
+    button:hover div,
+    .stButton > button:hover p,
+    .stButton > button:hover span,
+    [data-testid="stBaseButton-secondary"]:hover p,
+    [data-testid="stBaseButton-primary"]:hover p {{
+        color: #ffffff !important;
     }}
 
     /* Inputs & Textareas */
@@ -173,81 +195,99 @@ def apply_theme_css(theme: dict) -> str:
     .stNumberInput input {{
         background-color: var(--background-tertiary) !important;
         color: var(--text) !important;
-        border: 1px solid var(--border) !important;
+        border: 2px solid var(--border) !important;
         border-radius: 0.5rem !important;
         padding: 0.5rem 0.75rem !important;
-        transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
     }}
 
-    .stTextInput input:focus,
-    .stTextArea textarea:focus,
-    .stNumberInput input:focus {{
-        border-color: var(--primary) !important;
-        box-shadow: 0 0 0 2px var(--primary) !important;
-        outline: none !important;
-    }}
-
-    ::placeholder {{
+    .stTextInput input::placeholder,
+    .stTextArea textarea::placeholder,
+    .stNumberInput input::placeholder {{
         color: var(--text-muted) !important;
-        opacity: 0.75 !important;
+        opacity: 1 !important;
     }}
 
-    /* Selectbox & Dropdown menus */
-    [data-testid="stSelectbox"] div[data-baseweb="select"] {{
+    .stTextInput label,
+    .stTextArea label,
+    .stNumberInput label {{
+        color: var(--text) !important;
+    }}
+
+    /* Universal Dropdown & Selectbox Fix */
+    [data-testid="stSelectbox"] div[data-baseweb="select"],
+    [data-baseweb="select"],
+    [data-baseweb="select"] > div {{
         background-color: var(--background-tertiary) !important;
         color: var(--text) !important;
-        border: 1px solid var(--border) !important;
+        border: 2px solid var(--border) !important;
         border-radius: 0.5rem !important;
     }}
 
+    /* Ensure text inside Selectbox is strictly readable */
+    [data-testid="stSelectbox"] *,
+    [data-baseweb="select"] * {{
+        color: var(--text) !important;
+    }}
+
+    [data-testid="stSelectbox"] label {{
+        color: var(--text) !important;
+    }}
+
+    /* Popup menu / Dropdown options panel (BaseWeb & Native) */
     [data-baseweb="popover"],
-    [data-baseweb="menu"] {{
-        background-color: var(--background-secondary) !important;
-        border: 1px solid var(--border) !important;
-        border-radius: 0.5rem !important;
-        box-shadow: 0 4px 12px var(--shadow, rgba(0,0,0,0.25)) !important;
-    }}
-
-    [data-baseweb="option"] {{
-        background-color: var(--background-secondary) !important;
-        color: var(--text) !important;
-        border-radius: 0.25rem !important;
-        transition: background-color 0.15s ease !important;
-    }}
-
-    [data-baseweb="option"]:hover,
-    [data-baseweb="option"][aria-selected="true"] {{
+    [data-baseweb="menu"],
+    div[data-baseweb="menu"],
+    ul[role="listbox"],
+    div[role="listbox"] {{
         background-color: var(--background-tertiary) !important;
-        color: var(--primary) !important;
+        border: 2px solid var(--primary) !important;
+        border-radius: 0.5rem !important;
+        box-shadow: 0 8px 16px var(--shadow, rgba(0,0,0,0.3)) !important;
     }}
 
-    /* Radio & Checkbox */
+    /* Individual items in dropdown menu */
+    [data-baseweb="option"],
+    li[role="option"],
+    div[role="option"] {{
+        background-color: var(--background-tertiary) !important;
+        color: var(--text) !important;
+        padding: 0.5rem 0.8rem !important;
+    }}
+
+    [data-baseweb="option"] *,
+    li[role="option"] *,
+    div[role="option"] * {{
+        color: var(--text) !important;
+    }}
+
+    /* Hover & Active option in dropdown */
+    [data-baseweb="option"]:hover,
+    [data-baseweb="option"][aria-selected="true"],
+    li[role="option"]:hover,
+    li[role="option"][aria-selected="true"],
+    div[role="option"]:hover,
+    div[role="option"][aria-selected="true"] {{
+        background-color: var(--primary) !important;
+    }}
+
+    [data-baseweb="option"]:hover *,
+    [data-baseweb="option"][aria-selected="true"] *,
+    li[role="option"]:hover *,
+    li[role="option"][aria-selected="true"] *,
+    div[role="option"]:hover *,
+    div[role="option"][aria-selected="true"] * {{
+        color: #ffffff !important;
+    }}
+
+    /* Radio & Checkbox labels */
     [data-testid="stRadio"] label,
     [data-testid="stCheckbox"] label {{
         color: var(--text) !important;
-        cursor: pointer;
     }}
 
-    /* Sliders */
-    [data-testid="stSlider"] [data-baseweb="slider"] {{
-        color: var(--primary) !important;
-    }}
-
-    /* Chat messages & Bubbles */
-    [data-testid="stChatMessage"] {{
-        background-color: var(--assistant-bubble-bg, var(--background-secondary)) !important;
+    /* Slider labels */
+    [data-testid="stSlider"] label {{
         color: var(--text) !important;
-        border: 1px solid var(--border) !important;
-        border-radius: 0.85rem !important;
-        padding: 1rem !important;
-        margin-bottom: 0.75rem !important;
-        box-shadow: 0 2px 6px var(--shadow, rgba(0,0,0,0.08)) !important;
-        transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
-    }}
-
-    [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {{
-        background-color: var(--user-bubble-bg, var(--background-tertiary)) !important;
-        border-color: var(--border) !important;
     }}
 
     /* Code blocks */
@@ -262,7 +302,7 @@ def apply_theme_css(theme: dict) -> str:
 
     pre {{
         background-color: var(--code-bg) !important;
-        border: 1px solid var(--border) !important;
+        border: 2px solid var(--border) !important;
         border-radius: 0.6rem !important;
         padding: 0.85rem !important;
     }}
@@ -288,7 +328,7 @@ def apply_theme_css(theme: dict) -> str:
     /* Expander */
     [data-testid="stExpander"] {{
         background-color: var(--background-secondary) !important;
-        border: 1px solid var(--border) !important;
+        border: 2px solid var(--border) !important;
         border-radius: 0.65rem !important;
         overflow: hidden !important;
         box-shadow: 0 1px 3px var(--shadow, rgba(0,0,0,0.05)) !important;
@@ -307,7 +347,7 @@ def apply_theme_css(theme: dict) -> str:
     }}
 
     [data-testid="stExpander"] [data-testid="stExpanderDetails"] {{
-        border-top: 1px solid var(--border) !important;
+        border-top: 2px solid var(--border) !important;
         padding: 0.85rem 1rem !important;
     }}
 
@@ -320,7 +360,7 @@ def apply_theme_css(theme: dict) -> str:
 
     [data-testid="stAlert"] {{
         border-radius: 0.6rem !important;
-        border: 1px solid var(--border) !important;
+        border: 2px solid var(--border) !important;
         box-shadow: 0 2px 4px var(--shadow, rgba(0,0,0,0.05)) !important;
     }}
 

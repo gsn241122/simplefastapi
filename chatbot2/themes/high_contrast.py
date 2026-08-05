@@ -12,7 +12,7 @@ THEME = {
     "text": "#000000",
     "text_secondary": "#1A1A1A",
     "text_muted": "#404040",
-    "border": "#000000",
+    "border": "#1A1A1A",
     "accent": "#0000EE",
     "success": "#006400",
     "warning": "#8B5A00",

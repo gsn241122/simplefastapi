@@ -11,8 +11,8 @@ THEME = {
     "background_tertiary": "#ADE8F4",
     "text": "#03045E",
     "text_secondary": "#023E8A",
-    "text_muted": "#0077B6",
-    "border": "#90E0EF",
+    "text_muted": "#023E8A",
+    "border": "#0077B6",
     "accent": "#FF6B35",
     "success": "#06D6A0",
     "warning": "#FFD60A",
@@ -20,5 +20,5 @@ THEME = {
     "user_bubble_bg": "#CAF0F8",
     "assistant_bubble_bg": "#ADE8F4",
     "code_bg": "#CAF0F8",
-    "shadow": "rgba(0, 119, 182, 0.15)",
+    "shadow": "rgba(0, 119, 182, 0.2)",
 }
