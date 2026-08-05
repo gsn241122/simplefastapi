@@ -252,37 +252,51 @@ def export_messages_to_text(messages: list[dict]) -> str:
             lines.append(f"[TOOL RESULT]: {content}\n")
     return "\n".join(lines)
 
-def trim_messages_for_context(messages: list[dict], max_tokens_approx: int = 30_000) -> list[dict]:
+def trim_messages_for_context(messages: list[dict], max_tokens_approx: int = 25_000) -> list[dict]:
     """
-    Memotong riwayat pesan agar tidak melebihi perkiraan batas token,
-    dengan tetap menjaga integritas System Prompt dan pasangan Tool Calls.
+    Memotong riwayat pesan dari yang paling lama secara dinamis
+    berdasarkan estimasi jumlah token, agar selalu aman di bawah max_tokens_approx.
     """
     if not messages:
         return []
 
-    # 1. Selalu pertahankan System Prompt di index 0
+    # 1. Pertahankan System Prompt di index 0
     system_msg = None
     chat_messages = messages
     if messages[0].get("role") == "system":
         system_msg = messages[0]
         chat_messages = messages[1:]
 
-    # 2. Dari belakang (pesan terbaru), kumpulkan pesan sampai mendekati limit
-    # Pendekatan aman: Pertahankan N turn terakhir secara utuh.
-    # Contoh: Ambil 10 pesan terakhir secara utuh
-    recent_messages = chat_messages[-10:] if len(chat_messages) > 10 else chat_messages
+    # Fungsi helper internal untuk mengestimasi token dari sebuah pesan
+    def estimate_tokens(msg: dict) -> int:
+        content = msg.get("content", "") or ""
+        if "tool_calls" in msg and msg["tool_calls"]:
+            content += json.dumps(msg["tool_calls"])
+        return max(1, len(content) // 4)
 
-    # Pastikan tidak memotong di tengah-tengah tool sequence
-    # Jika pesan pertama di  adalah role="tool", kita harus tarik
-    # ke atas sampai menemukan pesan "assistant" yang memicu tool tersebut.
-    while recent_messages and recent_messages[0].get("role") == "tool":
-        idx = len(messages) - len(recent_messages) - 1
-        if idx >= 1:
-            recent_messages.insert(0, messages[idx])
-        else:
+    # 2. Kumpulkan pesan dari yang TERBARU ke yang TERLAMA secara kumulatif
+    collected_messages = []
+    current_token_count = estimate_tokens(system_msg) if system_msg else 0
+
+    for msg in reversed(chat_messages):
+        msg_tokens = estimate_tokens(msg)
+        if current_token_count + msg_tokens > max_tokens_approx:
+            break  # Berhenti jika menambah pesan ini akan melebihi batas aman
+        collected_messages.insert(0, msg)
+        current_token_count += msg_tokens
+
+    # 3. Validasi integritas: Jangan biarkan pesan pertama di list adalah role="tool"
+    while collected_messages and collected_messages[0].get("role") == "tool":
+        try:
+            original_idx = chat_messages.index(collected_messages[0])
+            if original_idx > 0:
+                collected_messages.insert(0, chat_messages[original_idx - 1])
+            else:
+                break
+        except ValueError:
             break
 
-    # Gabungkan kembali dengan system prompt
+    # 4. Gabungkan kembali dengan system prompt
     result = [system_msg] if system_msg else []
-    result.extend(recent_messages)
+    result.extend(collected_messages)
     return result

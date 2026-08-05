@@ -178,11 +178,19 @@ def render_chat_history() -> None:
                                     language="json",
                                 )
                     if metrics := msg.get("metrics"):
+                        m_name = metrics.get("model", "unknown")
+                        t_time = metrics.get("total_time_s", 0)
+                        ttft = metrics.get("ttft_s", 0)
+                        p_tok = metrics.get("prompt_tokens", 0)
+                        c_tok = metrics.get("completion_tokens", 0)
+                        tot_tok = metrics.get("total_tokens", 0)
+                        tps = metrics.get("tokens_per_sec", 0)
+
                         st.caption(
-                            f":material/timer: {metrics.get('total_time_s', 0):.2f}s "
-                            f"(TTFT: {metrics.get('ttft_s', 0):.2f}s) • "
-                            f"📊 {metrics.get('total_tokens', 0)} tokens "
-                            f"({metrics.get('tokens_per_sec', 0):.1f} t/s)"
+                            f"🤖 `{m_name}` • "
+                            f"⏱️ {t_time:.2f}s (TTFT: {ttft:.2f}s) • "
+                            f"⚡ {tps:.1f} t/s • "
+                            f"📊 {tot_tok} tokens ({p_tok}↑ / {c_tok}↓)"
                         )
 
         # ── Tool results ────────────────────────────────────────────────
@@ -357,56 +365,57 @@ def _build_assistant_message(choice) -> dict:
 
 
 def _build_create_kwargs(settings: SidebarSettings, stream: bool, tools: list[dict] | None) -> dict:
-    """Assemble the kwargs for `client.chat.completions.create`.
-
-    When `settings.reasoning_enabled` is True, this function:
-      1. Adds a provider-specific `extra_body` payload if the provider supports
-         a native reasoning/thinking parameter (Ollama, Gemini, OpenAI o-series,
-         Anthropic via proxy, Groq). The OpenAI Python SDK forwards `extra_body`
-         verbatim to the upstream HTTP API.
-      2. As a universal fallback (and for providers without a native param
-         such as OpenRouter generic models), appends a short chain-of-thought
-         hint to the system message. The original `st.session_state.messages`
-         is NEVER mutated: we build a shallow copy and patch the copy.
-    """
-    kwargs: dict = dict(
-        model=settings.model,
-        messages=st.session_state.messages,
-        tools=tools,
-        tool_choice="auto" if tools else None,
-        temperature=settings.temperature,
-    )
+    kwargs: dict = {
+        "model": settings.model,
+        "messages": st.session_state.messages,
+        "temperature": settings.temperature,
+    }
+    if tools:
+        kwargs["tools"] = tools
+        kwargs["tool_choice"] = "auto"
     if settings.max_tokens:
         kwargs["max_tokens"] = settings.max_tokens
     if stream:
         kwargs["stream"] = True
         kwargs["stream_options"] = {"include_usage": True}
 
-    # ── Reasoning mode ─────────────────────────────────────────────────────
     if getattr(settings, "reasoning_enabled", False):
-        provider = getattr(settings, "provider", "") or ""
-        budget = getattr(settings, "reasoning_budget_tokens", None)
-        effort = getattr(settings, "reasoning_effort", None)
-
-        # 1) Native provider param via extra_body (Ollama/Gemini/OpenAI/etc.).
-        extra_body = get_reasoning_extra_body(provider, settings.model, budget, effort)
+        messages, extra_body = _apply_reasoning_mode(kwargs["messages"], settings)
+        kwargs["messages"] = messages
         if extra_body:
             kwargs["extra_body"] = extra_body
-        else:
-            # Patch messages for context length
-            kwargs["messages"] = trim_messages_for_context(kwargs["messages"])
 
-            # 2) Fallback: nudge the model via system prompt. Mutate a copy,
-            #    not session_state, so the on-disk chat history stays clean.
-            messages = list(kwargs["messages"])
-            for i, m in enumerate(messages):
-                if m.get("role") == "system":
-                    messages[i] = {**m, "content": (m.get("content") or "") + REASONING_SYSTEM_PROMPT_HINT}
-                    break
-            else:
-                messages.insert(0, {"role": "system", "content": REASONING_SYSTEM_PROMPT_HINT.lstrip()})
-            kwargs["messages"] = messages
     return kwargs
+
+
+def _apply_reasoning_mode(
+    messages: list[dict], settings: SidebarSettings
+) -> tuple[list[dict], dict | None]:
+    """Compute the (messages, extra_body) pair to use in reasoning mode.
+
+    `messages` is trimmed for context first, since reasoning responses use
+    more budget regardless of which path (native param vs. prompt hint) is
+    taken. Never mutates the input list or its dict elements — always
+    returns fresh objects, so `st.session_state.messages` stays clean.
+    """
+    provider = getattr(settings, "provider", "") or ""
+    budget = getattr(settings, "reasoning_budget_tokens", None)
+    effort = getattr(settings, "reasoning_effort", None)
+
+    trimmed = trim_messages_for_context(messages)
+
+    extra_body = get_reasoning_extra_body(provider, settings.model, budget, effort)
+    if extra_body:
+        return trimmed, extra_body
+
+    patched = list(trimmed)
+    for i, m in enumerate(patched):
+        if m.get("role") == "system":
+            patched[i] = {**m, "content": (m.get("content") or "") + REASONING_SYSTEM_PROMPT_HINT}
+            break
+    else:
+        patched.insert(0, {"role": "system", "content": REASONING_SYSTEM_PROMPT_HINT.lstrip()})
+    return patched, None
 
 
 def _extract_reasoning_delta(delta: Any) -> str:
@@ -505,6 +514,7 @@ def _stream_response(client: OpenAI, settings: SidebarSettings, placeholder, too
     tokens_per_sec = (completion_tokens / total_time) if total_time > 0 and completion_tokens > 0 else 0.0
 
     metrics = {
+        "model": settings.model,
         "total_time_s": total_time,
         "ttft_s": ttft,
         "prompt_tokens": prompt_tokens,
@@ -572,6 +582,7 @@ def _non_stream_response(client: OpenAI, settings: SidebarSettings, placeholder,
     tokens_per_sec = (completion_tokens / elapsed) if elapsed > 0 and completion_tokens > 0 else 0.0
 
     metrics = {
+        "model": settings.model,
         "total_time_s": elapsed,
         "ttft_s": elapsed,
         "prompt_tokens": prompt_tokens,
