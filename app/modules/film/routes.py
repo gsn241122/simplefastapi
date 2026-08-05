@@ -101,7 +101,7 @@ def delete_film(id: int, db: Session = Depends(get_db)):
 
 
 # Summary provider for aggregator
-def get_film_summary(db, _redis=None):
+def get_summary(db, _redis=None):
     """Return summary data for the film module."""
     try:
         _, total = service.get_film_list(
@@ -115,7 +115,7 @@ def get_film_summary(db, _redis=None):
 
     return {
         "counts": {
-            "film": total
+            "films": total
         },
         "meta": {
             "module": "film"

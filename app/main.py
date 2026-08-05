@@ -32,6 +32,7 @@ from app.modules.permission.routes import router as permission_router
 from app.modules.payment.routes import router as payment_router
 from app.modules.summary.routes import router as summary_router
 from app.modules.book.routes import router as book_router
+from app.modules.film.routes import router as film_router
 from app.modules.customer.routes import router as customer_router
 
 # Setup logging sebelum apapun
@@ -119,7 +120,7 @@ async def log_and_rate_limit(request, call_next):
 app.include_router(auth_router)
 app.include_router(role_router)
 app.include_router(user_router)
-app.include_router(permission_router)  # ← NEW
+app.include_router(permission_router)
 app.include_router(product_router)
 app.include_router(order_router)
 app.include_router(invoice_router)
@@ -132,6 +133,7 @@ app.include_router(payment_router)
 app.include_router(summary_router)
 app.include_router(book_router)
 app.include_router(customer_router)
+app.include_router(film_router)
 
 
 @app.get("/", tags=["General"], summary="Welcome message")

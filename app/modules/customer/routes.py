@@ -101,7 +101,7 @@ def delete_customer(id: int, db: Session = Depends(get_db)):
 
 
 # Summary provider for aggregator
-def get_customer_summary(db, _redis=None):
+def get_summary(db, _redis=None):
     """Return summary data for the customer module."""
     try:
         _, total = service.get_customer_list(
@@ -115,7 +115,7 @@ def get_customer_summary(db, _redis=None):
 
     return {
         "counts": {
-            "customer": total
+            "customers": total
         },
         "meta": {
             "module": "customer"

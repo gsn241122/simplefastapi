@@ -1,10 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 from app.core.database import get_db
 from app.core.responses import APIResponse, StandardJSONResponse
 from app.modules.message import service
 from app.modules.message.schemas import MessageCreate, MessageResponse
 from app.modules.auth.routes import get_current_user
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/conversations/{conversation_id}/messages", tags=["Messages"], dependencies=[Depends(get_current_user)])
 
@@ -25,3 +29,22 @@ def create_message(conversation_id: int, payload: MessageCreate, db: Session = D
         data=MessageResponse.model_validate(message),
         message="Pesan berhasil disimpan."
     )
+
+
+# Summary provider for aggregator
+def get_summary(db: Session, _redis=None):
+    """Return summary data for the message module."""
+    try:
+        total = db.query(service.Message).count()
+    except SQLAlchemyError:
+        logger.exception("Gagal mengambil summary message")
+        total = 0
+
+    return {
+        "counts": {
+            "messages": total
+        },
+        "meta": {
+            "module": "message"
+        }
+    }
