@@ -211,28 +211,71 @@ def get_default_session_title(messages: list[dict]) -> str:
 
 
 def export_messages_to_markdown(messages: list[dict]) -> str:
-    """Convert chat messages to a clean Markdown string."""
-    lines = ["# Chat Export\n"]
+    """Convert chat messages to a clean Markdown string with integrated metrics & tool execution logs."""
+    lines = ["# Chat Export & Session Report\n"]
+    
+    # Hitung ringkasan metrik kumulatif dari seluruh sesi
+    total_session_tokens = 0
+    total_session_time = 0.0
+    tool_calls_count = 0
+    tool_results_count = 0
+
+    for msg in messages:
+        if metrics := msg.get("metrics"):
+            total_session_tokens += metrics.get("total_tokens", 0)
+            total_session_time += metrics.get("total_time_s", 0.0)
+        if msg.get("role") == "assistant" and msg.get("tool_calls"):
+            tool_calls_count += len(msg.get("tool_calls"))
+        if msg.get("role") == "tool":
+            tool_results_count += 1
+
+    # Tambahkan bagian ringkasan di awal file markdown
+    lines.append("## 📊 Session Summary")
+    lines.append(f"- **Total Token Consumed:** `{total_session_tokens:,}` tokens")
+    lines.append(f"- **Total Execution Time:** `{total_session_time:.2f}s`")
+    lines.append(f"- **Total Tool Calls:** `{tool_calls_count}` invoked (`{tool_results_count}` results)")
+    lines.append("\n---\n")
+    lines.append("## 💬 Conversation History\n")
+
     for msg in messages:
         role = msg.get("role")
         if role == "system":
             continue
         content = msg.get("content", "")
         tool_calls = msg.get("tool_calls")
+        metrics = msg.get("metrics")
 
         if role == "user":
             lines.append(f"### 👤 User\n\n{content}\n")
         elif role == "assistant":
             lines.append(f"### 🤖 Assistant\n\n{content or '_No text response_'}\n")
+            
+            if metrics:
+                m_name = metrics.get("model", "unknown")
+                t_time = metrics.get("total_time_s", 0)
+                ttft = metrics.get("ttft_s", 0)
+                p_tok = metrics.get("prompt_tokens", 0)
+                c_tok = metrics.get("completion_tokens", 0)
+                tot_tok = metrics.get("total_tokens", 0)
+                tps = metrics.get("tokens_per_sec", 0)
+                
+                lines.append(
+                    f"> **Metrics:** Model: `{m_name}` | Time: `{t_time:.2f}s` (TTFT: `{ttft:.2f}s`) | "
+                    f"Speed: `{tps:.1f} t/s` | Tokens: `{tot_tok}` (`{p_tok}↑` / `{c_tok}↓`)\n"
+                )
+
             if tool_calls:
-                lines.append("**Tool Calls:**")
+                lines.append("**Tool Calls Requested:**")
                 for tc in tool_calls:
                     fn = tc.get("function", {}).get("name", "unknown")
                     args = tc.get("function", {}).get("arguments", "{}")
-                    lines.append(f"- `{fn}`: ```json\n{args}\n```")
+                    lines.append(f"- **`{fn}`**:\n  ```json\n  {args}\n  ```")
                 lines.append("")
         elif role == "tool":
-            lines.append(f"#### ⚙️ Tool Result\n```json\n{content}\n```\n")
+            exec_time = msg.get("execution_time_s")
+            time_str = f" ({exec_time:.2f}s)" if exec_time else ""
+            lines.append(f"#### ⚙️ Tool Result{time_str}\n```json\n{content}\n```\n")
+            
     return "\n".join(lines)
 
 
@@ -269,10 +312,19 @@ def trim_messages_for_context(messages: list[dict], max_tokens_approx: int = 25_
 
     # Fungsi helper internal untuk mengestimasi token dari sebuah pesan
     def estimate_tokens(msg: dict) -> int:
-        content = msg.get("content", "") or ""
+        content = msg.get("content", "")
+        # Handle multimodal content (list of dicts)
+        if isinstance(content, list):
+            text_content = "".join([item.get("text", "") for item in content if item.get("type") == "text"])
+            return max(1, len(text_content) // 4)
+        
+        # Handle standard text content
+        if not content:
+            content = ""
         if "tool_calls" in msg and msg["tool_calls"]:
             content += json.dumps(msg["tool_calls"])
         return max(1, len(content) // 4)
+
 
     # 2. Kumpulkan pesan dari yang TERBARU ke yang TERLAMA secara kumulatif
     collected_messages = []

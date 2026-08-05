@@ -3,11 +3,12 @@ LLM ↔ tool-calling loop.
 """
 from __future__ import annotations
 
-import re
+import base64
 import json
+import re
 import time
 import uuid
-from typing import Any
+from typing import Any, Optional
 
 import streamlit as st
 from openai import OpenAI
@@ -16,6 +17,7 @@ from config import (
     GEMINI_BASE_URL,
     MAX_TOOL_CALL_ID_HEX_LEN,
     REASONING_SYSTEM_PROMPT_HINT,
+    SUPPORTED_FILE_TYPES,
     TOOL_RESULT_TRUNCATE_CHARS,
     get_reasoning_extra_body,
 )
@@ -24,9 +26,12 @@ from history_manager import (
     save_session,
     trim_messages_for_context,
 )
+from image_utils import process_image
+from pdf_utils import process_pdf
 from mcp_client import call_mcp_tool_by_name
 from security import redact_secrets
 from sidebar import SidebarSettings
+
 from tool_execution import (
     cancelled_tool_result,
     get_thought_signature,
@@ -150,7 +155,14 @@ def render_chat_history() -> None:
         # response (tool results). None of that is a trusted source.
         if role == "user" and content:
             with st.chat_message("user"):
-                st.markdown(content)
+                if isinstance(content, list):
+                    for item in content:
+                        if item["type"] == "text":
+                            st.markdown(item["text"])
+                        elif item["type"] == "image_url":
+                            st.image(item["image_url"]["url"], use_container_width=True)
+                else:
+                    st.markdown(content)
 
         elif role == "assistant":
             reasoning = msg.get("reasoning")
@@ -332,6 +344,14 @@ def render_pending_confirmation(settings: SidebarSettings) -> None:
             )
             st.session_state.messages.append(result)
             _finalize_queue_after_dangerous(queue, next_idx, cancelled=False, tc=tc)
+
+        if st.button("Approve All Remaining", icon=":material/done_all:", key=f"btn_confirm_all_{tool_id}"):
+            # Run any safe calls preceding the current dangerous one first
+            # (previously skipped, which left their tool_calls without a
+            # matching tool response), then run everything from here on,
+            # dangerous or not.
+            _run_safe_tools_before(queue, next_idx, settings)
+            _run_all_remaining_safe(queue[next_idx:], settings)
 
         if st.button("Cancel", icon=":material/cancel:", key=f"btn_confirm_cancel_{tool_id}"):
             _run_safe_tools_before(queue, next_idx, settings)
@@ -778,9 +798,7 @@ _SUGGESTIONS: dict[str, str] = {
 
 
 def handle_chat_input(settings: SidebarSettings) -> None:
-    """Read new chat input (or resume after a Safe Mode confirmation) and
-    run one LLM turn if there's anything to send.
-    """
+    """Read new chat input and run one LLM turn."""
     visible_messages = [m for m in st.session_state.messages if m.get("role") != "system" and m.get("content")]
     if not visible_messages:
         selected = st.pills("Try asking:", list(_SUGGESTIONS.keys()), label_visibility="collapsed")
@@ -791,21 +809,74 @@ def handle_chat_input(settings: SidebarSettings) -> None:
             st.rerun()
             return
 
-    # Default submit_mode keeps the send button always visible/clickable
-    # (with "disable" the button greys out when the textarea is empty, which
-    # is harder to discover on a fresh page).
+    if st.session_state.resume_llm:
+        st.session_state.resume_llm = False
+        run_chat_turn(settings)
+        st.rerun()
+        return
+
+    # Image attachment via chat_input's native file-attach button (a small
+    # paperclip icon inside the input bar itself). We deliberately avoid
+    # pairing chat_input with a separate widget in a container: chat_input
+    # always pins itself to the bottom of the viewport regardless of the
+    # container it's called from, so it can't be reliably aligned inline
+    # next to another element — the native attach button is the correct
+    # way to keep this in one row.
     user_input = st.chat_input(
         "Ask something about the API, files, bash, or git...",
+        accept_file=True,
+        file_type=SUPPORTED_FILE_TYPES,
     )
 
     if user_input:
-        st.session_state.messages.append({"role": "user", "content": user_input})
-        with st.chat_message("user"):
-            st.markdown(user_input)
-    elif st.session_state.resume_llm:
-        st.session_state.resume_llm = False
-    else:
+        prompt_text = user_input.text
+        uploaded_file = user_input.files[0] if user_input.files else None
+        content: Any = prompt_text
+
+        if uploaded_file:
+            is_pdf = uploaded_file.type == "application/pdf" or uploaded_file.name.lower().endswith(".pdf")
+
+            if is_pdf:
+                pdf_text = process_pdf(uploaded_file)
+                with st.chat_message("user"):
+                    st.markdown(f":material/description: **{uploaded_file.name}**")
+                    if prompt_text:
+                        st.markdown(prompt_text)
+                if pdf_text:
+                    content = (
+                        f"{prompt_text}\n\n"
+                        f"--- Attached PDF: {uploaded_file.name} ---\n{pdf_text}"
+                    ).strip()
+                # If extraction failed (process_pdf already showed st.error),
+                # fall back to sending just the typed text so the turn isn't lost.
+            else:
+                image_url = process_image(uploaded_file)
+                if image_url:
+                    content = [
+                        {"type": "text", "text": prompt_text},
+                        {"type": "image_url", "image_url": {"url": image_url}},
+                    ]
+                    with st.chat_message("user"):
+                        st.image(uploaded_file, use_container_width=True)
+                        st.markdown(prompt_text)
+                else:
+                    with st.chat_message("user"):
+                        st.markdown(prompt_text)
+        else:
+            with st.chat_message("user"):
+                st.markdown(prompt_text)
+
+        st.session_state.messages.append({"role": "user", "content": content})
+        run_chat_turn(settings)
+        st.rerun()
         return
 
-    run_chat_turn(settings)
-    st.rerun()
+    # Only auto-continue if the conversation actually ends on a message that
+    # still needs an assistant response (e.g. a tool result came back but the
+    # LLM hasn't produced its follow-up yet). Without this guard, any
+    # unrelated rerun of the script (sidebar tweak, file uploader touch,
+    # etc.) would silently re-send the whole conversation to the LLM.
+    messages = st.session_state.get("messages") or []
+    if messages and messages[-1].get("role") in ("user", "tool"):
+        run_chat_turn(settings)
+        st.rerun()

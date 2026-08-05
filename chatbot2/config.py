@@ -145,7 +145,14 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 MCP_CONFIG_PATH = os.path.join(_HERE, "..", "mcp_servers.json")
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Tunable defaults (overridable from the sidebar's "Advanced tuning" panel)
+# Multimodal Configuration
+MAX_IMAGE_FILE_SIZE_MB = 5
+SUPPORTED_IMAGE_TYPES = ["png", "jpg", "jpeg", "webp"]
+MAX_IMAGE_DIMENSION = 2048  # Resize if larger
+
+MAX_PDF_FILE_SIZE_MB = 10
+SUPPORTED_FILE_TYPES = ["png", "jpg", "jpeg", "webp", "pdf"]
+
 # ──────────────────────────────────────────────────────────────────────────────
 DEFAULT_TEMPERATURE: float = 0.7
 DEFAULT_TEMPERATURE_TOOL_CALLING: float = 0.2
