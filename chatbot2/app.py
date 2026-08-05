@@ -33,7 +33,7 @@ st.set_page_config(
     page_title="MCP Chatbot",
     page_icon=":material/smart_toy:",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",
     menu_items={
         "About": "MCP Chatbot",
         "Get Help": "https://modelcontextprotocol.io/",
@@ -65,6 +65,24 @@ except FileNotFoundError:
 _active_theme_name = st.session_state.get("current_theme", "dark")
 _active_theme_css = apply_theme_css(get_theme(_active_theme_name))
 st.markdown(_active_theme_css, unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Force Sidebar Open/Closed State helper for Mobile / Responsive viewports
+# ─────────────────────────────────────────────────────────────────────────────
+st.markdown(
+    """
+    <script>
+    // Ensure localStorage reflects collapsed state properly on mobile if missing
+    try {
+        const key = 'stSidebarCollapsed';
+        if (window.innerWidth <= 768 && !localStorage.getItem(key)) {
+            localStorage.setItem(key, 'true');
+        }
+    } catch (e) {}
+    </script>
+    """,
+    unsafe_allow_html=True,
+)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Early-exit guard: ensure MCP state is initialised
