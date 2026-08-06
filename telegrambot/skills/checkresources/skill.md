@@ -29,13 +29,13 @@ pip install psutil
 ```bash
 # Dari direktori skill
 cd skills/checkresources
-python check_resources.py
+python checkresources.py
 
 # Dari mana saja (absolute path)
-python skills/checkresources/check_resources.py
+python skills/checkresources/checkresources.py
 
 # Simpan output ke file
-python check_resources.py > resources.json
+python checkresources.py > resources.json
 ```
 
 ### 3. Output
@@ -197,7 +197,7 @@ sudo apt install util-linux  # findmnt (biasanya sudah default)
 import subprocess, json
 
 result = subprocess.run(
-    ["python", "skills/checkresources/check_resources.py"],
+    ["python", "skills/checkresources/checkresources.py"],
     capture_output=True, text=True
 )
 data = json.loads(result.stdout)
@@ -214,7 +214,7 @@ router = APIRouter()
 @router.get("/system/resources")
 def get_resources():
     result = subprocess.run(
-        ["python", "skills/checkresources/check_resources.py"],
+        ["python", "skills/checkresources/checkresources.py"],
         capture_output=True, text=True
     )
     return json.loads(result.stdout)
