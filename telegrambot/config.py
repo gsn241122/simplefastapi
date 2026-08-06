@@ -42,6 +42,7 @@ class Settings(BaseSettings):
 
     # --- LLM provider ---
     llm_provider: LLMProviderName = Field(default="gemini")
+    default_model: str = Field(default="gemini-3.1-flash-lite")
 
     minimax_api_key: str = Field(default="", description="MiniMax API key")
     minimax_base_url: str = Field(default="https://api.minimax.chat/v1")

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import datetime
 import os
 import signal
 import sys
@@ -103,6 +104,7 @@ async def _run() -> None:
         app.bot_data["mcp_client"] = mcp_client
         app.bot_data["local_server"] = local_server
         app.bot_data["unified_tools"] = unified
+        app.bot_data["start_time"] = datetime.datetime.now()
 
         # Setup exception handler & graceful shutdown on SIGINT/SIGTERM
         loop = asyncio.get_running_loop()

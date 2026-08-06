@@ -52,6 +52,7 @@ def build_application(settings: Settings) -> Application:
 
     # Inject shared objects
     app.bot_data["settings"] = settings
+    app.bot_data["start_time"] = __import__("datetime").datetime.now()
     app.bot_data["states"] = StateStore(
         max_turns=settings.max_context_turns,
         persist_path="bot_state.json",

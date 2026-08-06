@@ -5,6 +5,8 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 from loguru import logger
+import datetime
+from config import get_settings
 
 from bot.handlers.auth import logout_cmd, whoami_cmd
 
@@ -17,11 +19,11 @@ def get_main_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("👤 Status Profil", callback_data="btn_whoami"),
         ],
         [
-            InlineKeyboardButton("🔀 Ganti Model AI", callback_data="btn_model"),
-            InlineKeyboardButton("🔄 Reset Konteks", callback_data="btn_reset"),
+            InlineKeyboardButton("🔄 Ganti Model AI", callback_data="btn_model"),
+            InlineKeyboardButton("♻️ Reset Konteks", callback_data="btn_reset"),
         ],
         [
-            InlineKeyboardButton("📦 Daftar Produk", callback_data="btn_products"),
+            # InlineKeyboardButton("📦 Daftar Produk", callback_data="btn_products"),
             InlineKeyboardButton("❓ Bantuan", callback_data="btn_help"),
         ],
     ]
@@ -107,20 +109,48 @@ async def tools_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "\n".join(msg_parts), parse_mode=ParseMode.MARKDOWN
     )
 
+async def status_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Cek status bot (uptime, model, api token status)."""
+    if update.effective_message is None:
+        return
+
+    # Data dari bot_data (diinisialisasi saat startup di main.py)
+    start_time = context.application.bot_data.get("start_time", "Unknown")
+    
+    # Cek ketersediaan API token dari user_data (simpan di auth.py sebagai FASTAPI_TOKEN_KEY)
+    from bot.handlers.auth import FASTAPI_TOKEN_KEY
+    token_val = context.user_data.get(FASTAPI_TOKEN_KEY)
+    api_token_status = "✅ Tersedia" if token_val else "❌ Tidak Ditemukan"
+
+    uptime = "Unknown"
+    if isinstance(start_time, datetime.datetime):
+        uptime = str(datetime.datetime.now() - start_time).split(".")[0] # Hapus microsecond
+
+    status_text = (
+        f"🤖 *Status Bot Telegram*\n\n"
+        f"📅 *Waktu Startup:* `{start_time.strftime('%Y-%m-%d %H:%M:%S') if isinstance(start_time, datetime.datetime) else start_time}`\n"
+        f"⏱ *Uptime:* `{uptime}`\n"
+        f"🔑 *API Token Status:* {api_token_status}\n"
+    )
+
+    await update.effective_message.reply_text(
+        status_text,
+        parse_mode=ParseMode.MARKDOWN,
+    )
 
 async def unknown_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Fallback untuk command yang tidak dikenal."""
     if update.effective_message is None:
         return
 
-    # Ambil teks command-nya (mis. "/foo" -> "foo")
+    # Ambil teks command-nya (mis. \"/foo\" -> \"foo\")
     text = update.effective_message.text or ""
     invoked = text.split()[0].lstrip("/").split("@")[0] if text else ""
 
     logger.info("Unknown command received: /{} from user_id={}", invoked, update.effective_user.id if update.effective_user else "?")
 
     msg = (
-        f"❓ *Perintah `/ {invoked}` tidak dikenali.*\n\n"
+        f"❓ *Perintah `/{invoked}` tidak dikenali.*\n\n"
         "Silakan gunakan salah satu perintah yang tersedia, "
         "atau ketik /help untuk melihat panduan lengkap."
     )
