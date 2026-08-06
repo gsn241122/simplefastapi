@@ -26,8 +26,8 @@ from history_manager import (
     save_session,
     trim_messages_for_context,
 )
-from image_utils import process_image
-from pdf_utils import process_pdf
+from utils.images import process_image
+from utils.pdfs import process_pdf
 from mcp_client import call_mcp_tool_by_name
 from security import redact_secrets
 from sidebar import SidebarSettings
