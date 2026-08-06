@@ -7,6 +7,7 @@ from loguru import logger
 from telegram.ext import (
     Application,
     ApplicationBuilder,
+    CallbackQueryHandler,
     CommandHandler,
     MessageHandler,
     PersistenceInput,
@@ -16,7 +17,8 @@ from telegram.ext import (
 
 from bot.handlers.auth import build_login_conversation, logout_cmd, whoami_cmd
 from bot.handlers.message import handle_message, reset_cmd
-from bot.handlers.start import start_cmd
+from bot.handlers.model import model_callback_handler, model_cmd
+from bot.handlers.start import help_cmd, menu_callback_handler, start_cmd
 from bot.middlewares import PerUserRateLimiter
 from bot.states import StateStore
 from config import Settings
@@ -48,9 +50,15 @@ def build_application(settings: Settings) -> Application:
 
     # Commands
     app.add_handler(CommandHandler("start", start_cmd))
+    app.add_handler(CommandHandler("help", help_cmd))
+    app.add_handler(CommandHandler("model", model_cmd))
     app.add_handler(CommandHandler("reset", reset_cmd))
     app.add_handler(CommandHandler("logout", logout_cmd))
     app.add_handler(CommandHandler("whoami", whoami_cmd))
+
+    # Callbacks for interactive buttons
+    app.add_handler(CallbackQueryHandler(menu_callback_handler, pattern="^btn_"))
+    app.add_handler(CallbackQueryHandler(model_callback_handler, pattern="^set_model_"))
 
     # Login conversation (/login → username → password)
     # group=-1 agar lebih prioritas dari MessageHandler di group 0

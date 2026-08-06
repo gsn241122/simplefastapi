@@ -16,7 +16,7 @@ from bot.states import StateStore
 from bot.handlers.auth import FASTAPI_TOKEN_KEY, IN_LOGIN_KEY
 from config import Settings
 from llm.base import ChatMessage, ChatRequest
-from llm.registry import get_provider
+from llm.registry import build_provider, get_provider
 from mcp_agent.tool_adapter import mcp_tools_to_openai
 
 
@@ -79,17 +79,12 @@ async def _send_response(
                 await update.effective_message.reply_text(part)
 
 
-async def handle_message(
+async def process_prompt(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
+    prompt_text: str,
 ) -> None:
-    if update.effective_message is None or update.effective_chat is None:
-        return
-    if update.effective_user is None:
-        return
-
-    # Jangan proses pesan jika user sedang dalam alur login conversation
-    if context.user_data.get(IN_LOGIN_KEY):
+    if update.effective_chat is None or update.effective_user is None:
         return
 
     settings: Settings = context.application.bot_data["settings"]
@@ -99,15 +94,8 @@ async def handle_message(
 
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
-    msg_id = update.effective_message.message_id
 
-    # Dedupe replay
-    if states.is_duplicate(chat_id, msg_id):
-        logger.debug("Duplicate message ignored chat={} msg={}", chat_id, msg_id)
-        return
-
-    raw_text = update.effective_message.text or ""
-    user_text = _sanitize(raw_text)
+    user_text = _sanitize(prompt_text)
     if not user_text:
         return
 
@@ -121,15 +109,39 @@ async def handle_message(
         return
     limiter: PerUserRateLimiter = context.application.bot_data["limiter"]
     if not await limiter.allow(user_id):
-        await update.effective_message.reply_text(
-            "⏳ Anda mengirim pesan terlalu cepat. Coba lagi sebentar."
-        )
+        if update.effective_message:
+            await update.effective_message.reply_text(
+                "⏳ Anda mengirim pesan terlalu cepat. Coba lagi sebentar."
+            )
         return
+
+    # Gather MCP tools & construct dynamic server context
+    tools_spec = []
+    mcp_tools_map = {}
+    dynamic_mcp_context = ""
+    if mcp_client is not None:
+        raw_tools = await mcp_client.list_tools()
+        tools_spec = mcp_tools_to_openai(raw_tools)
+        for t in raw_tools:
+            if t.get("name"):
+                mcp_tools_map[t["name"]] = t.get("_server")
+        
+        active_servers = sorted(list(set(mcp_tools_map.values())))
+        if active_servers:
+            dynamic_mcp_context = (
+                f"\n\n### 🛠️ Server MCP Aktif Real-Time ({len(active_servers)} Server, {len(tools_spec)} Tools):\n"
+                f"Server terhubung: {', '.join(active_servers)}.\n"
+                "Jika pengguna meminta tindakan atau data yang berkaitan dengan server di atas (misal: repositori Git, "
+                "backend FastAPI, file lokal, terminal bash, waktu, dll.), Anda WAJIB memanggil tool MCP yang relevan."
+            )
 
     # Build chat history
     history = list(states.get(chat_id).history)
     messages = [
-        ChatMessage(role="system", content=SYSTEM_PROMPT + GUARDRAIL_PROMPT_TAIL),
+        ChatMessage(
+            role="system",
+            content=SYSTEM_PROMPT + dynamic_mcp_context + GUARDRAIL_PROMPT_TAIL,
+        ),
         *(
             ChatMessage(role=h["role"], content=h["content"])
             for h in history
@@ -140,23 +152,13 @@ async def handle_message(
         ),
     ]
 
-    # Gather MCP tools if available
-    tools_spec = []
-    mcp_tools_map = {}
-    if mcp_client is not None:
-        raw_tools = await mcp_client.list_tools()
-        tools_spec = mcp_tools_to_openai(raw_tools)
-        for t in raw_tools:
-            mcp_tools_map[t.get("name")] = t.get("_server")
-
-    request = ChatRequest(messages=messages, tools=tools_spec)
-
     # Typing indicator + stream to user with tool execution loop
     try:
         async with semaphore:
             await update.effective_chat.send_action(ChatAction.TYPING)
 
-        provider = get_provider()
+        user_provider_name = context.user_data.get("user_llm_provider")
+        provider = build_provider(settings, name=user_provider_name)
         
         # Multi-turn tool execution loop (up to 10 iterations)
         MAX_STEPS = 10
@@ -258,6 +260,32 @@ async def handle_message(
             await update.effective_message.reply_text(
                 "⚠️ Maaf, terjadi kesalahan saat memproses pesan Anda."
             )
+
+
+async def handle_message(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+    if update.effective_message is None or update.effective_chat is None:
+        return
+    if update.effective_user is None:
+        return
+
+    # Jangan proses pesan jika user sedang dalam alur login conversation
+    if context.user_data.get(IN_LOGIN_KEY):
+        return
+
+    states: StateStore = context.application.bot_data["states"]
+    chat_id = update.effective_chat.id
+    msg_id = update.effective_message.message_id
+
+    # Dedupe replay
+    if states.is_duplicate(chat_id, msg_id):
+        logger.debug("Duplicate message ignored chat={} msg={}", chat_id, msg_id)
+        return
+
+    raw_text = update.effective_message.text or ""
+    await process_prompt(update, context, raw_text)
 
 
 async def reset_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
