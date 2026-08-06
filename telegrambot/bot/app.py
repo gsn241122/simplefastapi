@@ -67,7 +67,7 @@ def build_application(settings: Settings) -> Application:
 
     # Callbacks for interactive buttons
     app.add_handler(CallbackQueryHandler(menu_callback_handler, pattern="^btn_"))
-    app.add_handler(CallbackQueryHandler(model_callback_handler, pattern="^set_model_"))
+    app.add_handler(CallbackQueryHandler(model_callback_handler, pattern="^sel_"))
 
     # Login conversation (/login → username → password)
     # group=-1 agar lebih prioritas dari MessageHandler di group 0
