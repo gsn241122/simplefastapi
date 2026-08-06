@@ -82,12 +82,25 @@ class LocalSkillServer:
         if not script_path.exists():
             return _tool_error(f"Skill script missing: {script_path}")
 
-        # Run script with arguments (as env vars or CLI args)
+        # Run script with arguments (as CLI args).
+        # Using create_subprocess_exec with list arguments is inherently
+        # safer than shell=True, as it avoids shell interpretation of
+        # special characters in arguments.
         try:
+            args_list = []
+            for k, v in (arguments or {}).items():
+                if isinstance(v, bool):
+                    args_list.append(f"--{k}" if v else f"--no-{k}")
+                elif isinstance(v, (list, tuple)):
+                    for item in v:
+                        args_list.extend([f"--{k}", str(item)])
+                else:
+                    args_list.extend([f"--{k}", str(v)])
+
             proc = await asyncio.create_subprocess_exec(
                 self.python_path,
                 str(script_path),
-                *[f"--{k}={v}" for k, v in (arguments or {}).items()],
+                *args_list,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=script_path.parent,

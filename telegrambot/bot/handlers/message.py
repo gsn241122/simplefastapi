@@ -515,10 +515,16 @@ async def process_prompt(
         # Multi-turn tool execution loop (up to 10 iterations)               #
         # ------------------------------------------------------------------ #
         MAX_STEPS = 10
+        MAX_TOTAL_SEC = 120  # Budget 2 menit per prompt
+        loop_start = time.monotonic()
         full_response_text = ""
         tool_log_lines: list[str] = []  # collects tool card lines for prefix
 
         for step in range(MAX_STEPS):
+            if time.monotonic() - loop_start > MAX_TOTAL_SEC:
+                logger.warning("Multi-turn loop exceeded {}s, breaking.", MAX_TOTAL_SEC)
+                full_response_text += "\n\n_(Loop timeout: proses dihentikan)_"
+                break
             request = ChatRequest(messages=messages, tools=tools_spec)
             chunks_collected: list[str] = []
             tool_calls_accum: list[dict[str, Any]] = []

@@ -52,6 +52,8 @@ def build_application(settings: Settings) -> Application:
 
     # Inject shared objects
     app.bot_data["settings"] = settings
+    app.bot_data["messages"] = 0
+    app.bot_data["tool_calls"] = 0
     app.bot_data["start_time"] = __import__("datetime").datetime.now()
     app.bot_data["states"] = StateStore(
         max_turns=settings.max_context_turns,
@@ -87,8 +89,17 @@ def build_application(settings: Settings) -> Application:
     app.add_handler(MessageHandler(filters.Document.PDF, handle_document))
 
     async def _post_init(application: Application) -> None:
-        # Pendaftaran perintah otomatis (slash command popup suggestion)
-        # Menggunakan SSoT dari BotCommand Enum di bot/commands.py
+        # Background task untuk periodic flush state
+        async def periodic_flush():
+            while True:
+                await asyncio.sleep(300) # 5 menit
+                if "states" in application.bot_data:
+                    application.bot_data["states"].flush()
+                    logger.info("Periodic state flush completed.")
+        
+        asyncio.create_task(periodic_flush())
+
+        # Pendaftaran perintah otomatis
         commands = [
             BotCommand(cmd.value[0], cmd.value[1]) 
             for cmd in BotCommandEnum

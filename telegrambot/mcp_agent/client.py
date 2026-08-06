@@ -22,6 +22,7 @@ class MCPClient:
     def __init__(self, registry: dict[str, Any]) -> None:
         self._registry = registry
         self._sessions: dict[str, dict[str, Any]] = {}
+        self._tools_cache: list[dict[str, Any]] | None = None
         self._lock = asyncio.Lock()
         self._closed = False
 
@@ -86,7 +87,10 @@ class MCPClient:
             raise
 
     async def list_tools(self) -> list[dict[str, Any]]:
-        """List tools from all connected real MCP servers."""
+        """List tools from all connected real MCP servers with caching."""
+        if self._tools_cache is not None:
+            return self._tools_cache
+
         tools: list[dict[str, Any]] = []
         for name, sess_info in self._sessions.items():
             if not sess_info.get("connected"):
@@ -110,6 +114,8 @@ class MCPClient:
                     })
             except Exception as exc:
                 logger.warning("Error listing tools from MCP server {!r}: {}", name, exc)
+        
+        self._tools_cache = tools
         return tools
 
     async def call_tool(
