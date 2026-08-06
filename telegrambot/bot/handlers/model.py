@@ -4,14 +4,73 @@ from __future__ import annotations
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
+import requests
+from config import Settings, get_settings
 
-from config import Settings
+# Cache model lists
+CACHED_GEMINI_MODELS = []
+CACHED_OLLAMA_MODELS = []
+CACHED_MINIMAX_MODELS = []
 
-MODEL_MAP = {
-    "gemini": ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.6"],
-    "minimax": ["abab6.5s-chat", "abab6.5t-chat"],
-    "ollama": ["minimax-m3:cloud","llama3.2", "mistral", "phi3"]
-}
+def fetch_gemini_models():
+    global CACHED_GEMINI_MODELS
+    settings = get_settings()
+    if not settings.gemini_api_key:
+        return ["gemini-1.5-flash"]
+    if not CACHED_GEMINI_MODELS:
+        api_key = settings.gemini_api_key
+        base_url = settings.gemini_base_url
+        url = f"{base_url}/models?key={api_key}"
+        try:
+            response = requests.get(url).json()
+            # Filter for text-generation capable models
+            CACHED_GEMINI_MODELS = [m['name'].replace('models/', '') for m in response.get('models', []) if 'generateContent' in m.get('supportedGenerationMethods', [])]
+        except Exception as e:
+            print(f"Gagal fetch model Gemini: {e}")
+            CACHED_GEMINI_MODELS = ["gemini-1.5-flash", "gemini-1.5-pro"]
+    return CACHED_GEMINI_MODELS
+
+def fetch_ollama_models():
+    global CACHED_OLLAMA_MODELS
+    if not CACHED_OLLAMA_MODELS:
+        settings = get_settings()
+        # Menghapus /v1 dari base_url jika ada, karena Ollama /api/tags tidak butuh /v1
+        base_url = settings.ollama_base_url.replace("/v1", "")
+        url = f"{base_url}/api/tags"
+        try:
+            response = requests.get(url, timeout=2).json()
+            CACHED_OLLAMA_MODELS = [m['name'] for m in response.get('models', [])]
+        except Exception as e:
+            print(f"Gagal fetch model Ollama: {e}")
+            CACHED_OLLAMA_MODELS = ["llama3.2", "mistral", "phi3"]
+    return CACHED_OLLAMA_MODELS
+
+def fetch_minimax_models():
+    global CACHED_MINIMAX_MODELS
+    settings = get_settings()
+    if not settings.minimax_api_key:
+        return ["abab6.5s-chat"]
+    if not CACHED_MINIMAX_MODELS:
+        api_key = settings.minimax_api_key
+        base_url = settings.minimax_base_url
+        # MiniMax API structure usually requires authorization headers
+        headers = {"Authorization": f"Bearer {api_key}"}
+        url = f"{base_url}/models"
+        try:
+            response = requests.get(url, headers=headers, timeout=5).json()
+            # MiniMax API response structure varies; assuming a standard list
+            CACHED_MINIMAX_MODELS = [m['id'] for m in response.get('data', [])]
+        except Exception as e:
+            print(f"Gagal fetch model Minimax: {e}")
+            CACHED_MINIMAX_MODELS = ["abab6.5s-chat", "abab6.5t-chat"]
+    return CACHED_MINIMAX_MODELS
+
+def get_model_map():
+    return {
+        "gemini": fetch_gemini_models(),
+        "minimax": fetch_minimax_models(),
+        "ollama": fetch_ollama_models()
+    }
 
 def get_provider_keyboard() -> InlineKeyboardMarkup:
     """Build inline keyboard for selecting LLM provider."""
@@ -25,11 +84,20 @@ def get_provider_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 def get_model_keyboard(provider: str) -> InlineKeyboardMarkup:
-    """Build inline keyboard for selecting model for a provider."""
-    models = MODEL_MAP.get(provider, [])
+    """Build inline keyboard for selecting model for a provider with 3 columns."""
+    models = sorted(get_model_map().get(provider, []))
     keyboard = []
+    
+    # Create chunks of 3 for the 3-column layout
+    row = []
     for model in models:
-        keyboard.append([InlineKeyboardButton(model, callback_data=f"sel_mod_{provider}_{model}")])
+        row.append(InlineKeyboardButton(model, callback_data=f"sel_mod_{provider}_{model}"))
+        if len(row) == 3:
+            keyboard.append(row)
+            row = []
+    if row:
+        keyboard.append(row)
+        
     keyboard.append([InlineKeyboardButton("« Kembali", callback_data="sel_back")])
     return InlineKeyboardMarkup(keyboard)
 
