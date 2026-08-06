@@ -1,0 +1,43 @@
+"""Telegram ApplicationBuilder + handler wiring."""
+from __future__ import annotations
+
+import asyncio
+
+from loguru import logger
+from telegram.ext import Application, ApplicationBuilder, CommandHandler, MessageHandler, filters
+
+from bot.handlers.message import handle_message, reset_cmd
+from bot.handlers.start import start_cmd
+from bot.middlewares import PerUserRateLimiter
+from bot.states import StateStore
+from config import Settings
+
+
+def build_application(settings: Settings) -> Application:
+    """Construct the python-telegram-bot Application with our handlers."""
+    app = ApplicationBuilder().token(settings.telegram_bot_token).build()
+
+    # Inject shared objects
+    app.bot_data["settings"] = settings
+    app.bot_data["states"] = StateStore(max_turns=settings.max_context_turns)
+    app.bot_data["semaphore"] = asyncio.Semaphore(settings.outbound_semaphore)
+    app.bot_data["limiter"] = PerUserRateLimiter(max_per_minute=settings.per_user_msg_per_minute)
+
+    # Commands
+    app.add_handler(CommandHandler("start", start_cmd))
+    app.add_handler(CommandHandler("reset", reset_cmd))
+
+    # Free-text (only when there's actual text; ignore commands/attachments)
+    app.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
+    )
+
+    async def _post_init(application: Application) -> None:
+        logger.info(
+            "Bot ready. provider={} allowed_chats={}",
+            settings.llm_provider,
+            settings.telegram_allowed_chat_ids or "<all>",
+        )
+
+    app.post_init = _post_init
+    return app
