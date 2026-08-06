@@ -23,7 +23,7 @@ from bot.handlers.auth import (
     logout_cmd,
     whoami_cmd,
 )
-from bot.handlers.message import handle_document, handle_message, handle_photo, reset_cmd
+from bot.handlers.message import handle_document, handle_message, handle_photo, history_cmd, new_session_cmd, reset_cmd
 from bot.handlers.model import model_callback_handler, model_cmd
 from bot.handlers.start import help_cmd, menu_callback_handler, start_cmd, tools_cmd, unknown_cmd
 from bot.middlewares import PerUserRateLimiter
@@ -51,7 +51,10 @@ def build_application(settings: Settings) -> Application:
 
     # Inject shared objects
     app.bot_data["settings"] = settings
-    app.bot_data["states"] = StateStore(max_turns=settings.max_context_turns)
+    app.bot_data["states"] = StateStore(
+        max_turns=settings.max_context_turns,
+        persist_path="bot_state.json",
+    )
     app.bot_data["semaphore"] = asyncio.Semaphore(settings.outbound_semaphore)
     app.bot_data["limiter"] = PerUserRateLimiter(max_per_minute=settings.per_user_msg_per_minute)
 
@@ -61,6 +64,8 @@ def build_application(settings: Settings) -> Application:
     app.add_handler(CommandHandler("login2", login2_cmd))
     app.add_handler(CommandHandler("model", model_cmd))
     app.add_handler(CommandHandler("reset", reset_cmd))
+    app.add_handler(CommandHandler("history", history_cmd))
+    app.add_handler(CommandHandler("newsession", new_session_cmd))
     app.add_handler(CommandHandler("logout", logout_cmd))
     app.add_handler(CommandHandler("whoami", whoami_cmd))
     app.add_handler(CommandHandler("tools", tools_cmd))
@@ -102,6 +107,8 @@ def build_application(settings: Settings) -> Application:
             BotCommand("logout", "Logout dari sistem"),
             BotCommand("model", "Pilih model AI (Gemini/MiniMax/Ollama)"),
             BotCommand("reset", "Reset riwayat percakapan AI"),
+            BotCommand("history", "Lihat sesi & riwayat aktif"),
+            BotCommand("newsession", "Mulai sesi percakapan baru"),
             BotCommand("cancel", "Membatalkan operasi yang sedang berjalan"),
             BotCommand("tools", "Menampilkan daftar tools MCP yang aktif"),
         ]

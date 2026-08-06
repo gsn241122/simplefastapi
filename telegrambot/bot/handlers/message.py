@@ -639,6 +639,30 @@ async def reset_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     states.reset(update.effective_chat.id)
     await update.effective_message.reply_text("🔄 Riwayat percakapan direset.")
 
+async def history_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_chat is None or update.effective_message is None:
+        return
+    states: StateStore = context.application.bot_data["states"]
+    state = states.get(update.effective_chat.id)
+    
+    if not state.history:
+        await update.effective_message.reply_text("Riwayat kosong.")
+        return
+
+    # Tampilkan sesi ID
+    await update.effective_message.reply_text(
+        f"Sesi aktif: <code>{state.current_session_id}</code>\n"
+        f"Total turn: {len(state.history) // 2}",
+        parse_mode=ParseMode.HTML
+    )
+
+async def new_session_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_chat is None or update.effective_message is None:
+        return
+    states: StateStore = context.application.bot_data["states"]
+    states.new_session(update.effective_chat.id)
+    await update.effective_message.reply_text("✨ Sesi baru dimulai.")
+
 
 
 # ---------------------------------------------------------------------------
