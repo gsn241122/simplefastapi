@@ -1,4 +1,8 @@
 {
+  "local_skills": {
+    "path": "skills",
+    "timeout_sec": 30
+  },
   "mcpServers": {
     "sequential-thinking": {
       "command": "bun",

@@ -13,7 +13,8 @@ from loguru import logger
 from bot.app import build_application
 from config import get_settings
 from mcp_agent.client import mcp_lifecycle
-from mcp_agent.registry import load_registry
+from mcp_agent.dispatcher import UnifiedTools
+from mcp_agent.extended_registry import load_registry_with_local
 
 _LOCK_FILE = Path(__file__).parent / ".telegrambot.lock"
 
@@ -84,13 +85,24 @@ async def _run() -> None:
         logger.critical("File konfigurasi MCP tidak ditemukan di: {}", mcp_config_path)
         sys.exit(1)
 
-    registry = load_registry(mcp_config_path)
+    registry, local_server = load_registry_with_local(mcp_config_path)
     async with mcp_lifecycle(registry) as mcp_client:
-        logger.info("MCP lifecycle active. servers={}", mcp_client.server_names or "<none>")
+        logger.info(
+            "MCP lifecycle active. servers={} local_skills={}",
+            mcp_client.server_names or "<none>",
+            [t["name"] for t in (local_server._ensure_discovered() if local_server else [])],
+        )
+
+        unified = UnifiedTools(mcp_client, local_server)
+        logger.info("UnifiedTools ready: {} remote + {} local",
+                    len(mcp_client.server_names),
+                    len(local_server._ensure_discovered()) if local_server else 0)
 
         app = build_application(settings)
         # Stash MCP for future tool wiring
         app.bot_data["mcp_client"] = mcp_client
+        app.bot_data["local_server"] = local_server
+        app.bot_data["unified_tools"] = unified
 
         # Setup exception handler & graceful shutdown on SIGINT/SIGTERM
         loop = asyncio.get_running_loop()

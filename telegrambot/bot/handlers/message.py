@@ -410,8 +410,13 @@ async def process_prompt(
     tools_spec: list[dict[str, Any]] = []
     mcp_tools_map: dict[str, str] = {}
     dynamic_mcp_context = ""
-    if mcp_client is not None:
-        raw_tools = await mcp_client.list_tools()
+    unified_tools = context.application.bot_data.get("unified_tools")
+    if unified_tools is not None:
+        try:
+            raw_tools = await unified_tools.list_all()
+        except Exception as exc:
+            logger.warning("Failed to list tools via UnifiedTools: {}", exc)
+            raw_tools = []
         tools_spec = mcp_tools_to_openai(raw_tools)
         for t in raw_tools:
             if t.get("name"):
@@ -419,11 +424,20 @@ async def process_prompt(
 
         active_servers = sorted(list(set(mcp_tools_map.values())))
         if active_servers:
+            local_count = sum(
+                1 for t in raw_tools
+                if t.get("_server") == "local-skills"
+            )
+            remote_count = len(raw_tools) - local_count
             dynamic_mcp_context = (
                 f"\n\n### 🛠️ Server MCP Aktif Real-Time ({len(active_servers)} Server, {len(tools_spec)} Tools):\n"
                 f"Server terhubung: {', '.join(active_servers)}.\n"
+                f"  • Remote MCP tools: {remote_count}\n"
+                f"  • Local skill tools: {local_count}\n"
                 "Jika pengguna meminta tindakan atau data yang berkaitan dengan server di atas (misal: repositori Git, "
-                "backend FastAPI, file lokal, terminal bash, waktu, dll.), Anda WAJIB memanggil tool MCP yang relevan."
+                "backend FastAPI, file lokal, terminal bash, waktu, dll.), Anda WAJIB memanggil tool MCP yang relevan.\n"
+                "Untuk local skill tools (server: 'local-skills'), gunakan format arguments=\"{}\" karena script "
+                "mereka tidak menerima parameter."
             )
 
     # Build chat history
@@ -478,7 +492,7 @@ async def process_prompt(
                 full_response_text = text_delta
 
             # No more tool calls → final LLM answer
-            if not tool_calls_accum or mcp_client is None:
+            if not tool_calls_accum or unified_tools is None:
                 break
 
             # Append assistant turn (with tool calls)
@@ -539,7 +553,8 @@ async def process_prompt(
                             t_args["headers"]["Authorization"] = f"Bearer {user_token}"
 
                     try:
-                        tool_result = await mcp_client.call_tool(server_name, t_name, t_args)
+                        # Route via UnifiedTools (handles remote + local dispatch)
+                        tool_result = await unified_tools.call(t_name, t_args)
                         result_text = json.dumps(tool_result)
                         elapsed_ms = int((time.monotonic() - t_start) * 1000)
                         done_card = _tool_card(t_name, server_name, "done", elapsed_ms)

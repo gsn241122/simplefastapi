@@ -73,25 +73,43 @@ async def help_cmd(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 async def tools_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Menampilkan daftar tools MCP yang aktif."""
+    """Menampilkan daftar tools MCP yang aktif (remote + local)."""
     if update.effective_message is None:
         return
-    
-    mcp_client = context.application.bot_data.get("mcp_client")
-    if not mcp_client:
-        await update.effective_message.reply_text("❌ MCP Client tidak tersedia.")
-        return
 
-    # Asumsi mcp_client punya atribut server_names atau daftar tools
-    servers = getattr(mcp_client, "server_names", [])
-    msg = "🛠️ *Tools MCP yang Terhubung:*\n\n"
-    if not servers:
-        msg += "(Tidak ada server yang terhubung)"
-    else:
-        for s in servers:
-            msg += f"• `{s}`\n"
-    
-    await update.effective_message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
+    mcp_client = context.application.bot_data.get("mcp_client")
+    local_server = context.application.bot_data.get("local_server")
+    unified = context.application.bot_data.get("unified_tools")
+
+    msg_parts = ["🛠️ *Tools MCP Aktif*\n"]
+
+    # Remote MCP servers
+    if mcp_client is not None:
+        servers = getattr(mcp_client, "server_names", [])
+        msg_parts.append(f"\n*Remote Servers ({len(servers)}):*")
+        if servers:
+            for s in sorted(servers):
+                msg_parts.append(f"  • `{s}`")
+        else:
+            msg_parts.append("  (tidak ada)")
+
+    # Local skills
+    if local_server is not None:
+        try:
+            local_tools = local_server._ensure_discovered()
+            msg_parts.append(f"\n*Local Skills ({len(local_tools)}):*")
+            for t in local_tools:
+                desc = t.get("description", "")[:80]
+                msg_parts.append(f"  • `{t['name']}` — {desc}")
+        except Exception as exc:
+            msg_parts.append(f"\n*Local Skills:* error loading ({exc})")
+
+    if not mcp_client and not local_server:
+        msg_parts.append("\n(Tidak ada tool yang tersedia)")
+
+    await update.effective_message.reply_text(
+        "\n".join(msg_parts), parse_mode=ParseMode.MARKDOWN
+    )
 
 
 async def unknown_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
