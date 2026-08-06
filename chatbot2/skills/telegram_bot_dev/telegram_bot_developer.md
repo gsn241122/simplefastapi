@@ -65,9 +65,10 @@ test       — integration / smoke tests
 
 ```
 project_root/
-├── main.py                    # Entrypoint: menyatukan bot × llm × mcp
+├── main.py                    # Entrypoint: menyatukan bot × llm × mcp (dengan atomic lock & signal cleanup)
 ├── config.py                  # pydantic-settings, load .env
 ├── mcp_server.json            # Registry MCP server
+├── .telegrambot.lock          # Local atomic single-instance process lock
 ├── bot_session.pickle         # Auto-generated persistent user sessions (multi-user)
 ├── .env.example               # Template secrets
 ├── bot/
@@ -121,6 +122,18 @@ Untuk DEBUG: output **daftar hipotesis ber-ranking by likelihood** dulu.
 - **Type-hint everything.** Pydantic untuk config & IO boundary.
 - **No string literals untuk config** — semuanya di `config.py`.
 - **No bare `except:`** — selalu tangkap exception spesifik.
+- **Atomic Single-Instance Process Locking (`main.py`):**
+  - Buat lockfile di path proyek lokal (`.telegrambot.lock`) menggunakan `os.open(_LOCK_FILE, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)` untuk menjamin eksekusi atomic cross-process.
+  - Periksa PID via `os.kill(pid, 0)` dan tangkap `(ProcessLookupError, ValueError, OSError)` secara aman saat membersihkan *stale lockfile*.
+- **Config & Boot Validation:**
+  - Periksa keberadaan `mcp_server.json` sebelum `load_registry`. Log `CRITICAL` dan exit jika file tidak ditemukan.
+- **Defensive Async Lifecycle & Updater Handling:**
+  - Hindari `# type: ignore[union-attr]` pada `app.updater`.
+  - Gunakan pengecekan defensif: `if app.updater: await app.updater.start_polling()` dan `if app.updater and app.updater.is_running: await app.updater.stop()`.
+- **Global Asyncio Exception Logging:**
+  - Pasang `loop.set_exception_handler(_asyncio_exception_handler)` pada `asyncio` event loop untuk menangkap dan mencatat unhandled exception dari background tasks via `loguru`.
+- **Signal Handler Cleanup:**
+  - Catat sinyal yang terdaftar (`registered_signals`) dan bersihkan via `loop.remove_signal_handler(sig)` di dalam blok `finally` saat shutdown.
 - **Keseragaman provider:** semua LLM provider expose
   `chat(messages, tools=None) → AsyncIterator[Chunk] | Message`.
 - **LLM Provider Resilience:** tangkap `HTTPStatusError` (500, 502, 503, 504, 429) dengan *exponential backoff retry* (misal 3 retries: 1.5s, 3.0s).
@@ -193,6 +206,7 @@ VERIFICATION GATE
 | Unclosed MD formatting | Safe fallback dari Markdown ke Plain Text di `reply_text`.|
 | MCP stdio corruption   | Arahkan log ke `sys.stderr` untuk mencegah korupsi stream.|
 | Expired Auth Token     | Auto-purge token di 401 response agar user re-login.    |
+| Multiple bot instances | Atomic single-instance lockfile (`.telegrambot.lock`).  |
 
 Wajib sertakan di handler bot:
 ```python
@@ -305,6 +319,9 @@ DIFF SCOPE
 - ❌ Single-pass tool calling loop — gunakan multi-turn tool loop (misal `MAX_STEPS = 10`).
 - ❌ Menginjeksikan parameter ad-hoc (seperti `headers`) ke MCP tool yang tidak menerimanya (seperti `list_routes`).
 - ❌ Membiarkan token kadaluwarsa (401) mengendap di `context.user_data` — lakukan auto-purge token saat menerima status code 401.
+- ❌ Non-atomic lockfile di folder publik `/tmp` tanpa exception handling `OSError`.
+- ❌ Mengabaikan pembersihan signal handler atau memicu `AttributeError` karena tidak memeriksa status `app.updater` sebelum `start_polling`/`stop`.
+- ❌ Membiarkan unhandled background task exceptions hilang tanpa handler `loop.set_exception_handler`.
 - ❌ Global mutable state untuk config bot.
 - ❌ MD5/SHA1 untuk security — pakai `hashlib.sha256`.
 - ❌ Simpan secret di file yang masuk git (bahkan `.env` tanpa `.gitignore`).
@@ -322,6 +339,7 @@ DIFF SCOPE
 7. **`PicklePersistence` HARUS dikonfigurasi dengan `bot_data=False`** agar token user tetap tersimpan tanpa mengorupsi objek `mcp_client`.
 8. **Pengiriman pesan Telegram WAJIB mempunyai fallback ke plain text** jika `ParseMode.MARKDOWN` gagal di-parse oleh Telegram.
 9. **Penanganan HTTP 401 Unauthorized WAJIB secara otomatis menghapus token kadaluwarsa dari `context.user_data`** agar pengguna dapat melakukan `/login` ulang dengan bersih.
+10. **Entrypoint (`main.py`) WAJIB mengimplementasikan atomic single-instance locking (`.telegrambot.lock`), validasi eksistensi `mcp_server.json`, defensive `app.updater` checks, serta pembersihan signal handler.**
 
 ## §10 — Output Formatting
 
@@ -341,6 +359,8 @@ Skill ini adalah **dokumen hidup**. Aturan update:
 - Penambahan aturan besar → naikkan minor, konfirmasi dulu ke user.
 
 ### Changelog
+- v1.3 (2026-08): Added Entrypoint Hardening specifications (atomic single-instance locking `.telegrambot.lock`, defensive `app.updater` polling/stop checks, global `asyncio` exception logging, signal handler cleanup, and boot-time `mcp_server.json` validation).
 - v1.2 (2026-08): Added Automatic Expired Token Purging (HTTP 401 handling) and Multi-User Isolation specifications for `PicklePersistence`.
 - v1.1 (2026-08): Added multi-turn tool calling loop (`MAX_STEPS=10`), stdio log isolation (`sys.stderr`), safe `PicklePersistence` (`bot_data=False`), Markdown parse fallback, and LLM transient retry resilience.
 - v1.0 (2026-01): Initial release — full F.I.R.S.T + lifecycle + adversarial handling.
+
