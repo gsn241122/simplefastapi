@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-3.1-flash-lite"
 
     ollama_base_url: str = "http://localhost:11434/v1"
-    ollama_model: str = "llama3.2"
+    ollama_model: str = "minimax-m3:cloud"
 
     # --- LLM behavior ---
     max_input_chars: int = 4000
