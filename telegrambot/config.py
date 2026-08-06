@@ -16,7 +16,7 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 # Types
 # ---------------------------------------------------------------------------
 
-LLMProviderName = Literal["minimax", "gemini", "ollama"]
+LLMProviderName = Literal["minimax", "gemini", "ollama", "qwencloud"]
 
 
 # ---------------------------------------------------------------------------
@@ -54,6 +54,11 @@ class Settings(BaseSettings):
 
     ollama_base_url: str = Field(default="http://localhost:11434/v1")
     ollama_model: str = Field(default="minimax-m3:cloud")
+
+    dashscope_api_key: str = Field(default="", validation_alias="DASHSCOPE_API_KEY")
+    # Update default URL ke endpoint internasional
+    qwencloud_base_url: str = Field(default="https://dashscope-intl.aliyuncs.com/compatible-mode/v1")
+    qwencloud_model: str = Field(default="qwen3.8-max")
 
     # --- LLM behavior ---
     max_input_chars: int = Field(default=4000, description="Max user input characters before truncation")

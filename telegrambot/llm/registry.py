@@ -11,6 +11,7 @@ from llm.base import LLMProvider
 from llm.providers.gemini import GeminiProvider
 from llm.providers.minimax import MiniMaxProvider
 from llm.providers.ollama import OllamaProvider
+from llm.providers.qwencloud import QwenCloudProvider
 
 
 def build_provider(settings: Settings, name: str | None = None) -> LLMProvider:
@@ -34,6 +35,13 @@ def build_provider(settings: Settings, name: str | None = None) -> LLMProvider:
         return OllamaProvider(
             base_url=settings.ollama_base_url,
             model=settings.ollama_model,
+            timeout_sec=settings.request_timeout_sec,
+        )
+    if chosen == "qwencloud":
+        return QwenCloudProvider(
+            api_key=settings.dashscope_api_key,
+            base_url=settings.qwencloud_base_url,
+            model=settings.qwencloud_model,
             timeout_sec=settings.request_timeout_sec,
         )
     raise ValueError(f"Unknown LLM provider: {chosen!r}")

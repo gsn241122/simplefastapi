@@ -47,7 +47,7 @@ _MODELS_CACHE: Dict[str, Dict[str, Any]] = {}
 # Providers and constants
 # =============================================================================
 
-KNOWN_PROVIDERS: Tuple[str, ...] = ("gemini", "minimax", "ollama")
+KNOWN_PROVIDERS: Tuple[str, ...] = ("gemini", "minimax", "ollama", "qwencloud")
 
 COLS_PER_ROW = 3
 PAGE_SIZE = 9
@@ -55,6 +55,7 @@ MAX_BUTTON_LABEL = 35
 
 _GEMINI_TIMEOUT = 5.0
 _MINIMAX_TIMEOUT = 5.0
+_QWENCLOUD_TIMEOUT = 5.0
 _OLLAMA_TIMEOUT = 2.0
 
 
@@ -96,6 +97,10 @@ MINIMAX_CAPABILITIES: Dict[str, ModelCapability] = {
     "MiniMax-Text-01": ModelCapability("256K", "🧠 Long", "Long context"),
 }
 
+QWENCLOUD_CAPABILITIES: Dict[str, ModelCapability] = {
+    "qwen3.5:cloud": ModelCapability("256K", "\ud83e\udde0 Pro", "SOTA Qwen"),
+    "qwen3.8-max": ModelCapability("1M", "\ud83e\udde0 Max", "Context besar"),
+}
 
 # =============================================================================
 # Small helpers
@@ -377,11 +382,60 @@ async def fetch_minimax_models() -> List[str]:
 
     return models
 
+async def fetch_qwencloud_models() -> List[str]:
+    """Fetch available QwenCloud models with caching."""
+    if _is_cache_valid("qwencloud"):
+        return _MODELS_CACHE["qwencloud"]["models"]
+
+    settings = get_settings()
+    api_key = str(getattr(settings, "dashscope_api_key", "") or "")
+    base_url = str(getattr(settings, "qwencloud_base_url", "") or "").strip().rstrip("/")
+
+    if not api_key:
+        models = ["qwen3.8-max"]
+        _set_cache("qwencloud", models, QWENCLOUD_CAPABILITIES)
+        return models
+
+    url = f"{base_url}/models"
+    headers = {"Authorization": f"Bearer {api_key}"}
+
+    try:
+        async with httpx.AsyncClient(timeout=_QWENCLOUD_TIMEOUT) as client:
+            resp = await client.get(url, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+
+        models: List[str] = []
+        capabilities: Dict[str, ModelCapability] = {}
+
+        for item in data.get("data", []):
+            model_id = str(item.get("id") or item.get("name") or "").strip()
+            if not model_id:
+                continue
+
+            models.append(model_id)
+            capabilities[model_id] = QWENCLOUD_CAPABILITIES.get(
+                model_id,
+                ModelCapability(desc="Standard"),
+            )
+
+        if not models:
+            raise ValueError("Daftar model QwenCloud kosong")
+
+        _set_cache("qwencloud", models, capabilities)
+
+    except Exception as exc:
+        _log_fetch_error("qwencloud", exc)
+        models = ["qwen3.8-max"]
+        _set_cache("qwencloud", models, QWENCLOUD_CAPABILITIES)
+
+    return models
 
 _FETCHERS: Dict[str, Callable[[], Awaitable[List[str]]]] = {
     "gemini": fetch_gemini_models,
     "minimax": fetch_minimax_models,
     "ollama": fetch_ollama_models,
+    "qwencloud": fetch_qwencloud_models,
 }
 
 
@@ -399,6 +453,7 @@ async def get_model_map() -> Dict[str, List[str]]:
         "gemini": await fetch_gemini_models(),
         "minimax": await fetch_minimax_models(),
         "ollama": await fetch_ollama_models(),
+        "qwencloud": await fetch_qwencloud_models(),
     }
 
 
@@ -413,6 +468,7 @@ def get_provider_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("Gemini 💎", callback_data=f"{CB_PROVIDER}gemini"),
             InlineKeyboardButton("MiniMax ⚡", callback_data=f"{CB_PROVIDER}minimax"),
             InlineKeyboardButton("Ollama 🤖", callback_data=f"{CB_PROVIDER}ollama"),
+            InlineKeyboardButton("QwenCloud ⚡", callback_data=f"{CB_PROVIDER}qwencloud"),
         ]
     ]
     return InlineKeyboardMarkup(keyboard)
