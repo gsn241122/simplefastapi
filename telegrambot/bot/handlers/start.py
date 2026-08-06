@@ -4,6 +4,7 @@ from __future__ import annotations
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
+from loguru import logger
 
 from bot.handlers.auth import FASTAPI_TOKEN_KEY, FASTAPI_USERNAME_KEY, logout_cmd, whoami_cmd
 from bot.handlers.message import reset_cmd
@@ -39,12 +40,16 @@ HELP_TEXT = (
     "📋 *Panduan Perintah & Menu Bot:*\n\n"
     "• `/start` - Menampilkan menu utama & tombol pintas.\n"
     "• `/help` - Menampilkan panduan bantuan ini.\n"
-    "• `/login` - Autentikasi akun ke backend FastAPI.\n"
+    "• `/login` - Autentikasi akun ke backend FastAPI (input teks interaktif).\n"
+    "• `/login2` - Login via Telegram Mini App (WebApp) dengan input tersembunyi.\n"
     "• `/whoami` - Cek status login & token pengguna.\n"
     "• `/logout` - Keluar dari akun FastAPI.\n"
     "• `/model` - Ganti provider LLM (Gemini / MiniMax / Ollama).\n"
-    "• `/reset` - Mereset riwayat percakapan AI.\n\n"
-    "💡 *Tips:* Anda juga bisa langsung mengetik pertanyaan bebas seperti *'Tampilkan daftar produk'* atau *'Berapa stok laptop?'*."
+    "• `/reset` - Mereset riwayat percakapan AI.\n"
+    "• `/cancel` - Membatalkan operasi yang sedang berjalan.\n\n"
+    "• `/tools` - Menampilkan daftar tools MCP yang aktif.\n\n"
+    "💡 *Tips:* Anda juga bisa langsung mengetik pertanyaan bebas seperti *'Tampilkan daftar produk'* atau *'Berapa stok laptop?'*.\n"
+    "Anda juga bisa klik tombol pintas di /start untuk akses cepat."
 )
 
 
@@ -63,6 +68,55 @@ async def help_cmd(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         return
     await update.effective_message.reply_text(
         HELP_TEXT,
+        parse_mode=ParseMode.MARKDOWN,
+        reply_markup=get_main_keyboard(),
+    )
+
+async def tools_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Menampilkan daftar tools MCP yang aktif."""
+    if update.effective_message is None:
+        return
+    
+    mcp_client = context.application.bot_data.get("mcp_client")
+    if not mcp_client:
+        await update.effective_message.reply_text("❌ MCP Client tidak tersedia.")
+        return
+
+    # Asumsi mcp_client punya atribut server_names atau daftar tools
+    servers = getattr(mcp_client, "server_names", [])
+    msg = "🛠️ *Tools MCP yang Terhubung:*\n\n"
+    if not servers:
+        msg += "(Tidak ada server yang terhubung)"
+    else:
+        for s in servers:
+            msg += f"• `{s}`\n"
+    
+    await update.effective_message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
+
+
+async def unknown_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Fallback untuk command yang tidak dikenal.
+
+    Dipasang via MessageHandler(filters.COMMAND) di app.py setelah semua
+    CommandHandler spesifik, sehingga hanya command yang belum tertangani
+    yang sampai ke sini.
+    """
+    if update.effective_message is None:
+        return
+
+    # Ambil teks command-nya (mis. "/foo" -> "foo")
+    text = update.effective_message.text or ""
+    invoked = text.split()[0].lstrip("/").split("@")[0] if text else ""
+
+    logger.info("Unknown command received: /{} from user_id={}", invoked, update.effective_user.id if update.effective_user else "?")
+
+    msg = (
+        f"❓ *Perintah `/ {invoked}` tidak dikenali.*\n\n"
+        "Silakan gunakan salah satu perintah yang tersedia, "
+        "atau ketik /help untuk melihat panduan lengkap."
+    )
+    await update.effective_message.reply_text(
+        msg,
         parse_mode=ParseMode.MARKDOWN,
         reply_markup=get_main_keyboard(),
     )
