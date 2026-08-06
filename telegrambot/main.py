@@ -118,7 +118,7 @@ async def _run() -> None:
                     await app.updater.start_polling()
                 logger.info("Bot is running. Press Ctrl+C to stop.")
                 await stop_event.wait()
-                if app.updater and app.updater.is_running:
+                if app.updater and app.updater.running:
                     await app.updater.stop()
                 await app.stop()
         finally:

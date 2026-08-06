@@ -129,7 +129,7 @@ Untuk DEBUG: output **daftar hipotesis ber-ranking by likelihood** dulu.
   - Periksa keberadaan `mcp_server.json` sebelum `load_registry`. Log `CRITICAL` dan exit jika file tidak ditemukan.
 - **Defensive Async Lifecycle & Updater Handling:**
   - Hindari `# type: ignore[union-attr]` pada `app.updater`.
-  - Gunakan pengecekan defensif: `if app.updater: await app.updater.start_polling()` dan `if app.updater and app.updater.is_running: await app.updater.stop()`.
+  - Gunakan pengecekan defensif: `if app.updater: await app.updater.start_polling()` dan `if app.updater and app.updater.running: await app.updater.stop()`.
 - **Global Asyncio Exception Logging:**
   - Pasang `loop.set_exception_handler(_asyncio_exception_handler)` pada `asyncio` event loop untuk menangkap dan mencatat unhandled exception dari background tasks via `loguru`.
 - **Signal Handler Cleanup:**

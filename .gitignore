@@ -47,3 +47,4 @@ chatbot/.simple/*
 chatbot2/chat_sessions/*
 chatbot2/tool_prefs.json
 telegrambot/bot_session.pickle
+telegrambot/.telegrambot.lock
