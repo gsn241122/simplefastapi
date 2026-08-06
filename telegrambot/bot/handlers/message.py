@@ -15,6 +15,7 @@ import asyncio
 import html
 import json
 import re
+import uuid
 import time
 from typing import Any
 
@@ -87,55 +88,97 @@ _TYPING_FRAMES = ["⏳", "🔄", "💭", "✨"]
 # ---------------------------------------------------------------------------
 
 def _md_to_html(text: str) -> str:
-    """Convert a Markdown string from an LLM into Telegram-safe HTML.
-
-    Handles:
-      **bold**  →  <b>bold</b>
-      *italic*  →  <i>italic</i>  (single asterisk or underscore)
-      _italic_  →  <i>italic</i>
-      `code`    →  <code>code</code>
-      ```block``` → <pre>block</pre>
-      ### Heading → <b>Heading</b>
-      > quote   → <blockquote>
-      [text](url) → <a href="url">text</a>
-      ---/*** → horizontal rule (em-dash line)
     """
-    # 1. Escape any raw HTML so we don't accidentally inject tags
-    text = html.escape(text, quote=False)
+    Convert Markdown/HTML ke Telegram-safe HTML tanpa library pihak ketiga.
+    Sudah adaptif terhadap berbagai variasi bahasa pada code block.
+    """
+    if not text:
+        return ""
 
-    # 2. Fenced code blocks  ```lang\ncode\n```
-    text = re.sub(
-        r"```(?:[a-zA-Z0-9_+-]*)?\n?(.*?)```",
-        lambda m: f"<pre><code>{m.group(1).strip()}</code></pre>",
-        text,
-        flags=re.DOTALL,
+    # Normalisasi newline
+    text = text.replace("\r\n", "\n")
+
+    placeholders = []
+    token = uuid.uuid4().hex
+
+    def put(fragment: str) -> str:
+        idx = len(placeholders)
+        placeholders.append(fragment)
+        return f"@@TGHTMLPH:{token}:{idx}@@"
+
+    # 1. Fenced code block yang lebih adaptif
+    # Regex ini mendukung:
+    # - Indentasi hingga 3 spasi di awal
+    # - Nama bahasa dengan huruf, angka, +, -, . (misal: c++, c#, objective-c)
+    # - Info string tambahan setelah bahasa (akan diabaikan)
+    # - Konten multiline
+    FENCED_CODE_PATTERN = re.compile(
+        r"^([ \t]{0,3})```[ \t]*([\w+#.-]*)[^\n]*\n?"  # Opening fence + language
+        r"([\s\S]*?)"                                   # Code content
+        r"^[ \t]{0,3}```[ \t]*$",                       # Closing fence
+        re.MULTILINE
     )
 
-    # 3. Inline code  `code`
-    text = re.sub(r"`([^`\n]+)`", r"<code>\1</code>", text)
+    def replace_fenced_code(m):
+        # group(2) = nama bahasa (bisa kosong)
+        # group(3) = isi code block
+        code = m.group(3)
+        
+        # Hapus satu newline trailing jika ada (standar CommonMark)
+        if code.endswith("\n"):
+            code = code[:-1]
+            
+        safe_code = html.escape(code, quote=False)
+        return put(f"<pre>{safe_code}</pre>")
 
-    # 4. Headings  ### Title  (h1-h4 all → bold)
-    text = re.sub(r"^#{1,4}\s+(.+)$", r"<b>\1</b>", text, flags=re.MULTILINE)
+    text = FENCED_CODE_PATTERN.sub(replace_fenced_code, text)
 
-    # 5. Bold  **text** or __text__
-    text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
-    text = re.sub(r"__(.+?)__", r"<b>\1</b>", text)
+    # 2. Inline code: `text`
+    def replace_inline_code(m):
+        safe_code = html.escape(m.group(1), quote=False)
+        return put(f"<code>{safe_code}</code>")
 
-    # 6. Italic  *text* or _text_  (single)
-    text = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"<i>\1</i>", text)
-    text = re.sub(r"(?<!_)_(?!_)(.+?)(?<!_)_(?!_)", r"<i>\1</i>", text)
+    text = re.sub(r"`([^`\n]+)`", replace_inline_code, text)
 
-    # 7. Blockquotes  > text
-    text = re.sub(r"^&gt;\s?(.*)$", r"<blockquote>\1</blockquote>", text, flags=re.MULTILINE)
+    # 3. Escape HTML pada teks biasa
+    text = html.escape(text, quote=False)
 
-    # 8. Links  [label](url)
-    text = re.sub(r"\[([^\]]+)\]\((https?://[^\)]+)\)", r'<a href="\2">\1</a>', text)
+    # 4. Markdown sederhana ke HTML Telegram
+    text = re.sub(
+        r"\*\*\*(?!\s)([\s\S]*?\S)\*\*\*",
+        r"<b><i>\1</i></b>",
+        text
+    )
+    text = re.sub(
+        r"\*\*(?!\s)([\s\S]*?\S)\*\*",
+        r"<b>\1</b>",
+        text
+    )
+    text = re.sub(
+        r"(?<!\*)\*(?!\s)([^*]*?\S)\*(?!\*)",
+        r"<i>\1</i>",
+        text
+    )
+    text = re.sub(
+        r"~~(?!\s)([\s\S]*?\S)~~",
+        r"<s>\1</s>",
+        text
+    )
 
-    # 9. Horizontal rules  --- / *** / ___
-    text = re.sub(r"^(\*{3,}|-{3,}|_{3,})$", "─" * 20, text, flags=re.MULTILINE)
+    # 5. Bersihkan sisa fence yang tidak tertutup/terproses
+    text = re.sub(r"^[ \t]{0,3}```[^\n]*$", "", text, flags=re.MULTILINE)
+    text = text.replace("```", "")
 
-    return text
+    # 6. Kembalikan HTML yang tadi dilindungi
+    def restore(m):
+        idx = int(m.group(1))
+        if 0 <= idx < len(placeholders):
+            return placeholders[idx]
+        return m.group(0)
 
+    text = re.sub(rf"@@TGHTMLPH:{token}:(\d+)@@", restore, text)
+
+    return text.strip()
 
 def _safe_html(text: str) -> str:
     """Wrap raw user/system text in HTML-safe escaping (no formatting)."""

@@ -100,6 +100,16 @@ async def _run() -> None:
                     len(local_server._ensure_discovered()) if local_server else 0)
 
         app = build_application(settings)
+        
+        # Trigger post_init manually to register commands
+        if app.post_init:
+            # We override the behavior to include language_code='en' as fallback
+            from telegram import BotCommand
+            from bot.commands import BotCommand as BotCommandEnum
+            commands = [BotCommand(cmd.value[0], cmd.value[1]) for cmd in BotCommandEnum]
+            await app.bot.set_my_commands(commands, language_code="en")
+            # await app.post_init(app) # Commented out as we do it manually now
+            
         # Stash MCP for future tool wiring
         app.bot_data["mcp_client"] = mcp_client
         app.bot_data["local_server"] = local_server
