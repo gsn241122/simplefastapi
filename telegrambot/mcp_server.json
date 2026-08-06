@@ -1,4 +1,62 @@
 {
-  "$schema": "https://example.com/mcp-server.schema.json",
-  "servers": {}
+  "mcpServers": {
+    "sequential-thinking": {
+      "command": "bun",
+      "args": [
+        "x",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
+    },
+    "fastapi": {
+      "command": "/home/dell/Desktop/workspace/simplefastapi/.venv/bin/python",
+      "args": ["/home/dell/Desktop/workspace/simplefastapi/mcp_wrapper/server.py"],
+      "env": {}
+    },
+    "filesystem": {
+      "command": "bun",
+      "args": ["x", "@modelcontextprotocol/server-filesystem", "./"]
+    },
+    "bash": {
+      "command": "bun",
+      "args": ["x", "bash-mcp"]
+    },
+    "git": {
+      "command": "uvx",
+      "args": ["mcp-server-git", "--repository", "../"]
+    },
+    "fetch": {
+      "command": "uv",
+      "args": ["run", "mcp-server-fetch"],
+      "env": {}
+    },
+    "time": {
+      "command": "uv",
+      "args": ["run", "mcp-server-time"],
+      "env": {}
+    },
+    "tmux": {
+      "command": "bun",
+      "args": ["x", "tmux-mcp"],
+      "env": {}
+    },
+    "ollama": {
+      "command": "bun",
+      "args": ["x", "ollama-mcp"],
+      "env": {}
+    },
+    "adb": {
+      "command": "bun",
+      "args": ["x", "adb-mcp"],
+      "env": {}
+    },
+    "playwright": {
+      "command": "bun",
+      "args": ["x", "@playwright/mcp@latest"],
+      "env": {}
+    },
+    "app-manager": {
+      "command": "/home/dell/Desktop/workspace/appmanager/.venv/bin/python",
+      "args": ["/home/dell/Desktop/workspace/appmanager/app_manager_mcp.py"]
+    }
+  }
 }

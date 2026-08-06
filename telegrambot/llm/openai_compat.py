@@ -7,7 +7,9 @@ from __future__ import annotations
 
 from typing import AsyncIterator
 
+import asyncio
 import httpx
+from loguru import logger
 
 from .base import ChatChunk, ChatRequest
 
@@ -40,30 +42,63 @@ async def stream_chat_completions(
     if request.max_tokens is not None:
         payload["max_tokens"] = request.max_tokens
     if request.tools:
-        payload["tools"] = [t.model_dump() for t in request.tools]
+        payload["tools"] = [
+            {"type": "function", "function": t.model_dump()}
+            for t in request.tools
+        ]
 
-    async with client.stream(
-        "POST", url, json=payload, headers=headers, timeout=timeout_sec
-    ) as resp:
-        resp.raise_for_status()
-        async for line in resp.aiter_lines():
-            if not line or not line.startswith("data:"):
-                continue
-            data = line[5:].strip()
-            if data == "[DONE]":
-                yield ChatChunk(finish_reason="stop")
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            async with client.stream(
+                "POST", url, json=payload, headers=headers, timeout=timeout_sec
+            ) as resp:
+                if resp.status_code in (500, 502, 503, 504, 429) and attempt < max_retries - 1:
+                    err_body = await resp.aread()
+                    logger.warning(
+                        "LLM API returned HTTP {}, retrying ({}/{})...",
+                        resp.status_code,
+                        attempt + 1,
+                        max_retries,
+                    )
+                    await asyncio.sleep(1.5 * (attempt + 1))
+                    continue
+
+                if resp.status_code >= 400:
+                    err_body = await resp.aread()
+                    logger.error("HTTP {} error from LLM provider: {}", resp.status_code, err_body.decode("utf-8", errors="replace"))
+                    resp.raise_for_status()
+
+                async for line in resp.aiter_lines():
+                    if not line or not line.startswith("data:"):
+                        continue
+                    data = line[5:].strip()
+                    if data == "[DONE]":
+                        yield ChatChunk(finish_reason="stop")
+                        return
+                    try:
+                        import json
+
+                        obj = json.loads(data)
+                    except json.JSONDecodeError:
+                        continue
+                    choices = obj.get("choices") or []
+                    if not choices:
+                        continue
+                    choice = choices[0]
+                    delta = (choice.get("delta") or {}).get("content") or ""
+                    finish = choice.get("finish_reason")
+                    tool_calls = (choice.get("delta") or {}).get("tool_calls") or []
+                    yield ChatChunk(delta=delta, finish_reason=finish, tool_calls=tool_calls)
                 return
-            try:
-                import json
-
-                obj = json.loads(data)
-            except json.JSONDecodeError:
-                continue
-            choices = obj.get("choices") or []
-            if not choices:
-                continue
-            choice = choices[0]
-            delta = (choice.get("delta") or {}).get("content") or ""
-            finish = choice.get("finish_reason")
-            tool_calls = (choice.get("delta") or {}).get("tool_calls") or []
-            yield ChatChunk(delta=delta, finish_reason=finish, tool_calls=tool_calls)
+        except (httpx.HTTPStatusError, httpx.RequestError) as exc:
+            if attempt < max_retries - 1:
+                logger.warning(
+                    "Network error calling LLM provider: {}, retrying ({}/{})...",
+                    exc,
+                    attempt + 1,
+                    max_retries,
+                )
+                await asyncio.sleep(1.5 * (attempt + 1))
+            else:
+                raise

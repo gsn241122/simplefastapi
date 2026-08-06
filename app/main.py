@@ -6,9 +6,10 @@ import urllib.request
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 
 from app.core.config import settings
 from app.core.database import Base, engine, check_db_connection
@@ -134,6 +135,7 @@ app.include_router(summary_router)
 app.include_router(book_router)
 app.include_router(customer_router)
 app.include_router(film_router)
+
 
 
 @app.get("/", tags=["General"], summary="Welcome message")

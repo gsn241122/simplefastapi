@@ -1,7 +1,8 @@
-"""Free-text message handler: routes to LLM with guardrails (per skill §4)."""
+"""Free-text message handler: routes to LLM with guardrails & MCP tool support."""
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 from typing import Iterable
 
@@ -12,15 +13,21 @@ from telegram.ext import ContextTypes
 
 from bot.middlewares import PerUserRateLimiter, is_chat_allowed
 from bot.states import StateStore
+from bot.handlers.auth import FASTAPI_TOKEN_KEY, IN_LOGIN_KEY
 from config import Settings
 from llm.base import ChatMessage, ChatRequest
 from llm.registry import get_provider
+from mcp_agent.tool_adapter import mcp_tools_to_openai
 
 
 SYSTEM_PROMPT = (
-    "Anda adalah agen Customer Service yang ramah, ringkas, dan akurat. "
-    "Jawab dalam bahasa yang sama dengan pengguna. Jika tidak tahu, katakan "
-    "dengan jujur dan sarankan langkah selanjutnya."
+    "Anda adalah asisten AI cerdas dan serbaguna yang terhubung ke backend FastAPI dan berbagai MCP tools. "
+    "Jawab dalam bahasa yang sama dengan pengguna. Anda memiliki akses ke tools untuk memanggil API backend "
+    "(server `fastapi` dengan tool `call_api` dan `list_routes`), mengambil waktu, mengelola file, dll.\n"
+    "Gunakan tool `call_api` pada server `fastapi` untuk mengambil data dari backend FastAPI "
+    "(misalnya `method='GET', path='/products'` untuk daftar produk, `path='/users'` untuk pengguna, `path='/orders'` untuk pesanan, dll.). "
+    "Jika pengguna meminta informasi seperti produk, stok, profil, atau data sistem lainnya, SELALU panggil tool `call_api` "
+    "untuk mendapatkan data nyata dari sistem sebelum menjawab."
 )
 
 GUARDRAIL_PROMPT_TAIL = """
@@ -58,9 +65,12 @@ async def _send_response(
         parts.append(remaining)
     for part in parts:
         async with semaphore:
-            await update.effective_message.reply_text(
-                part, parse_mode=ParseMode.MARKDOWN
-            )
+            try:
+                await update.effective_message.reply_text(
+                    part, parse_mode=ParseMode.MARKDOWN
+                )
+            except Exception:
+                await update.effective_message.reply_text(part)
 
 
 async def handle_message(
@@ -72,9 +82,14 @@ async def handle_message(
     if update.effective_user is None:
         return
 
+    # Jangan proses pesan jika user sedang dalam alur login conversation
+    if context.user_data.get(IN_LOGIN_KEY):
+        return
+
     settings: Settings = context.application.bot_data["settings"]
     states: StateStore = context.application.bot_data["states"]
     semaphore: asyncio.Semaphore = context.application.bot_data["semaphore"]
+    mcp_client = context.application.bot_data.get("mcp_client")
 
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
@@ -119,19 +134,115 @@ async def handle_message(
         ),
     ]
 
-    request = ChatRequest(messages=messages)
+    # Gather MCP tools if available
+    tools_spec = []
+    mcp_tools_map = {}
+    if mcp_client is not None:
+        raw_tools = await mcp_client.list_tools()
+        tools_spec = mcp_tools_to_openai(raw_tools)
+        for t in raw_tools:
+            mcp_tools_map[t.get("name")] = t.get("_server")
 
-    # Typing indicator + stream to user
+    request = ChatRequest(messages=messages, tools=tools_spec)
+
+    # Typing indicator + stream to user with tool execution loop
     try:
         async with semaphore:
             await update.effective_chat.send_action(ChatAction.TYPING)
 
         provider = get_provider()
-        chunks: list[str] = []
-        async for chunk in provider.chat(request):
-            if chunk.delta:
-                chunks.append(chunk.delta)
-        full = "".join(chunks).strip() or "_(tidak ada jawaban)_"
+        
+        # Multi-turn tool execution loop (up to 10 iterations)
+        MAX_STEPS = 10
+        full_response_text = ""
+        
+        for step in range(MAX_STEPS):
+            request = ChatRequest(messages=messages, tools=tools_spec)
+            chunks: list[str] = []
+            tool_calls_accum: list[dict[str, Any]] = []
+            
+            async for chunk in provider.chat(request):
+                if chunk.delta:
+                    chunks.append(chunk.delta)
+                if chunk.tool_calls:
+                    for tc in chunk.tool_calls:
+                        tool_calls_accum.append(tc)
+
+            text_delta = "".join(chunks).strip()
+            if text_delta:
+                full_response_text = text_delta
+
+            if not tool_calls_accum or mcp_client is None:
+                # No tool calls requested, we have reached the final response!
+                break
+
+            # Add assistant message containing tool calls
+            messages.append(
+                ChatMessage(
+                    role="assistant",
+                    content=text_delta or None,
+                    tool_calls=tool_calls_accum,
+                )
+            )
+
+            # Execute tool calls
+            for tc in tool_calls_accum:
+                fn = tc.get("function", {})
+                t_name = fn.get("name")
+                t_args_str = fn.get("arguments", "{}")
+                tc_id = tc.get("id") or f"call_{step}"
+                try:
+                    t_args = json.loads(t_args_str)
+                except json.JSONDecodeError:
+                    t_args = {}
+
+                server_name = mcp_tools_map.get(t_name)
+                if server_name:
+                    logger.info("Executing MCP tool: server={}, tool={}, args={}", server_name, t_name, t_args)
+                    # Inject bearer token for fastapi server call_api tool
+                    if server_name == "fastapi" and t_name == "call_api":
+                        user_token = context.user_data.get(FASTAPI_TOKEN_KEY) if hasattr(context, "user_data") else None
+                        if user_token:
+                            if not isinstance(t_args.get("headers"), dict):
+                                t_args["headers"] = {}
+                            t_args["headers"]["Authorization"] = f"Bearer {user_token}"
+                    tool_result = await mcp_client.call_tool(server_name, t_name, t_args)
+                    result_text = json.dumps(tool_result)
+
+                    # Purge expired token if FastAPI returns 401 Unauthorized
+                    if server_name == "fastapi" and isinstance(tool_result, dict) and hasattr(context, "user_data"):
+                        for c in tool_result.get("content", []):
+                            if isinstance(c, dict) and c.get("type") == "text":
+                                try:
+                                    res_obj = json.loads(c.get("text", ""))
+                                    if res_obj.get("status_code") == 401:
+                                        context.user_data.pop(FASTAPI_TOKEN_KEY, None)
+                                        context.user_data.pop(FASTAPI_USERNAME_KEY, None)
+                                        logger.warning("Token expired for chat_id={}, cleared from user_data", chat_id)
+                                except Exception:
+                                    pass
+                else:
+                    result_text = json.dumps({"error": f"Tool {t_name} not found"})
+
+                messages.append(
+                    ChatMessage(
+                        role="tool",
+                        name=t_name,
+                        tool_call_id=tc_id,
+                        content=result_text,
+                    )
+                )
+
+        # Fallback: If after tool execution steps we still don't have text response, perform a final call without tools
+        if not full_response_text.strip():
+            final_request = ChatRequest(messages=messages)
+            final_chunks: list[str] = []
+            async for chunk in provider.chat(final_request):
+                if chunk.delta:
+                    final_chunks.append(chunk.delta)
+            full_response_text = "".join(final_chunks)
+
+        full = full_response_text.strip() or "_(tidak ada jawaban)_"
 
         await _send_response(update, full, semaphore=semaphore)
         states.append_turn(chat_id, user_text, full)
@@ -149,3 +260,4 @@ async def reset_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     states: StateStore = context.application.bot_data["states"]
     states.reset(update.effective_chat.id)
     await update.effective_message.reply_text("🔄 Riwayat percakapan direset.")
+

@@ -4,8 +4,17 @@ from __future__ import annotations
 import asyncio
 
 from loguru import logger
-from telegram.ext import Application, ApplicationBuilder, CommandHandler, MessageHandler, filters
+from telegram.ext import (
+    Application,
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    PersistenceInput,
+    PicklePersistence,
+    filters,
+)
 
+from bot.handlers.auth import build_login_conversation, logout_cmd, whoami_cmd
 from bot.handlers.message import handle_message, reset_cmd
 from bot.handlers.start import start_cmd
 from bot.middlewares import PerUserRateLimiter
@@ -15,7 +24,21 @@ from config import Settings
 
 def build_application(settings: Settings) -> Application:
     """Construct the python-telegram-bot Application with our handlers."""
-    app = ApplicationBuilder().token(settings.telegram_bot_token).build()
+    persistence = PicklePersistence(
+        filepath="bot_session.pickle",
+        store_data=PersistenceInput(
+            bot_data=False,
+            user_data=True,
+            chat_data=False,
+            callback_data=False,
+        ),
+    )
+    app = (
+        ApplicationBuilder()
+        .token(settings.telegram_bot_token)
+        .persistence(persistence)
+        .build()
+    )
 
     # Inject shared objects
     app.bot_data["settings"] = settings
@@ -26,6 +49,12 @@ def build_application(settings: Settings) -> Application:
     # Commands
     app.add_handler(CommandHandler("start", start_cmd))
     app.add_handler(CommandHandler("reset", reset_cmd))
+    app.add_handler(CommandHandler("logout", logout_cmd))
+    app.add_handler(CommandHandler("whoami", whoami_cmd))
+
+    # Login conversation (/login → username → password)
+    # group=-1 agar lebih prioritas dari MessageHandler di group 0
+    app.add_handler(build_login_conversation(), group=-1)
 
     # Free-text (only when there's actual text; ignore commands/attachments)
     app.add_handler(

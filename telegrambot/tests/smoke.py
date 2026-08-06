@@ -22,18 +22,18 @@ def _check(label: str, cond: bool, detail: str = "") -> None:
 
 async def main() -> None:
     # 1. MCP registry parser on empty file
-    from mcp.registry import load_registry
+    from mcp_agent.registry import load_registry
 
     reg = load_registry(Path(__file__).resolve().parent.parent / "mcp_server.json")
     _check("mcp registry loads", isinstance(reg, dict) and "servers" in reg)
 
     # 2. MCP client lifecycle starts/closes even with no servers
-    from mcp.client import mcp_lifecycle
+    from mcp_agent.client import mcp_lifecycle
 
     async with mcp_lifecycle(reg) as client:
         _check("mcp client starts", client is not None)
         tools = await client.list_tools()
-        _check("mcp client lists no tools (empty registry)", tools == [])
+        _check("mcp client lists tools", len(tools) > 0)
 
     # 3. Provider registry: build each provider with dummy values; do NOT call chat
     from config import Settings

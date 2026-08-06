@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import signal
 import sys
 from pathlib import Path
@@ -10,8 +11,32 @@ from loguru import logger
 
 from bot.app import build_application
 from config import get_settings
-from mcp.client import mcp_lifecycle
-from mcp.registry import load_registry
+from mcp_agent.client import mcp_lifecycle
+from mcp_agent.registry import load_registry
+
+_LOCK_FILE = Path("/tmp/telegrambot.lock")
+
+
+def _acquire_lock() -> bool:
+    """Pastikan hanya satu instansi bot berjalan. Return False jika sudah ada."""
+    if _LOCK_FILE.exists():
+        pid = _LOCK_FILE.read_text().strip()
+        try:
+            os.kill(int(pid), 0)  # cek apakah proses masih hidup
+            logger.error(
+                "Bot sudah berjalan dengan PID {}. Hentikan instansi lain dulu.", pid
+            )
+            return False
+        except (ProcessLookupError, ValueError):
+            # Proses sudah mati, hapus lock lama
+            _LOCK_FILE.unlink(missing_ok=True)
+
+    _LOCK_FILE.write_text(str(os.getpid()))
+    return True
+
+
+def _release_lock() -> None:
+    _LOCK_FILE.unlink(missing_ok=True)
 
 
 async def _run() -> None:
@@ -47,15 +72,19 @@ async def _run() -> None:
             await app.updater.start_polling()  # type: ignore[union-attr]
             logger.info("Bot is running. Press Ctrl+C to stop.")
             await stop_event.wait()
-            await app.updater.stop_polling()  # type: ignore[union-attr]
+            await app.updater.stop()  # type: ignore[union-attr]
             await app.stop()
 
 
 def main() -> None:
+    if not _acquire_lock():
+        sys.exit(1)
     try:
         asyncio.run(_run())
     except KeyboardInterrupt:
         pass
+    finally:
+        _release_lock()
 
 
 if __name__ == "__main__":

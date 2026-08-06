@@ -15,9 +15,10 @@ class ChatMessage(BaseModel):
     """OpenAI-style chat message."""
 
     role: str = Field(..., description="system | user | assistant | tool")
-    content: str
+    content: str | None = None
     name: str | None = None
     tool_call_id: str | None = None
+    tool_calls: list[dict[str, Any]] | None = None
 
 
 class ToolSpec(BaseModel):

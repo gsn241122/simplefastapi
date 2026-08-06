@@ -68,18 +68,19 @@ project_root/
 ├── main.py                    # Entrypoint: menyatukan bot × llm × mcp
 ├── config.py                  # pydantic-settings, load .env
 ├── mcp_server.json            # Registry MCP server
+├── bot_session.pickle         # Auto-generated persistent user sessions (multi-user)
 ├── .env.example               # Template secrets
 ├── bot/
-│   ├── app.py                 # ApplicationBuilder
-│   ├── handlers/{start,message,commands}.py
+│   ├── app.py                 # ApplicationBuilder & PicklePersistence
+│   ├── handlers/{start,message,auth,commands}.py
 │   ├── states.py              # ConversationHandler FSM
 │   └── middlewares.py         # logging, rate-limit, auth
 ├── llm/
 │   ├── base.py                # ABC: LLMProvider
-│   ├── openai_compat.py       # Adapter OpenAI-compat bersama
+│   ├── openai_compat.py       # Adapter OpenAI-compat bersama + auto-retry
 │   ├── registry.py            # Routing provider + override per-chat
 │   └── providers/{minimax,gemini,ollama}.py
-├── mcp/
+├── mcp_agent/
 │   ├── client.py              # AsyncMCPClient (lifecycle)
 │   ├── registry.py            # Parser mcp_server.json
 │   └── tool_adapter.py        # MCP tools → OpenAI tool schema
@@ -122,12 +123,26 @@ Untuk DEBUG: output **daftar hipotesis ber-ranking by likelihood** dulu.
 - **No bare `except:`** — selalu tangkap exception spesifik.
 - **Keseragaman provider:** semua LLM provider expose
   `chat(messages, tools=None) → AsyncIterator[Chunk] | Message`.
-- **MCP lifecycle:**
-  ```
-  STARTUP   → connect (fail-fast tapi log)
-  RUNTIME   → reconnect saat disconnect (exp. backoff: 1s,2s,4s,8s, cap 30s)
-  SHUTDOWN  → close semua sesi (atexit + SIGINT/SIGTERM)
-  ```
+- **LLM Provider Resilience:** tangkap `HTTPStatusError` (500, 502, 503, 504, 429) dengan *exponential backoff retry* (misal 3 retries: 1.5s, 3.0s).
+- **Multi-turn Tool Calling Loop:** gunakan loop hingga `MAX_STEPS` (default: 10) untuk menangani *tool chaining* (`list_routes` -> `call_api`). Jika setelah langkah tool LLM belum menghasilkan teks, lakukan 1 turn completion tanpa tool (`tools=None`) agar selalu menghasilkan jawaban teks.
+- **MCP Stdio / Stdout Isolation:** alihkan semua log aplikasi ke `sys.stderr` (`ext://sys.stderr`). Dilarang mencetak log ke `sys.stdout` karena akan mengorupsi stream JSONRPC pada MCP stdio transport.
+- **Selective Header/Arg Injection:** hanya injeksikan token autentikasi `Authorization: Bearer <token>` pada tool yang menerima parameter `headers` (seperti `call_api`). Dilarang menginjeksikan parameter ke tool tanpa argumen (seperti `list_routes`).
+- **Safe Session Persistence (`PicklePersistence`):**
+  - Gunakan `PicklePersistence` dengan `bot_data=False` agar menyimpan `user_data` secara multi-user tanpa merusak objek runtime unpicklable (`mcp_client`, semaphore).
+  - Strukturnya berupa nested dictionary yang di-key oleh Telegram `user_id` unik:
+    ```python
+    persistence = PicklePersistence(
+        filepath="bot_session.pickle",
+        store_data=PersistenceInput(
+            user_data=True,      # Simpan token JWT sesi user (multi-user by user_id)
+            bot_data=False,       # JANGAN simpan runtime objek bot_data (mcp_client, semaphore)
+            chat_data=False,
+            callback_data=False,
+        )
+    )
+    ```
+- **Automatic Expired Token Purging (401 Handling):** jika pemanggilan MCP tool mengembalikan `status_code == 401` (misal JWT token kadaluwarsa), secara otomatis hapus `FASTAPI_TOKEN_KEY` dan `FASTAPI_USERNAME_KEY` dari `context.user_data` agar pengguna mendapatkan respon yang mengarahkan mereka untuk `/login` ulang secara bersih.
+- **Markdown Parsing Fallback:** saat mengirim pesan Telegram dengan `ParseMode.MARKDOWN`, bungkus dengan `try-except`. Jika Telegram melempar `telegram.error.BadRequest` (karena simbol backtick/asterisk yang unclosed), fallback otomatis ke pesan teks biasa (*plain text*).
 - **Rate limit:** `asyncio.Semaphore(30)` untuk outbound Telegram.
 - **Security baseline:**
   - Tidak log prompt lengkap atau secrets.
@@ -175,6 +190,9 @@ VERIFICATION GATE
 | Cost DoS               | Budget token harian per user; cooldown setelah K msg/min.|
 | Secret leak di error   | Strip token/stacktrace sebelum echo ke user.            |
 | Replay / duplikat      | Dedupe by `(chat_id, message_id)` di window TTL.        |
+| Unclosed MD formatting | Safe fallback dari Markdown ke Plain Text di `reply_text`.|
+| MCP stdio corruption   | Arahkan log ke `sys.stderr` untuk mencegah korupsi stream.|
+| Expired Auth Token     | Auto-purge token di 401 response agar user re-login.    |
 
 Wajib sertakan di handler bot:
 ```python
@@ -282,7 +300,11 @@ DIFF SCOPE
 - ❌ `from X import *`.
 - ❌ API key, chat_id, token yang hardcoded.
 - ❌ `except: pass` atau bare `except:`.
-- ❌ `print()` untuk logging — pakai `loguru`.
+- ❌ `print()` atau `sys.stdout` logging saat pakai MCP stdio — pakai `sys.stderr` via `loguru`.
+- ❌ Pickling objek runtime unpicklable di `bot_data` (seperti `mcp_client` atau asyncio lock) — gunakan `PersistenceInput(bot_data=False)`.
+- ❌ Single-pass tool calling loop — gunakan multi-turn tool loop (misal `MAX_STEPS = 10`).
+- ❌ Menginjeksikan parameter ad-hoc (seperti `headers`) ke MCP tool yang tidak menerimanya (seperti `list_routes`).
+- ❌ Membiarkan token kadaluwarsa (401) mengendap di `context.user_data` — lakukan auto-purge token saat menerima status code 401.
 - ❌ Global mutable state untuk config bot.
 - ❌ MD5/SHA1 untuk security — pakai `hashlib.sha256`.
 - ❌ Simpan secret di file yang masuk git (bahkan `.env` tanpa `.gitignore`).
@@ -297,6 +319,9 @@ DIFF SCOPE
 4. **Semua log sekret adalah FATAL BUG** — hentikan & sarankan rotasi secret.
 5. **Telegram message >4096 char WAJIB dipecah jadi beberapa chunk** sebelum dikirim.
 6. **Perpindahan provider cuma butuh ubah 1 env var (`LLM_PROVIDER`)** — bila lebih dari itu, refactor.
+7. **`PicklePersistence` HARUS dikonfigurasi dengan `bot_data=False`** agar token user tetap tersimpan tanpa mengorupsi objek `mcp_client`.
+8. **Pengiriman pesan Telegram WAJIB mempunyai fallback ke plain text** jika `ParseMode.MARKDOWN` gagal di-parse oleh Telegram.
+9. **Penanganan HTTP 401 Unauthorized WAJIB secara otomatis menghapus token kadaluwarsa dari `context.user_data`** agar pengguna dapat melakukan `/login` ulang dengan bersih.
 
 ## §10 — Output Formatting
 
@@ -316,4 +341,6 @@ Skill ini adalah **dokumen hidup**. Aturan update:
 - Penambahan aturan besar → naikkan minor, konfirmasi dulu ke user.
 
 ### Changelog
+- v1.2 (2026-08): Added Automatic Expired Token Purging (HTTP 401 handling) and Multi-User Isolation specifications for `PicklePersistence`.
+- v1.1 (2026-08): Added multi-turn tool calling loop (`MAX_STEPS=10`), stdio log isolation (`sys.stderr`), safe `PicklePersistence` (`bot_data=False`), Markdown parse fallback, and LLM transient retry resilience.
 - v1.0 (2026-01): Initial release — full F.I.R.S.T + lifecycle + adversarial handling.

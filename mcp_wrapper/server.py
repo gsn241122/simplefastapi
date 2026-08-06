@@ -5,9 +5,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import logging
+logging.basicConfig(stream=sys.stderr, level=logging.INFO, force=True)
+
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
+os.chdir(ROOT_DIR)
 
 from fastapi.testclient import TestClient
 from fastapi.routing import APIRoute
@@ -98,5 +102,12 @@ def call_api(
 
 
 if __name__ == "__main__":
-    port = int(os.getenv("FASTMCP_PORT", os.getenv("MCP_PORT", "8003")))
-    mcp.run(transport="http", port=port)
+    transport = os.getenv("FASTMCP_TRANSPORT", "stdio")
+    if transport == "http":
+        port = int(os.getenv("FASTMCP_PORT", os.getenv("MCP_PORT", "8003")))
+        mcp.run(transport="http", port=port)
+    else:
+        # Redirect stdout banner noise to stderr so JSONRPC stdio is clean
+        import logging
+        logging.getLogger("fastmcp").setLevel(logging.WARNING)
+        mcp.run(transport="stdio")

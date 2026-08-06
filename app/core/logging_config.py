@@ -36,7 +36,7 @@ def setup_logging() -> None:
             "console": {
                 "class": "logging.StreamHandler",
                 "formatter": "structured" if settings.is_production else "simple",
-                "stream": "ext://sys.stdout",
+                "stream": "ext://sys.stderr",
             },
         },
         "root": {

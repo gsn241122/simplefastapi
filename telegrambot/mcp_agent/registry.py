@@ -21,7 +21,11 @@ def load_registry(path: str | Path) -> dict[str, Any]:
         raise ValueError(f"mcp_server.json is not valid JSON: {exc}") from exc
     if not isinstance(data, dict):
         raise ValueError("mcp_server.json root must be an object")
-    servers = data.get("servers", {})
+    
+    # Support both "servers" and "mcpServers"
+    servers = data.get("servers") or data.get("mcpServers", {})
     if not isinstance(servers, dict):
-        raise ValueError("mcp_server.json `servers` must be an object")
-    return data
+        raise ValueError("mcp_server.json `servers` or `mcpServers` must be an object")
+    
+    # Normalize to {"servers": ...} internally
+    return {"servers": servers}
