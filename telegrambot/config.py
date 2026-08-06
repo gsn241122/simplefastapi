@@ -1,7 +1,7 @@
 """Application configuration loaded from environment variables.
 
 All runtime configuration MUST go through this module. No string literals
-for config values elsewhere in the codebase (per skill §3.4).
+for config values elsewhere in the codebase.
 """
 from __future__ import annotations
 
@@ -12,8 +12,16 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
+# ---------------------------------------------------------------------------
+# Types
+# ---------------------------------------------------------------------------
+
 LLMProviderName = Literal["minimax", "gemini", "ollama"]
 
+
+# ---------------------------------------------------------------------------
+# Settings
+# ---------------------------------------------------------------------------
 
 class Settings(BaseSettings):
     """Centralized settings. Backed by `.env` (auto-loaded)."""
@@ -32,48 +40,56 @@ class Settings(BaseSettings):
         description="Empty = allow all. Otherwise only these chat_ids are served.",
     )
 
-    # --- LLM provider switching (§9.6: 1 env var) ---
+    # --- LLM provider ---
     llm_provider: LLMProviderName = Field(default="gemini")
 
-    # Provider-specific (any may be empty if not in use)
-    minimax_api_key: str = ""
-    minimax_base_url: str = "https://api.minimax.chat/v1"
-    minimax_model: str = "MiniMax-M3:cloud"
+    minimax_api_key: str = Field(default="", description="MiniMax API key")
+    minimax_base_url: str = Field(default="https://api.minimax.chat/v1")
+    minimax_model: str = Field(default="MiniMax-M3:cloud")
 
-    gemini_api_key: str = ""
-    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
-    gemini_model: str = "gemini-3.1-flash-lite"
+    gemini_api_key: str = Field(default="", description="Google Gemini API key")
+    gemini_base_url: str = Field(default="https://generativelanguage.googleapis.com/v1beta")
+    gemini_model: str = Field(default="gemini-3.1-flash-lite")
 
-    ollama_base_url: str = "http://localhost:11434/v1"
-    ollama_model: str = "minimax-m3:cloud"
+    ollama_base_url: str = Field(default="http://localhost:11434/v1")
+    ollama_model: str = Field(default="minimax-m3:cloud")
 
     # --- LLM behavior ---
-    max_input_chars: int = 4000
-    max_context_turns: int = 10
-    request_timeout_sec: float = 60.0
+    max_input_chars: int = Field(default=4000, description="Max user input characters before truncation")
+    max_context_turns: int = Field(default=10, description="Sliding window of conversation turns kept in memory")
+    request_timeout_sec: float = Field(default=60.0, description="HTTP timeout for LLM API calls (seconds)")
 
-    # --- Rate limit (§3.4) ---
-    outbound_semaphore: int = 30
-    per_user_msg_per_minute: int = 20
+    # --- Rate limiting ---
+    outbound_semaphore: int = Field(default=30, description="Max concurrent outbound Telegram API calls")
+    per_user_msg_per_minute: int = Field(default=20, description="Max messages per user per minute")
+
+    # --- Media upload limits ---
+    max_image_file_size_mb: int = Field(default=10, description="Max image upload size (MB)")
+    max_image_dimension: int = Field(default=2048, description="Max image width/height before auto-resize (px)")
+    max_pdf_file_size_mb: int = Field(default=20, description="Max PDF upload size (MB)")
 
     # --- Logging ---
-    log_level: str = "INFO"
+    log_level: str = Field(default="INFO", description="Loguru log level")
 
     @field_validator("telegram_allowed_chat_ids", mode="before")
     @classmethod
     def _parse_chat_ids(cls, v: object) -> list[int]:
-        """Accept comma-separated string, list, or None. Empty/missing -> []."""
+        """Accept comma-separated string, list, or None. Empty/missing → []."""
         if v is None or v == "":
             return []
         if isinstance(v, str):
-            parts = [p.strip() for p in v.split(",") if p.strip()]
-            return [int(p) for p in parts]
+            return [int(p) for p in (p.strip() for p in v.split(",")) if p]
         if isinstance(v, list):
             return [int(x) for x in v]
         raise ValueError(f"Cannot parse telegram_allowed_chat_ids: {v!r}")
 
 
+# ---------------------------------------------------------------------------
+# Cached accessor
+# ---------------------------------------------------------------------------
+
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    """Cached settings accessor."""
+    """Return a cached Settings instance."""
     return Settings()  # type: ignore[call-arg]
+

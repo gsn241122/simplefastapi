@@ -16,7 +16,7 @@ from telegram.ext import (
 )
 
 from bot.handlers.auth import build_login_conversation, logout_cmd, whoami_cmd
-from bot.handlers.message import handle_message, reset_cmd
+from bot.handlers.message import handle_document, handle_message, handle_photo, reset_cmd
 from bot.handlers.model import model_callback_handler, model_cmd
 from bot.handlers.start import help_cmd, menu_callback_handler, start_cmd
 from bot.middlewares import PerUserRateLimiter
@@ -68,6 +68,9 @@ def build_application(settings: Settings) -> Application:
     app.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
     )
+    # Multimodal handlers
+    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    app.add_handler(MessageHandler(filters.Document.PDF, handle_document))
 
     async def _post_init(application: Application) -> None:
         logger.info(

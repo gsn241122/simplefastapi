@@ -22,7 +22,7 @@ from loguru import logger
 from telegram import Message, Update
 from telegram.constants import ChatAction, ParseMode
 from telegram.error import BadRequest, RetryAfter
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, MessageHandler, filters
 
 from bot.middlewares import PerUserRateLimiter, is_chat_allowed
 from bot.states import StateStore
@@ -31,6 +31,8 @@ from config import Settings
 from llm.base import ChatMessage, ChatRequest
 from llm.registry import build_provider
 from mcp_agent.tool_adapter import mcp_tools_to_openai
+from utils.images import process_image
+from utils.pdfs import process_pdf
 
 
 # ---------------------------------------------------------------------------
@@ -615,6 +617,15 @@ async def process_prompt(
                 pass
 
 
+async def reset_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_chat is None or update.effective_message is None:
+        return
+    states: StateStore = context.application.bot_data["states"]
+    states.reset(update.effective_chat.id)
+    await update.effective_message.reply_text("🔄 Riwayat percakapan direset.")
+
+
+
 # ---------------------------------------------------------------------------
 # Telegram handler entry-points
 # ---------------------------------------------------------------------------
@@ -644,10 +655,33 @@ async def handle_message(
     raw_text = update.effective_message.text or ""
     await process_prompt(update, context, raw_text)
 
-
-async def reset_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.effective_chat is None or update.effective_message is None:
+async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_message is None or update.effective_chat is None:
         return
-    states: StateStore = context.application.bot_data["states"]
-    states.reset(update.effective_chat.id)
-    await update.effective_message.reply_text("🔄 Riwayat percakapan direset.")
+    await update.effective_chat.send_action(ChatAction.UPLOAD_DOCUMENT)
+    photo_file = await update.message.photo[-1].get_file()
+    file_bytes = await photo_file.download_as_bytearray()
+    
+    # Process image using the utility
+    image_data = process_image(file_bytes, photo_file.file_size, 'image/jpeg')
+    if image_data:
+        await process_prompt(update, context, f"Analisis gambar berikut: {image_data}")
+    else:
+        await update.message.reply_text("Maaf, gagal memproses gambar.")
+
+async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_message is None or update.effective_chat is None:
+        return
+    if update.message.document.mime_type != 'application/pdf':
+        await update.message.reply_text("Maaf, saat ini hanya mendukung PDF.")
+        return
+    
+    await update.effective_chat.send_action(ChatAction.UPLOAD_DOCUMENT)
+    doc_file = await update.message.document.get_file()
+    file_bytes = await doc_file.download_as_bytearray()
+    
+    text = process_pdf(file_bytes, doc_file.file_size, 'application/pdf')
+    if text:
+        await process_prompt(update, context, f"Berikut adalah konten PDF:\n\n{text}")
+    else:
+        await update.message.reply_text("Maaf, gagal mengekstrak teks dari PDF.")
