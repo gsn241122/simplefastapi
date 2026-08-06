@@ -6,8 +6,7 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 from loguru import logger
 
-from bot.handlers.auth import FASTAPI_TOKEN_KEY, FASTAPI_USERNAME_KEY, logout_cmd, whoami_cmd
-from bot.handlers.message import reset_cmd
+from bot.handlers.auth import logout_cmd, whoami_cmd
 
 
 def get_main_keyboard() -> InlineKeyboardMarkup:
@@ -32,25 +31,22 @@ def get_main_keyboard() -> InlineKeyboardMarkup:
 WELCOME_TEXT = (
     "👋 *Selamat datang di Bot AI Customer Service!*\n\n"
     "Bot ini terhubung ke backend FastAPI dan berbagai *MCP Tools* real-time.\n\n"
-    "👇 *Pilih menu di bawah ini atau langsung ketik pesan Anda:*"
+    "⬇️ *Pilih menu di bawah ini atau langsung ketik pesan Anda:*"
 )
 
 
-HELP_TEXT = (
-    "📋 *Panduan Perintah & Menu Bot:*\n\n"
-    "• `/start` - Menampilkan menu utama & tombol pintas.\n"
-    "• `/help` - Menampilkan panduan bantuan ini.\n"
-    "• `/login` - Autentikasi akun ke backend FastAPI (input teks interaktif).\n"
-    "• `/login2` - Login via Telegram Mini App (WebApp) dengan input tersembunyi.\n"
-    "• `/whoami` - Cek status login & token pengguna.\n"
-    "• `/logout` - Keluar dari akun FastAPI.\n"
-    "• `/model` - Ganti provider LLM (Gemini / MiniMax / Ollama).\n"
-    "• `/reset` - Mereset riwayat percakapan AI.\n"
-    "• `/cancel` - Membatalkan operasi yang sedang berjalan.\n\n"
-    "• `/tools` - Menampilkan daftar tools MCP yang aktif.\n\n"
-    "💡 *Tips:* Anda juga bisa langsung mengetik pertanyaan bebas seperti *'Tampilkan daftar produk'* atau *'Berapa stok laptop?'*.\n"
-    "Anda juga bisa klik tombol pintas di /start untuk akses cepat."
-)
+def generate_help_text() -> str:
+    """Menghasilkan HELP_TEXT secara dinamis dari SSoT (BotCommandEnum)."""
+    from bot.commands import BotCommand as BotCommandEnum
+    lines = ["📋 *Panduan Perintah & Menu Bot:*\n"]
+    for cmd in BotCommandEnum:
+        # cmd.value adalah (command, description, handler)
+        name, desc, _ = cmd.value
+        lines.append(f"• `/{name}` - {desc}")
+    
+    lines.append("\n💡 *Tips:* Anda juga bisa langsung mengetik pertanyaan bebas.")
+    lines.append("Anda juga bisa klik tombol pintas di /start untuk akses cepat.")
+    return "\n".join(lines)
 
 
 async def start_cmd(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
@@ -67,7 +63,7 @@ async def help_cmd(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_message is None:
         return
     await update.effective_message.reply_text(
-        HELP_TEXT,
+        generate_help_text(),
         parse_mode=ParseMode.MARKDOWN,
         reply_markup=get_main_keyboard(),
     )
@@ -113,12 +109,7 @@ async def tools_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def unknown_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Fallback untuk command yang tidak dikenal.
-
-    Dipasang via MessageHandler(filters.COMMAND) di app.py setelah semua
-    CommandHandler spesifik, sehingga hanya command yang belum tertangani
-    yang sampai ke sini.
-    """
+    """Fallback untuk command yang tidak dikenal."""
     if update.effective_message is None:
         return
 
@@ -156,7 +147,7 @@ async def menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
     elif data == "btn_reset":
         await reset_cmd(update, context)
     elif data == "btn_help":
-        await query.message.reply_text(HELP_TEXT, parse_mode=ParseMode.MARKDOWN, reply_markup=get_main_keyboard())
+        await query.message.reply_text(generate_help_text(), parse_mode=ParseMode.MARKDOWN, reply_markup=get_main_keyboard())
     elif data == "btn_products":
         from bot.handlers.message import process_prompt
         await query.message.reply_text("📦 *Meminta daftar produk dari sistem...*", parse_mode=ParseMode.MARKDOWN)
