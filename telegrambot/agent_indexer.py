@@ -100,3 +100,4 @@ if __name__ == "__main__":
         
     query = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "Jelaskan fungsi utama dari codebase ini."
     print(f"Hasil Analisis: \n{indexer.ask_about_code(query)}")
+    # sample penggunaan: python agent_indexer.py "Bagaimana cara kerja fungsi weather di project ini?"

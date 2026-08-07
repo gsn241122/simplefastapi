@@ -61,6 +61,16 @@
     "app-manager": {
       "command": "/home/dell/Desktop/workspace/appmanager/.venv/bin/python",
       "args": ["/home/dell/Desktop/workspace/appmanager/app_manager_mcp.py"]
+    },
+    "code_db_chroma": {
+      "command": "/home/dell/Desktop/workspace/simplefastapi/.venv/bin/chroma-mcp",
+      "args": [
+          "--client-type", "persistent",
+          "--data-dir", "/home/dell/Desktop/workspace/simplefastapi/telegrambot/code_db"
+      ],
+      "env": {
+          "PATH": "/home/dell/Desktop/workspace/simplefastapi/.venv/bin:/usr/bin:/bin"
+      }
     }
   }
 }
