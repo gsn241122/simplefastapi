@@ -65,7 +65,38 @@ class AgentIndexer:
             analysis = self.analyze_code(symbol, doc)
             if analysis:
                 print(f"\n--- Analisis {symbol} ---\n{analysis}\n")
+    
+    def ask_about_code(self, query_text):
+        """Melakukan pencarian relevansi di ChromaDB dan bertanya ke Gemini."""
+        # Hanya ambil 3 hasil teratas yang paling relevan
+        results = self.collection.query(
+            query_texts=[query_text],
+            n_results=3
+        )
+        
+        if not results['documents'] or not results['documents'][0]:
+            return "Maaf, tidak ada konteks kode yang relevan ditemukan untuk pertanyaan tersebut."
+
+        # Gabungkan hasil untuk dikirim ke Gemini
+        context = "\n\n".join(results['documents'][0])
+        
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "Anda adalah asisten ahli coding. Jawab pertanyaan berdasarkan konteks kode yang diberikan."},
+                    {"role": "user", "content": f"Konteks kode:\n{context}\n\nPertanyaan: {query_text}"}
+                ]
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            logger.error(f"Gagal bertanya ke Gemini: {e}")
+            return "Terjadi kesalahan saat menghubungi model AI."
 
 if __name__ == "__main__":
+    import sys
     indexer = AgentIndexer()
-    indexer.process_all_symbols()
+    # indexer.process_all_symbols()
+        
+    query = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "Jelaskan fungsi utama dari codebase ini."
+    print(f"Hasil Analisis: \n{indexer.ask_about_code(query)}")
