@@ -16,7 +16,7 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 # Types
 # ---------------------------------------------------------------------------
 
-LLMProviderName = Literal["minimax", "gemini", "ollama", "qwencloud"]
+LLMProviderName = Literal["minimax", "gemini", "ollama", "qwencloud", "openrouter"]
 
 
 # ---------------------------------------------------------------------------
@@ -59,6 +59,10 @@ class Settings(BaseSettings):
     # Update default URL ke endpoint internasional
     qwencloud_base_url: str = Field(default="https://dashscope-intl.aliyuncs.com/compatible-mode/v1")
     qwencloud_model: str = Field(default="qwen3.8-max")
+
+    openrouter_api_key: str = Field(default="", description="OpenRouter API key")
+    openrouter_base_url: str = Field(default="https://openrouter.ai/api/v1")
+    openrouter_model: str = Field(default="openai/gpt-oss-20b:free")
 
     # --- LLM behavior ---
     max_input_chars: int = Field(default=4000, description="Max user input characters before truncation")
