@@ -49,3 +49,4 @@ chatbot2/tool_prefs.json
 telegrambot/bot_session.pickle
 telegrambot/.telegrambot.lock
 telegrambot/bot_state.json
+telegrambot/code_db/*

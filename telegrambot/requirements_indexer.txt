@@ -1,0 +1,4 @@
+chromadb
+tree-sitter
+tree-sitter-python
+watchdog
