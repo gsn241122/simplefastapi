@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graph Viewer - Telegram Bot Analyzer</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Cytoscape.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>
+    
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; font-family: 'Inter', sans-serif; }
+        #cy { width: 100vw; height: 100vh; background-color: #f1f5f9; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <!-- Main Graph Container -->
+    <div id="cy"></div>
+
+    <!-- Top Control Bar -->
+    <div class="absolute top-4 left-4 right-4 glass-panel rounded-xl p-3 flex items-center justify-between z-10 transition-all">
+        <div class="flex items-center gap-4">
+            <h1 class="font-bold text-lg text-slate-700"><i class="fa-solid fa-project-diagram mr-2 text-blue-600"></i>Graph Viewer</h1>
+            
+            <!-- Search Box -->
+            <div class="relative group">
+                <input type="text" id="searchInput" placeholder="Cari fungsi atau file..." 
+                    class="pl-9 pr-4 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-64 transition-all text-slate-700 placeholder-slate-400">
+                <i class="fa-solid fa-search absolute left-3 top-2.5 text-slate-400"></i>
+                
+                <!-- Search Navigation -->
+                <div id="searchNav" class="hidden absolute right-2 top-1.5 flex gap-1 bg-white rounded shadow-sm border border-slate-200 px-1">
+                    <button onclick="navigateSearch(-1)" class="p-1 hover:bg-slate-100 rounded text-slate-600"><i class="fa-solid fa-chevron-up text-xs"></i></button>
+                    <span id="searchCount" class="text-xs flex items-center px-1 text-slate-700 font-mono">0/0</span>
+                    <button onclick="navigateSearch(1)" class="p-1 hover:bg-slate-100 rounded text-slate-600"><i class="fa-solid fa-chevron-down text-xs"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <!-- Filters -->
+            <select id="typeFilter" onchange="applyFilters()" class="bg-slate-100 border border-slate-200 rounded-lg text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 cursor-pointer">
+                <option value="all">Semua Tipe Node</option>
+                <option value="function">Fungsi Proyek Saja</option>
+                <option value="builtin">Builtin/Standard Library</option>
+            </select>
+
+            <button onclick="resetView()" class="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Reset View & Layout">
+                <i class="fa-solid fa-compress-arrows-alt"></i>
+            </button>
+            
+            <button onclick="exportImage()" class="p-2 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Export to PNG">
+                <i class="fa-solid fa-camera"></i>
+            </button>
+
+            <!-- Upload Button -->
+            <label class="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-md flex items-center gap-2">
+                <i class="fa-solid fa-upload"></i> Upload JSON
+                <input type="file" id="fileInput" accept=".json" class="hidden" onchange="handleFileUpload(event)">
+            </label>
+        </div>
+    </div>
+
+    <!-- Sidebar Inspector -->
+    <div id="sidebar" class="absolute top-20 right-4 w-80 glass-panel rounded-xl p-5 transform translate-x-full transition-transform duration-300 z-10 max-h-[80vh] overflow-y-auto">
+        <div class="flex justify-between items-start mb-4 border-b border-slate-200 pb-2">
+            <h2 class="font-bold text-slate-800 text-lg">Node Details</h2>
+            <button onclick="closeSidebar()" class="text-slate-400 hover:text-red-500 transition"><i class="fa-solid fa-times text-lg"></i></button>
+        </div>
+        
+        <div class="space-y-4">
+            <div>
+                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Function Name</label>
+                <div id="detailId" class="mt-1 text-sm font-mono bg-slate-100 p-2 rounded border border-slate-200 break-all text-slate-700"></div>
+            </div>
+            
+            <div>
+                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Source File</label>
+                <div id="detailFile" class="mt-1 text-sm text-blue-600 font-medium break-all hover:underline cursor-pointer"></div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                    <div class="text-xs text-blue-600 font-bold">Incoming Calls</div>
+                    <div id="detailIn" class="text-2xl font-bold text-blue-800">0</div>
+                </div>
+                <div class="bg-emerald-50 p-3 rounded-lg border border-emerald-100">
+                    <div class="text-xs text-emerald-600 font-bold">Outgoing Calls</div>
+                    <div id="detailOut" class="text-2xl font-bold text-emerald-800">0</div>
+                </div>
+            </div>
+
+            <div>
+                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Flow Analysis</label>
+                <div class="mt-2 flex flex-col gap-2">
+                    <button onclick="highlightPredecessors()" class="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded border border-slate-200 transition flex items-center">
+                        <i class="fa-solid fa-arrow-left mr-2 text-slate-400"></i> Show Callers (Predecessors)
+                    </button>
+                    <button onclick="highlightSuccessors()" class="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded border border-slate-200 transition flex items-center">
+                        <i class="fa-solid fa-arrow-right mr-2 text-slate-400"></i> Show Called Functions (Successors)
+                    </button>
+                    <button onclick="resetHighlight()" class="w-full text-left px-3 py-2 text-sm text-slate-500 hover:bg-slate-100 rounded border border-slate-200 transition flex items-center mt-2">
+                        <i class="fa-solid fa-eraser mr-2"></i> Reset Highlight
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading" class="fixed inset-0 bg-white/90 z-50 flex flex-col items-center justify-center hidden">
+        <div class="animate-spin rounded-full h-16 w-16 border-4 border-blue-100 border-t-blue-600 mb-4"></div>
+        <p class="text-slate-600 font-semibold text-lg">Memproses Graf...</p>
+    </div>
+
+    <script>
+        let cy;
+        let currentData = null;
+        let searchResults = [];
+        let currentSearchIndex = -1;
+        let selectedNode = null;
+
+        // Initialize Cytoscape
+        document.addEventListener('DOMContentLoaded', () => {
+            cy = cytoscape({
+                container: document.getElementById('cy'),
+                style: [
+                    {
+                        selector: 'node',
+                        style: {
+                            'background-color': '#3b82f6',
+                            'label': 'data(id)',
+                            'color': '#ffffff',
+                            'font-size': '11px',
+                            'font-weight': 'bold',
+                            'text-valign': 'center',
+                            'text-halign': 'center',
+                            'width': '50px',
+                            'height': '50px',
+                            'border-width': 3,
+                            'border-color': '#ffffff',
+                            'text-outline-width': 1,
+                            'text-outline-color': '#3b82f6'
+                        }
+                    },
+                    {
+                        selector: 'node[type="function"]',
+                        style: { 'background-color': '#2563eb', 'text-outline-color': '#2563eb' }
+                    },
+                    {
+                        selector: 'node[!type]', // Builtin/Standard
+                        style: { 
+                            'background-color': '#94a3b8', 
+                            'width': '30px', 
+                            'height': '30px', 
+                            'font-size': '9px',
+                            'text-outline-color': '#94a3b8',
+                            'border-width': 2
+                        }
+                    },
+                    {
+                        selector: 'edge',
+                        style: {
+                            'width': 2,
+                            'line-color': '#cbd5e1',
+                            'target-arrow-color': '#cbd5e1',
+                            'target-arrow-shape': 'triangle',
+                            'curve-style': 'bezier',
+                            'opacity': 0.6
+                        }
+                    },
+                    {
+                        selector: '.highlighted',
+                        style: {
+                            'background-color': '#f59e0b',
+                            'border-color': '#d97706',
+                            'line-color': '#f59e0b',
+                            'target-arrow-color': '#f59e0b',
+                            'text-outline-color': '#f59e0b',
+                            'transition-property': 'background-color, line-color, target-arrow-color',
+                            'transition-duration': '0.3s'
+                        }
+                    },
+                    {
+                        selector: '.faded',
+                        style: {
+                            'opacity': 0.1,
+                            'font-opacity': 0.1
+                        }
+                    }
+                ],
+                layout: {
+                    name: 'cose',
+                    animate: true,
+                    animationDuration: 1000,
+                    nodeRepulsion: 4500,
+                    idealEdgeLength: 120,
+                    gravity: 0.8
+                },
+                wheelSensitivity: 0.2
+            });
+
+            // Event Listeners
+            cy.on('tap', 'node', function(evt){
+                showNodeDetails(evt.target);
+            });
+
+            cy.on('tap', function(evt){
+                if(evt.target === cy){
+                    closeSidebar();
+                    resetHighlight();
+                }
+            });
+
+            // Drag and Drop
+            const dropZone = document.body;
+            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('bg-blue-50'); });
+            dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.classList.remove('bg-blue-50'); });
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('bg-blue-50');
+                if(e.dataTransfer.files.length) handleFileUpload({ target: { files: e.dataTransfer.files } });
+            });
+
+            // Search Listener
+            document.getElementById('searchInput').addEventListener('input', performSearch);
+        });
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            document.getElementById('loading').classList.remove('hidden');
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const json = JSON.parse(e.target.result);
+                    loadGraph(json);
+                } catch (err) {
+                    alert("Error parsing JSON: " + err.message);
+                } finally {
+                    document.getElementById('loading').classList.add('hidden');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function loadGraph(json) {
+            currentData = json;
+            const elements = [];
+            
+            // Process Nodes
+            json.nodes.forEach(node => {
+                elements.push({
+                    data: { 
+                        id: node.id, 
+                        file: node.file ? node.file.split('/').pop() : 'Built-in/Standard', 
+                        fullPath: node.file || '',
+                        type: node.type 
+                    }
+                });
+            });
+
+            // Process Edges
+            json.edges.forEach(edge => {
+                elements.push({
+                    data: {
+                        source: edge.source,
+                        target: edge.target,
+                        id: edge.source + '-' + edge.target
+                    }
+                });
+            });
+
+            cy.elements().remove();
+            cy.add(elements);
+            
+            // Auto-layout after loading
+            setTimeout(() => {
+                cy.layout({ name: 'cose', animate: true }).run();
+                cy.fit();
+            }, 100);
+        }
+
+        // --- Search Features ---
+        function performSearch() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const nav = document.getElementById('searchNav');
+            
+            if (!query) {
+                searchResults = [];
+                nav.classList.add('hidden');
+                resetHighlight();
+                return;
+            }
+
+            searchResults = cy.nodes().filter(n => 
+                n.data('id').toLowerCase().includes(query) || 
+                (n.data('fullPath') && n.data('fullPath').toLowerCase().includes(query))
+            );
+
+            document.getElementById('searchCount').innerText = `0/${searchResults.length}`;
+            nav.classList.remove('hidden');
+            
+            if (searchResults.length > 0) {
+                currentSearchIndex = 0;
+                updateSearchFocus();
+            }
+        }
+
+        function navigateSearch(direction) {
+            if (searchResults.length === 0) return;
+            
+            currentSearchIndex += direction;
+            if (currentSearchIndex >= searchResults.length) currentSearchIndex = 0;
+            if (currentSearchIndex < 0) currentSearchIndex = searchResults.length - 1;
+            
+            updateSearchFocus();
+        }
+
+        function updateSearchFocus() {
+            const node = searchResults[currentSearchIndex];
+            document.getElementById('searchCount').innerText = `${currentSearchIndex + 1}/${searchResults.length}`;
+            
+            cy.elements().removeClass('highlighted');
+            node.addClass('highlighted');
+            cy.animate({
+                fit: { eles: node, padding: 100 },
+                duration: 500
+            });
+        }
+
+        // --- Inspector & Flow Analysis ---
+        function showNodeDetails(node) {
+            selectedNode = node;
+            const sidebar = document.getElementById('sidebar');
+            
+            document.getElementById('detailId').innerText = node.data('id');
+            document.getElementById('detailFile').innerText = node.data('fullPath') || 'Built-in/Standard';
+            document.getElementById('detailIn').innerText = node.indegree();
+            document.getElementById('detailOut').innerText = node.outdegree();
+            
+            sidebar.classList.remove('translate-x-full');
+        }
+
+        function closeSidebar() {
+            document.getElementById('sidebar').classList.add('translate-x-full');
+            selectedNode = null;
+        }
+
+        function highlightPredecessors() {
+            if (!selectedNode) return;
+            resetHighlight();
+            
+            const predecessors = selectedNode.predecessors();
+            const connectedEdges = selectedNode.connectedEdges();
+            
+            cy.elements().addClass('faded');
+            selectedNode.removeClass('faded').addClass('highlighted');
+            predecessors.removeClass('faded').addClass('highlighted');
+            connectedEdges.removeClass('faded').addClass('highlighted');
+        }
+
+        function highlightSuccessors() {
+            if (!selectedNode) return;
+            resetHighlight();
+            
+            const successors = selectedNode.successors();
+            const connectedEdges = selectedNode.connectedEdges();
+            
+            cy.elements().addClass('faded');
+            selectedNode.removeClass('faded').addClass('highlighted');
+            successors.removeClass('faded').addClass('highlighted');
+            connectedEdges.removeClass('faded').addClass('highlighted');
+        }
+
+        function resetHighlight() {
+            cy.elements().removeClass('highlighted faded');
+        }
+
+        // --- Utilities ---
+        function applyFilters() {
+            const type = document.getElementById('typeFilter').value;
+            if (type === 'all') {
+                cy.elements().show();
+            } else if (type === 'function') {
+                cy.nodes('[type!="function"]').hide();
+                cy.nodes('[type="function"]').show();
+                cy.edges().show();
+            } else if (type === 'builtin') {
+                cy.nodes('[type="function"]').hide();
+                cy.nodes('[!type]').show();
+                cy.edges().show();
+            }
+        }
+
+        function resetView() {
+            cy.fit();
+            resetHighlight();
+            document.getElementById('searchInput').value = '';
+            performSearch();
+            cy.layout({ name: 'cose', animate: true }).run();
+        }
+
+        function exportImage() {
+            const png64 = cy.png({ full: true, bg: '#f1f5f9' });
+            const link = document.createElement('a');
+            link.download = 'telegram-bot-graph.png';
+            link.href = png64;
+            link.click();
+        }
+    </script>
+</body>
+</html>

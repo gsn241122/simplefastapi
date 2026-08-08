@@ -1,0 +1,4467 @@
+{
+  "directed": true,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/main.py",
+      "type": "function",
+      "id": "_run"
+    },
+    {
+      "id": "get_settings"
+    },
+    {
+      "id": "remove"
+    },
+    {
+      "id": "add"
+    },
+    {
+      "id": "getpid"
+    },
+    {
+      "id": "info"
+    },
+    {
+      "id": "Path"
+    },
+    {
+      "id": "exists"
+    },
+    {
+      "id": "critical"
+    },
+    {
+      "id": "exit"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/extended_registry.py",
+      "type": "function",
+      "id": "load_registry_with_local"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/client.py",
+      "type": "function",
+      "id": "mcp_lifecycle"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/local_tools.py",
+      "type": "function",
+      "id": "_ensure_discovered"
+    },
+    {
+      "id": "UnifiedTools"
+    },
+    {
+      "id": "len"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/app.py",
+      "type": "function",
+      "id": "build_application"
+    },
+    {
+      "id": "BotCommand"
+    },
+    {
+      "id": "set_my_commands"
+    },
+    {
+      "id": "now"
+    },
+    {
+      "id": "get_running_loop"
+    },
+    {
+      "id": "set_exception_handler"
+    },
+    {
+      "id": "Event"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/main.py",
+      "type": "function",
+      "id": "_stop"
+    },
+    {
+      "id": "set"
+    },
+    {
+      "id": "add_signal_handler"
+    },
+    {
+      "id": "append"
+    },
+    {
+      "id": "signal"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/client.py",
+      "type": "function",
+      "id": "start"
+    },
+    {
+      "id": "start_polling"
+    },
+    {
+      "id": "wait"
+    },
+    {
+      "id": "stop"
+    },
+    {
+      "id": "remove_signal_handler"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/main.py",
+      "type": "function",
+      "id": "_release_lock"
+    },
+    {
+      "id": "unlink"
+    },
+    {
+      "id": "warning"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/main.py",
+      "type": "function",
+      "id": "_acquire_lock"
+    },
+    {
+      "id": "int"
+    },
+    {
+      "id": "strip"
+    },
+    {
+      "id": "read_text"
+    },
+    {
+      "id": "kill"
+    },
+    {
+      "id": "error"
+    },
+    {
+      "id": "open"
+    },
+    {
+      "id": "fdopen"
+    },
+    {
+      "id": "write"
+    },
+    {
+      "id": "str"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/main.py",
+      "type": "function",
+      "id": "_asyncio_exception_handler"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/states.py",
+      "type": "function",
+      "id": "get"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/run_graph_analyzer.py",
+      "type": "function",
+      "id": "main"
+    },
+    {
+      "id": "run"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/config.py",
+      "type": "function",
+      "id": "Settings._parse_chat_ids"
+    },
+    {
+      "id": "isinstance"
+    },
+    {
+      "id": "split"
+    },
+    {
+      "id": "ValueError"
+    },
+    {
+      "id": "field_validator"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/config.py",
+      "type": "function",
+      "id": "_parse_chat_ids"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/dispatcher.py",
+      "type": "function",
+      "id": "__init__"
+    },
+    {
+      "id": "abspath"
+    },
+    {
+      "id": "getcwd"
+    },
+    {
+      "id": "join"
+    },
+    {
+      "id": "PersistentClient"
+    },
+    {
+      "id": "get_or_create_collection"
+    },
+    {
+      "id": "Language"
+    },
+    {
+      "id": "language"
+    },
+    {
+      "id": "Parser"
+    },
+    {
+      "id": "Query"
+    },
+    {
+      "id": "QueryCursor"
+    },
+    {
+      "id": "Lock"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/ai_indexer.py",
+      "type": "function",
+      "id": "CodebaseManager.__init__"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/ai_indexer.py",
+      "type": "function",
+      "id": "CodebaseManager._normalize_path"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/ai_indexer.py",
+      "type": "function",
+      "id": "CodebaseManager._index_file"
+    },
+    {
+      "id": "getsize"
+    },
+    {
+      "id": "read"
+    },
+    {
+      "id": "parse"
+    },
+    {
+      "id": "bytes"
+    },
+    {
+      "id": "captures"
+    },
+    {
+      "id": "delete"
+    },
+    {
+      "id": "basename"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/ai_indexer.py",
+      "type": "function",
+      "id": "CodebaseManager._remove_file"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/ai_indexer.py",
+      "type": "function",
+      "id": "CodebaseManager.get_context"
+    },
+    {
+      "id": "query"
+    },
+    {
+      "id": "zip"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/ai_indexer.py",
+      "type": "function",
+      "id": "CodebaseManager._is_ignored"
+    },
+    {
+      "id": "normpath"
+    },
+    {
+      "id": "any"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/ai_indexer.py",
+      "type": "function",
+      "id": "CodebaseManager.start_watcher"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/ai_indexer.py",
+      "type": "function",
+      "id": "Handler.on_modified"
+    },
+    {
+      "id": "endswith"
+    },
+    {
+      "id": "_is_ignored"
+    },
+    {
+      "id": "_index_file"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/ai_indexer.py",
+      "type": "function",
+      "id": "Handler.on_created"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/ai_indexer.py",
+      "type": "function",
+      "id": "Handler.on_deleted"
+    },
+    {
+      "id": "_remove_file"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/ai_indexer.py",
+      "type": "function",
+      "id": "Handler.on_moved"
+    },
+    {
+      "id": "getattr"
+    },
+    {
+      "id": "walk"
+    },
+    {
+      "id": "Observer"
+    },
+    {
+      "id": "schedule"
+    },
+    {
+      "id": "Handler"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/middlewares.py",
+      "type": "function",
+      "id": "PerUserRateLimiter.__init__"
+    },
+    {
+      "id": "defaultdict"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/middlewares.py",
+      "type": "function",
+      "id": "PerUserRateLimiter.allow"
+    },
+    {
+      "id": "monotonic"
+    },
+    {
+      "id": "popleft"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/middlewares.py",
+      "type": "function",
+      "id": "allow"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/middlewares.py",
+      "type": "function",
+      "id": "is_chat_allowed"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/states.py",
+      "type": "function",
+      "id": "_load"
+    },
+    {
+      "id": "loads"
+    },
+    {
+      "id": "rename"
+    },
+    {
+      "id": "with_suffix"
+    },
+    {
+      "id": "items"
+    },
+    {
+      "id": "ChatState"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/states.py",
+      "type": "function",
+      "id": "reset"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/states.py",
+      "type": "function",
+      "id": "flush"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/states.py",
+      "type": "function",
+      "id": "StateStore.__init__"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/states.py",
+      "type": "function",
+      "id": "StateStore._load"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/states.py",
+      "type": "function",
+      "id": "StateStore.flush"
+    },
+    {
+      "id": "list"
+    },
+    {
+      "id": "mkdir"
+    },
+    {
+      "id": "mkstemp"
+    },
+    {
+      "id": "dump"
+    },
+    {
+      "id": "replace"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/states.py",
+      "type": "function",
+      "id": "StateStore.get"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/states.py",
+      "type": "function",
+      "id": "StateStore.append_turn"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/states.py",
+      "type": "function",
+      "id": "StateStore.reset"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/states.py",
+      "type": "function",
+      "id": "StateStore.new_session"
+    },
+    {
+      "id": "strftime"
+    },
+    {
+      "id": "clear"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/states.py",
+      "type": "function",
+      "id": "StateStore.is_duplicate"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/states.py",
+      "type": "function",
+      "id": "append_turn"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/states.py",
+      "type": "function",
+      "id": "new_session"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/states.py",
+      "type": "function",
+      "id": "is_duplicate"
+    },
+    {
+      "id": "PicklePersistence"
+    },
+    {
+      "id": "PersistenceInput"
+    },
+    {
+      "id": "build"
+    },
+    {
+      "id": "persistence"
+    },
+    {
+      "id": "token"
+    },
+    {
+      "id": "ApplicationBuilder"
+    },
+    {
+      "id": "__import__"
+    },
+    {
+      "id": "StateStore"
+    },
+    {
+      "id": "Semaphore"
+    },
+    {
+      "id": "PerUserRateLimiter"
+    },
+    {
+      "id": "add_handler"
+    },
+    {
+      "id": "CommandHandler"
+    },
+    {
+      "id": "CallbackQueryHandler"
+    },
+    {
+      "id": "build_login_conversation"
+    },
+    {
+      "id": "MessageHandler"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/app.py",
+      "type": "function",
+      "id": "_post_init"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/app.py",
+      "type": "function",
+      "id": "periodic_flush"
+    },
+    {
+      "id": "sleep"
+    },
+    {
+      "id": "create_task"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/llm/openai_compat.py",
+      "type": "function",
+      "id": "stream_chat_completions"
+    },
+    {
+      "id": "rstrip"
+    },
+    {
+      "id": "model_dump"
+    },
+    {
+      "id": "dumps"
+    },
+    {
+      "id": "range"
+    },
+    {
+      "id": "stream"
+    },
+    {
+      "id": "aread"
+    },
+    {
+      "id": "decode"
+    },
+    {
+      "id": "raise_for_status"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/llm/openai_compat.py",
+      "type": "function",
+      "id": "_finalized_tool_calls"
+    },
+    {
+      "id": "sorted"
+    },
+    {
+      "id": "update"
+    },
+    {
+      "id": "aiter_lines"
+    },
+    {
+      "id": "startswith"
+    },
+    {
+      "id": "ChatChunk"
+    },
+    {
+      "id": "setdefault"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/llm/providers/minimax.py",
+      "type": "function",
+      "id": "MiniMaxProvider.__init__"
+    },
+    {
+      "id": "AsyncClient"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/llm/providers/minimax.py",
+      "type": "function",
+      "id": "MiniMaxProvider.chat"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/llm/providers/minimax.py",
+      "type": "function",
+      "id": "MiniMaxProvider.aclose"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/client.py",
+      "type": "function",
+      "id": "aclose"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/llm/providers/openrouter.py",
+      "type": "function",
+      "id": "chat"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/llm/providers/ollama.py",
+      "type": "function",
+      "id": "OllamaProvider.__init__"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/llm/providers/ollama.py",
+      "type": "function",
+      "id": "OllamaProvider.chat"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/llm/providers/ollama.py",
+      "type": "function",
+      "id": "OllamaProvider.aclose"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/llm/providers/gemini.py",
+      "type": "function",
+      "id": "GeminiProvider.__init__"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/llm/providers/gemini.py",
+      "type": "function",
+      "id": "GeminiProvider.chat"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/llm/providers/gemini.py",
+      "type": "function",
+      "id": "GeminiProvider.aclose"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/llm/providers/qwencloud.py",
+      "type": "function",
+      "id": "QwenCloudProvider.__init__"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/llm/providers/qwencloud.py",
+      "type": "function",
+      "id": "QwenCloudProvider.chat"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/llm/providers/qwencloud.py",
+      "type": "function",
+      "id": "QwenCloudProvider.aclose"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/llm/providers/openrouter.py",
+      "type": "function",
+      "id": "OpenRouterProvider.__init__"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/llm/providers/openrouter.py",
+      "type": "function",
+      "id": "OpenRouterProvider.chat"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/llm/providers/openrouter.py",
+      "type": "function",
+      "id": "OpenRouterProvider.aclose"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/tests/smoke.py",
+      "type": "function",
+      "id": "_check"
+    },
+    {
+      "id": "print"
+    },
+    {
+      "id": "SystemExit"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/registry.py",
+      "type": "function",
+      "id": "load_registry"
+    },
+    {
+      "id": "resolve"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/local_tools.py",
+      "type": "function",
+      "id": "list_tools"
+    },
+    {
+      "id": "Settings"
+    },
+    {
+      "id": "build_provider"
+    },
+    {
+      "id": "ChatRequest"
+    },
+    {
+      "id": "ChatMessage"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/tool_adapter.py",
+      "type": "function",
+      "id": "mcp_tools_to_openai"
+    },
+    {
+      "id": "ToolSpec"
+    },
+    {
+      "id": "LocalSkillServer"
+    },
+    {
+      "id": "float"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/client.py",
+      "type": "function",
+      "id": "_connect_one"
+    },
+    {
+      "id": "wait_for"
+    },
+    {
+      "id": "hasattr"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/client.py",
+      "type": "function",
+      "id": "MCPClient.__init__"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/client.py",
+      "type": "function",
+      "id": "MCPClient.server_names"
+    },
+    {
+      "id": "keys"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/client.py",
+      "type": "function",
+      "id": "MCPClient.start"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/client.py",
+      "type": "function",
+      "id": "MCPClient._connect_one"
+    },
+    {
+      "id": "AsyncExitStack"
+    },
+    {
+      "id": "copy"
+    },
+    {
+      "id": "StdioServerParameters"
+    },
+    {
+      "id": "enter_async_context"
+    },
+    {
+      "id": "stdio_client"
+    },
+    {
+      "id": "ClientSession"
+    },
+    {
+      "id": "initialize"
+    },
+    {
+      "id": "sse_client"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/client.py",
+      "type": "function",
+      "id": "MCPClient.list_tools"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/client.py",
+      "type": "function",
+      "id": "MCPClient.call_tool"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/local_tools.py",
+      "type": "function",
+      "id": "call_tool"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/client.py",
+      "type": "function",
+      "id": "MCPClient.aclose"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/client.py",
+      "type": "function",
+      "id": "server_names"
+    },
+    {
+      "id": "MCPClient"
+    },
+    {
+      "id": "discover_skill_tools"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/local_tools.py",
+      "type": "function",
+      "id": "LocalSkillServer.__init__"
+    },
+    {
+      "id": "sys_executable"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/local_tools.py",
+      "type": "function",
+      "id": "LocalSkillServer._ensure_discovered"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/local_tools.py",
+      "type": "function",
+      "id": "LocalSkillServer.list_tools"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/local_tools.py",
+      "type": "function",
+      "id": "LocalSkillServer.call_tool"
+    },
+    {
+      "id": "next"
+    },
+    {
+      "id": "_tool_error"
+    },
+    {
+      "id": "extend"
+    },
+    {
+      "id": "create_subprocess_exec"
+    },
+    {
+      "id": "communicate"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/utils/images.py",
+      "type": "function",
+      "id": "process_image"
+    },
+    {
+      "id": "BytesIO"
+    },
+    {
+      "id": "thumbnail"
+    },
+    {
+      "id": "debug"
+    },
+    {
+      "id": "convert"
+    },
+    {
+      "id": "save"
+    },
+    {
+      "id": "b64encode"
+    },
+    {
+      "id": "getvalue"
+    },
+    {
+      "id": "exception"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/utils/pdfs.py",
+      "type": "function",
+      "id": "process_pdf"
+    },
+    {
+      "id": "extract_text"
+    },
+    {
+      "id": "enumerate"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/checkresources/checkresources.py",
+      "type": "function",
+      "id": "read_cpuinfo"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/checkresources/checkresources.py",
+      "type": "function",
+      "id": "run_cmd"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/checkresources/checkresources.py",
+      "type": "function",
+      "id": "get_cpu_temp"
+    },
+    {
+      "id": "sensors_temperatures"
+    },
+    {
+      "id": "round"
+    },
+    {
+      "id": "search"
+    },
+    {
+      "id": "group"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/checkresources/checkresources.py",
+      "type": "function",
+      "id": "get_network"
+    },
+    {
+      "id": "net_if_stats"
+    },
+    {
+      "id": "net_if_addrs"
+    },
+    {
+      "id": "net_io_counters"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/checkresources/checkresources.py",
+      "type": "function",
+      "id": "get_top_processes"
+    },
+    {
+      "id": "process_iter"
+    },
+    {
+      "id": "cpu_percent"
+    },
+    {
+      "id": "oneshot"
+    },
+    {
+      "id": "memory_percent"
+    },
+    {
+      "id": "status"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/checkresources/checkresources.py",
+      "type": "function",
+      "id": "get_cpu"
+    },
+    {
+      "id": "cpu_freq"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/checkresources/checkresources.py",
+      "type": "function",
+      "id": "get_cpu_model"
+    },
+    {
+      "id": "cpu_count"
+    },
+    {
+      "id": "getloadavg"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/checkresources/checkresources.py",
+      "type": "function",
+      "id": "get_system"
+    },
+    {
+      "id": "fromtimestamp"
+    },
+    {
+      "id": "boot_time"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/checkresources/checkresources.py",
+      "type": "function",
+      "id": "get_logged_users"
+    },
+    {
+      "id": "system"
+    },
+    {
+      "id": "release"
+    },
+    {
+      "id": "version"
+    },
+    {
+      "id": "node"
+    },
+    {
+      "id": "machine"
+    },
+    {
+      "id": "python_version"
+    },
+    {
+      "id": "isoformat"
+    },
+    {
+      "id": "time"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/checkresources/checkresources.py",
+      "type": "function",
+      "id": "get_gpu_info"
+    },
+    {
+      "id": "splitlines"
+    },
+    {
+      "id": "processor"
+    },
+    {
+      "id": "lower"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/checkresources/checkresources.py",
+      "type": "function",
+      "id": "get_battery"
+    },
+    {
+      "id": "sensors_battery"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/checkresources/checkresources.py",
+      "type": "function",
+      "id": "get_disk"
+    },
+    {
+      "id": "disk_usage"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/checkresources/checkresources.py",
+      "type": "function",
+      "id": "get_memory"
+    },
+    {
+      "id": "virtual_memory"
+    },
+    {
+      "id": "swap_memory"
+    },
+    {
+      "id": "users"
+    },
+    {
+      "id": "check_output"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/weather_openmeteo/weather_openmeteo.py",
+      "type": "function",
+      "id": "_starts_with_admin_prefix"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/weather_openmeteo/weather_openmeteo.py",
+      "type": "function",
+      "id": "_strip_admin_prefix"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/weather_openmeteo/weather_openmeteo.py",
+      "type": "function",
+      "id": "_score_match"
+    },
+    {
+      "id": "min"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/weather_openmeteo/weather_openmeteo.py",
+      "type": "function",
+      "id": "_safe_get"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/weather_openmeteo/weather_openmeteo.py",
+      "type": "function",
+      "id": "fetch_json"
+    },
+    {
+      "id": "Request"
+    },
+    {
+      "id": "urlopen"
+    },
+    {
+      "id": "RuntimeError"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/weather_openmeteo/weather_openmeteo.py",
+      "type": "function",
+      "id": "geocode"
+    },
+    {
+      "id": "max"
+    },
+    {
+      "id": "urlencode"
+    },
+    {
+      "id": "sort"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/weather_openmeteo/weather_openmeteo.py",
+      "type": "function",
+      "id": "fetch_weather"
+    },
+    {
+      "id": "getenv"
+    },
+    {
+      "id": "OpenAI"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/agent_indexer.py",
+      "type": "function",
+      "id": "AgentIndexer.__init__"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/agent_indexer.py",
+      "type": "function",
+      "id": "AgentIndexer.analyze_code"
+    },
+    {
+      "id": "create"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/agent_indexer.py",
+      "type": "function",
+      "id": "AgentIndexer.process_all_symbols"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/agent_indexer.py",
+      "type": "function",
+      "id": "AgentIndexer.ask_about_code"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/agent_indexer.py",
+      "type": "function",
+      "id": "process_all_symbols"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/agent_indexer.py",
+      "type": "function",
+      "id": "analyze_code"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/agent_indexer.py",
+      "type": "function",
+      "id": "ask_about_code"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/code_search/code_search.py",
+      "type": "function",
+      "id": "execute"
+    },
+    {
+      "id": "_original_search"
+    },
+    {
+      "id": "_ask_about_code"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "_qualified_name"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "visit_FunctionDef"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "_handle_function"
+    },
+    {
+      "id": "add_node"
+    },
+    {
+      "id": "generic_visit"
+    },
+    {
+      "id": "pop"
+    },
+    {
+      "id": "DiGraph"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "get_impact_analysis"
+    },
+    {
+      "id": "predecessors"
+    },
+    {
+      "id": "descendants"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "_CallGraphVisitor.__init__"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "_CallGraphVisitor._qualified_name"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "_CallGraphVisitor.visit_ClassDef"
+    },
+    {
+      "id": "_CallGraphVisitor.generic_visit"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "_CallGraphVisitor.visit_FunctionDef"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "_CallGraphVisitor._handle_function"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "_CallGraphVisitor.visit_AsyncFunctionDef"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "_CallGraphVisitor.visit_Call"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "_CallGraphVisitor._resolve_call_name"
+    },
+    {
+      "id": "add_edge"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "visit_ClassDef"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "visit_AsyncFunctionDef"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "visit_Call"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "_resolve_call_name"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "GraphAnalyzer.__init__"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "GraphAnalyzer.analyze_code_structure"
+    },
+    {
+      "id": "_CallGraphVisitor"
+    },
+    {
+      "id": "visit"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "GraphAnalyzer.get_impact_analysis"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "GraphAnalyzer.get_call_chain"
+    },
+    {
+      "id": "shortest_path"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "GraphAnalyzer.export_graph"
+    },
+    {
+      "id": "node_link_data"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "analyze_code_structure"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "get_call_chain"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/graph_analyzer.py",
+      "type": "function",
+      "id": "export_graph"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/run_graph_analyzer.py",
+      "type": "function",
+      "id": "get_all_code_from_chroma"
+    },
+    {
+      "id": "get_collection"
+    },
+    {
+      "id": "ArgumentParser"
+    },
+    {
+      "id": "add_argument"
+    },
+    {
+      "id": "parse_args"
+    },
+    {
+      "id": "GraphAnalyzer"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/run_graph_analyzer.py",
+      "type": "function",
+      "id": "build_graph"
+    },
+    {
+      "id": "number_of_nodes"
+    },
+    {
+      "id": "number_of_edges"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/approval_manager.py",
+      "type": "function",
+      "id": "ApprovalManager.__init__"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/approval_manager.py",
+      "type": "function",
+      "id": "ApprovalManager.add_task"
+    },
+    {
+      "id": "uuid4"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/approval_manager.py",
+      "type": "function",
+      "id": "ApprovalManager.get_task"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/approval_manager.py",
+      "type": "function",
+      "id": "add_task"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/approval_manager.py",
+      "type": "function",
+      "id": "get_task"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/dispatcher.py",
+      "type": "function",
+      "id": "UnifiedTools.__init__"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/dispatcher.py",
+      "type": "function",
+      "id": "UnifiedTools.list_all"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/dispatcher.py",
+      "type": "function",
+      "id": "UnifiedTools.call"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/dispatcher.py",
+      "type": "function",
+      "id": "_err"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/dispatcher.py",
+      "type": "function",
+      "id": "call"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/dispatcher.py",
+      "type": "function",
+      "id": "list_all"
+    }
+  ],
+  "edges": [
+    {
+      "source": "_run",
+      "target": "get_settings"
+    },
+    {
+      "source": "_run",
+      "target": "remove"
+    },
+    {
+      "source": "_run",
+      "target": "add"
+    },
+    {
+      "source": "_run",
+      "target": "getpid"
+    },
+    {
+      "source": "_run",
+      "target": "info"
+    },
+    {
+      "source": "_run",
+      "target": "Path"
+    },
+    {
+      "source": "_run",
+      "target": "exists"
+    },
+    {
+      "source": "_run",
+      "target": "critical"
+    },
+    {
+      "source": "_run",
+      "target": "exit"
+    },
+    {
+      "source": "_run",
+      "target": "load_registry_with_local"
+    },
+    {
+      "source": "_run",
+      "target": "mcp_lifecycle"
+    },
+    {
+      "source": "_run",
+      "target": "_ensure_discovered"
+    },
+    {
+      "source": "_run",
+      "target": "UnifiedTools"
+    },
+    {
+      "source": "_run",
+      "target": "len"
+    },
+    {
+      "source": "_run",
+      "target": "build_application"
+    },
+    {
+      "source": "_run",
+      "target": "BotCommand"
+    },
+    {
+      "source": "_run",
+      "target": "set_my_commands"
+    },
+    {
+      "source": "_run",
+      "target": "now"
+    },
+    {
+      "source": "_run",
+      "target": "get_running_loop"
+    },
+    {
+      "source": "_run",
+      "target": "set_exception_handler"
+    },
+    {
+      "source": "_run",
+      "target": "Event"
+    },
+    {
+      "source": "_run",
+      "target": "add_signal_handler"
+    },
+    {
+      "source": "_run",
+      "target": "append"
+    },
+    {
+      "source": "_run",
+      "target": "signal"
+    },
+    {
+      "source": "_run",
+      "target": "_stop"
+    },
+    {
+      "source": "_run",
+      "target": "start"
+    },
+    {
+      "source": "_run",
+      "target": "start_polling"
+    },
+    {
+      "source": "_run",
+      "target": "wait"
+    },
+    {
+      "source": "_run",
+      "target": "stop"
+    },
+    {
+      "source": "_run",
+      "target": "remove_signal_handler"
+    },
+    {
+      "source": "load_registry_with_local",
+      "target": "load_registry"
+    },
+    {
+      "source": "load_registry_with_local",
+      "target": "resolve"
+    },
+    {
+      "source": "load_registry_with_local",
+      "target": "Path"
+    },
+    {
+      "source": "load_registry_with_local",
+      "target": "read_text"
+    },
+    {
+      "source": "load_registry_with_local",
+      "target": "loads"
+    },
+    {
+      "source": "load_registry_with_local",
+      "target": "get"
+    },
+    {
+      "source": "load_registry_with_local",
+      "target": "exists"
+    },
+    {
+      "source": "load_registry_with_local",
+      "target": "LocalSkillServer"
+    },
+    {
+      "source": "load_registry_with_local",
+      "target": "float"
+    },
+    {
+      "source": "load_registry_with_local",
+      "target": "_ensure_discovered"
+    },
+    {
+      "source": "load_registry_with_local",
+      "target": "info"
+    },
+    {
+      "source": "mcp_lifecycle",
+      "target": "MCPClient"
+    },
+    {
+      "source": "mcp_lifecycle",
+      "target": "start"
+    },
+    {
+      "source": "mcp_lifecycle",
+      "target": "aclose"
+    },
+    {
+      "source": "_ensure_discovered",
+      "target": "discover_skill_tools"
+    },
+    {
+      "source": "_ensure_discovered",
+      "target": "info"
+    },
+    {
+      "source": "_ensure_discovered",
+      "target": "len"
+    },
+    {
+      "source": "build_application",
+      "target": "PicklePersistence"
+    },
+    {
+      "source": "build_application",
+      "target": "PersistenceInput"
+    },
+    {
+      "source": "build_application",
+      "target": "build"
+    },
+    {
+      "source": "build_application",
+      "target": "persistence"
+    },
+    {
+      "source": "build_application",
+      "target": "token"
+    },
+    {
+      "source": "build_application",
+      "target": "ApplicationBuilder"
+    },
+    {
+      "source": "build_application",
+      "target": "now"
+    },
+    {
+      "source": "build_application",
+      "target": "__import__"
+    },
+    {
+      "source": "build_application",
+      "target": "StateStore"
+    },
+    {
+      "source": "build_application",
+      "target": "Semaphore"
+    },
+    {
+      "source": "build_application",
+      "target": "PerUserRateLimiter"
+    },
+    {
+      "source": "build_application",
+      "target": "add_handler"
+    },
+    {
+      "source": "build_application",
+      "target": "CommandHandler"
+    },
+    {
+      "source": "build_application",
+      "target": "CallbackQueryHandler"
+    },
+    {
+      "source": "build_application",
+      "target": "build_login_conversation"
+    },
+    {
+      "source": "build_application",
+      "target": "MessageHandler"
+    },
+    {
+      "source": "_stop",
+      "target": "info"
+    },
+    {
+      "source": "_stop",
+      "target": "set"
+    },
+    {
+      "source": "start",
+      "target": "_connect_one"
+    },
+    {
+      "source": "start",
+      "target": "info"
+    },
+    {
+      "source": "start",
+      "target": "warning"
+    },
+    {
+      "source": "_release_lock",
+      "target": "unlink"
+    },
+    {
+      "source": "_release_lock",
+      "target": "warning"
+    },
+    {
+      "source": "_acquire_lock",
+      "target": "exists"
+    },
+    {
+      "source": "_acquire_lock",
+      "target": "int"
+    },
+    {
+      "source": "_acquire_lock",
+      "target": "strip"
+    },
+    {
+      "source": "_acquire_lock",
+      "target": "read_text"
+    },
+    {
+      "source": "_acquire_lock",
+      "target": "kill"
+    },
+    {
+      "source": "_acquire_lock",
+      "target": "error"
+    },
+    {
+      "source": "_acquire_lock",
+      "target": "_release_lock"
+    },
+    {
+      "source": "_acquire_lock",
+      "target": "warning"
+    },
+    {
+      "source": "_acquire_lock",
+      "target": "open"
+    },
+    {
+      "source": "_acquire_lock",
+      "target": "fdopen"
+    },
+    {
+      "source": "_acquire_lock",
+      "target": "write"
+    },
+    {
+      "source": "_acquire_lock",
+      "target": "str"
+    },
+    {
+      "source": "_acquire_lock",
+      "target": "getpid"
+    },
+    {
+      "source": "_asyncio_exception_handler",
+      "target": "get"
+    },
+    {
+      "source": "_asyncio_exception_handler",
+      "target": "error"
+    },
+    {
+      "source": "main",
+      "target": "_acquire_lock"
+    },
+    {
+      "source": "main",
+      "target": "exit"
+    },
+    {
+      "source": "main",
+      "target": "run"
+    },
+    {
+      "source": "main",
+      "target": "_run"
+    },
+    {
+      "source": "main",
+      "target": "_release_lock"
+    },
+    {
+      "source": "main",
+      "target": "load_registry"
+    },
+    {
+      "source": "main",
+      "target": "resolve"
+    },
+    {
+      "source": "main",
+      "target": "Path"
+    },
+    {
+      "source": "main",
+      "target": "_check"
+    },
+    {
+      "source": "main",
+      "target": "isinstance"
+    },
+    {
+      "source": "main",
+      "target": "mcp_lifecycle"
+    },
+    {
+      "source": "main",
+      "target": "list_tools"
+    },
+    {
+      "source": "main",
+      "target": "len"
+    },
+    {
+      "source": "main",
+      "target": "Settings"
+    },
+    {
+      "source": "main",
+      "target": "build_provider"
+    },
+    {
+      "source": "main",
+      "target": "aclose"
+    },
+    {
+      "source": "main",
+      "target": "StateStore"
+    },
+    {
+      "source": "main",
+      "target": "is_duplicate"
+    },
+    {
+      "source": "main",
+      "target": "append_turn"
+    },
+    {
+      "source": "main",
+      "target": "list"
+    },
+    {
+      "source": "main",
+      "target": "get"
+    },
+    {
+      "source": "main",
+      "target": "ChatRequest"
+    },
+    {
+      "source": "main",
+      "target": "ChatMessage"
+    },
+    {
+      "source": "main",
+      "target": "model_dump"
+    },
+    {
+      "source": "main",
+      "target": "print"
+    },
+    {
+      "source": "main",
+      "target": "isoformat"
+    },
+    {
+      "source": "main",
+      "target": "now"
+    },
+    {
+      "source": "main",
+      "target": "get_system"
+    },
+    {
+      "source": "main",
+      "target": "get_cpu"
+    },
+    {
+      "source": "main",
+      "target": "get_memory"
+    },
+    {
+      "source": "main",
+      "target": "get_disk"
+    },
+    {
+      "source": "main",
+      "target": "get_gpu_info"
+    },
+    {
+      "source": "main",
+      "target": "get_network"
+    },
+    {
+      "source": "main",
+      "target": "get_battery"
+    },
+    {
+      "source": "main",
+      "target": "get_top_processes"
+    },
+    {
+      "source": "main",
+      "target": "dumps"
+    },
+    {
+      "source": "main",
+      "target": "ArgumentParser"
+    },
+    {
+      "source": "main",
+      "target": "add_argument"
+    },
+    {
+      "source": "main",
+      "target": "parse_args"
+    },
+    {
+      "source": "main",
+      "target": "get_all_code_from_chroma"
+    },
+    {
+      "source": "main",
+      "target": "GraphAnalyzer"
+    },
+    {
+      "source": "main",
+      "target": "build_graph"
+    },
+    {
+      "source": "main",
+      "target": "number_of_nodes"
+    },
+    {
+      "source": "main",
+      "target": "number_of_edges"
+    },
+    {
+      "source": "main",
+      "target": "get_impact_analysis"
+    },
+    {
+      "source": "main",
+      "target": "get_call_chain"
+    },
+    {
+      "source": "main",
+      "target": "join"
+    },
+    {
+      "source": "main",
+      "target": "open"
+    },
+    {
+      "source": "main",
+      "target": "dump"
+    },
+    {
+      "source": "main",
+      "target": "export_graph"
+    },
+    {
+      "source": "Settings._parse_chat_ids",
+      "target": "isinstance"
+    },
+    {
+      "source": "Settings._parse_chat_ids",
+      "target": "int"
+    },
+    {
+      "source": "Settings._parse_chat_ids",
+      "target": "strip"
+    },
+    {
+      "source": "Settings._parse_chat_ids",
+      "target": "split"
+    },
+    {
+      "source": "Settings._parse_chat_ids",
+      "target": "ValueError"
+    },
+    {
+      "source": "Settings._parse_chat_ids",
+      "target": "field_validator"
+    },
+    {
+      "source": "_parse_chat_ids",
+      "target": "isinstance"
+    },
+    {
+      "source": "_parse_chat_ids",
+      "target": "int"
+    },
+    {
+      "source": "_parse_chat_ids",
+      "target": "strip"
+    },
+    {
+      "source": "_parse_chat_ids",
+      "target": "split"
+    },
+    {
+      "source": "_parse_chat_ids",
+      "target": "ValueError"
+    },
+    {
+      "source": "__init__",
+      "target": "abspath"
+    },
+    {
+      "source": "__init__",
+      "target": "getcwd"
+    },
+    {
+      "source": "__init__",
+      "target": "join"
+    },
+    {
+      "source": "__init__",
+      "target": "PersistentClient"
+    },
+    {
+      "source": "__init__",
+      "target": "get_or_create_collection"
+    },
+    {
+      "source": "__init__",
+      "target": "Language"
+    },
+    {
+      "source": "__init__",
+      "target": "language"
+    },
+    {
+      "source": "__init__",
+      "target": "Parser"
+    },
+    {
+      "source": "__init__",
+      "target": "Query"
+    },
+    {
+      "source": "__init__",
+      "target": "QueryCursor"
+    },
+    {
+      "source": "__init__",
+      "target": "Lock"
+    },
+    {
+      "source": "__init__",
+      "target": "info"
+    },
+    {
+      "source": "__init__",
+      "target": "defaultdict"
+    },
+    {
+      "source": "__init__",
+      "target": "Path"
+    },
+    {
+      "source": "__init__",
+      "target": "_load"
+    },
+    {
+      "source": "__init__",
+      "target": "ValueError"
+    },
+    {
+      "source": "__init__",
+      "target": "AsyncClient"
+    },
+    {
+      "source": "__init__",
+      "target": "resolve"
+    },
+    {
+      "source": "__init__",
+      "target": "sys_executable"
+    },
+    {
+      "source": "__init__",
+      "target": "getenv"
+    },
+    {
+      "source": "__init__",
+      "target": "OpenAI"
+    },
+    {
+      "source": "__init__",
+      "target": "DiGraph"
+    },
+    {
+      "source": "CodebaseManager.__init__",
+      "target": "abspath"
+    },
+    {
+      "source": "CodebaseManager.__init__",
+      "target": "getcwd"
+    },
+    {
+      "source": "CodebaseManager.__init__",
+      "target": "join"
+    },
+    {
+      "source": "CodebaseManager.__init__",
+      "target": "PersistentClient"
+    },
+    {
+      "source": "CodebaseManager.__init__",
+      "target": "get_or_create_collection"
+    },
+    {
+      "source": "CodebaseManager.__init__",
+      "target": "Language"
+    },
+    {
+      "source": "CodebaseManager.__init__",
+      "target": "language"
+    },
+    {
+      "source": "CodebaseManager.__init__",
+      "target": "Parser"
+    },
+    {
+      "source": "CodebaseManager.__init__",
+      "target": "Query"
+    },
+    {
+      "source": "CodebaseManager.__init__",
+      "target": "QueryCursor"
+    },
+    {
+      "source": "CodebaseManager.__init__",
+      "target": "Lock"
+    },
+    {
+      "source": "CodebaseManager.__init__",
+      "target": "info"
+    },
+    {
+      "source": "CodebaseManager._normalize_path",
+      "target": "abspath"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "CodebaseManager._normalize_path"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "exists"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "getsize"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "warning"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "open"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "read"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "parse"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "bytes"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "captures"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "get"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "append"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "delete"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "add"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "info"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "len"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "basename"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "error"
+    },
+    {
+      "source": "CodebaseManager._remove_file",
+      "target": "CodebaseManager._normalize_path"
+    },
+    {
+      "source": "CodebaseManager._remove_file",
+      "target": "delete"
+    },
+    {
+      "source": "CodebaseManager._remove_file",
+      "target": "info"
+    },
+    {
+      "source": "CodebaseManager._remove_file",
+      "target": "basename"
+    },
+    {
+      "source": "CodebaseManager._remove_file",
+      "target": "error"
+    },
+    {
+      "source": "CodebaseManager.get_context",
+      "target": "CodebaseManager._normalize_path"
+    },
+    {
+      "source": "CodebaseManager.get_context",
+      "target": "query"
+    },
+    {
+      "source": "CodebaseManager.get_context",
+      "target": "get"
+    },
+    {
+      "source": "CodebaseManager.get_context",
+      "target": "zip"
+    },
+    {
+      "source": "CodebaseManager._is_ignored",
+      "target": "split"
+    },
+    {
+      "source": "CodebaseManager._is_ignored",
+      "target": "normpath"
+    },
+    {
+      "source": "CodebaseManager._is_ignored",
+      "target": "any"
+    },
+    {
+      "source": "CodebaseManager.start_watcher",
+      "target": "walk"
+    },
+    {
+      "source": "CodebaseManager.start_watcher",
+      "target": "endswith"
+    },
+    {
+      "source": "CodebaseManager.start_watcher",
+      "target": "CodebaseManager._index_file"
+    },
+    {
+      "source": "CodebaseManager.start_watcher",
+      "target": "join"
+    },
+    {
+      "source": "CodebaseManager.start_watcher",
+      "target": "Observer"
+    },
+    {
+      "source": "CodebaseManager.start_watcher",
+      "target": "schedule"
+    },
+    {
+      "source": "CodebaseManager.start_watcher",
+      "target": "Handler"
+    },
+    {
+      "source": "CodebaseManager.start_watcher",
+      "target": "start"
+    },
+    {
+      "source": "CodebaseManager.start_watcher",
+      "target": "info"
+    },
+    {
+      "source": "Handler.on_modified",
+      "target": "endswith"
+    },
+    {
+      "source": "Handler.on_modified",
+      "target": "_is_ignored"
+    },
+    {
+      "source": "Handler.on_modified",
+      "target": "_index_file"
+    },
+    {
+      "source": "Handler.on_created",
+      "target": "endswith"
+    },
+    {
+      "source": "Handler.on_created",
+      "target": "_is_ignored"
+    },
+    {
+      "source": "Handler.on_created",
+      "target": "_index_file"
+    },
+    {
+      "source": "Handler.on_deleted",
+      "target": "endswith"
+    },
+    {
+      "source": "Handler.on_deleted",
+      "target": "_is_ignored"
+    },
+    {
+      "source": "Handler.on_deleted",
+      "target": "_remove_file"
+    },
+    {
+      "source": "Handler.on_moved",
+      "target": "endswith"
+    },
+    {
+      "source": "Handler.on_moved",
+      "target": "_is_ignored"
+    },
+    {
+      "source": "Handler.on_moved",
+      "target": "_remove_file"
+    },
+    {
+      "source": "Handler.on_moved",
+      "target": "getattr"
+    },
+    {
+      "source": "Handler.on_moved",
+      "target": "_index_file"
+    },
+    {
+      "source": "PerUserRateLimiter.__init__",
+      "target": "defaultdict"
+    },
+    {
+      "source": "PerUserRateLimiter.__init__",
+      "target": "Lock"
+    },
+    {
+      "source": "PerUserRateLimiter.allow",
+      "target": "monotonic"
+    },
+    {
+      "source": "PerUserRateLimiter.allow",
+      "target": "popleft"
+    },
+    {
+      "source": "PerUserRateLimiter.allow",
+      "target": "len"
+    },
+    {
+      "source": "PerUserRateLimiter.allow",
+      "target": "append"
+    },
+    {
+      "source": "allow",
+      "target": "monotonic"
+    },
+    {
+      "source": "allow",
+      "target": "popleft"
+    },
+    {
+      "source": "allow",
+      "target": "len"
+    },
+    {
+      "source": "allow",
+      "target": "append"
+    },
+    {
+      "source": "_load",
+      "target": "exists"
+    },
+    {
+      "source": "_load",
+      "target": "loads"
+    },
+    {
+      "source": "_load",
+      "target": "read_text"
+    },
+    {
+      "source": "_load",
+      "target": "rename"
+    },
+    {
+      "source": "_load",
+      "target": "with_suffix"
+    },
+    {
+      "source": "_load",
+      "target": "items"
+    },
+    {
+      "source": "_load",
+      "target": "int"
+    },
+    {
+      "source": "_load",
+      "target": "ChatState"
+    },
+    {
+      "source": "_load",
+      "target": "get"
+    },
+    {
+      "source": "_load",
+      "target": "isinstance"
+    },
+    {
+      "source": "_load",
+      "target": "append"
+    },
+    {
+      "source": "reset",
+      "target": "ChatState"
+    },
+    {
+      "source": "reset",
+      "target": "flush"
+    },
+    {
+      "source": "flush",
+      "target": "str"
+    },
+    {
+      "source": "flush",
+      "target": "list"
+    },
+    {
+      "source": "flush",
+      "target": "items"
+    },
+    {
+      "source": "flush",
+      "target": "mkdir"
+    },
+    {
+      "source": "flush",
+      "target": "mkstemp"
+    },
+    {
+      "source": "flush",
+      "target": "fdopen"
+    },
+    {
+      "source": "flush",
+      "target": "dump"
+    },
+    {
+      "source": "flush",
+      "target": "replace"
+    },
+    {
+      "source": "flush",
+      "target": "unlink"
+    },
+    {
+      "source": "StateStore.__init__",
+      "target": "defaultdict"
+    },
+    {
+      "source": "StateStore.__init__",
+      "target": "Path"
+    },
+    {
+      "source": "StateStore.__init__",
+      "target": "StateStore._load"
+    },
+    {
+      "source": "StateStore._load",
+      "target": "exists"
+    },
+    {
+      "source": "StateStore._load",
+      "target": "loads"
+    },
+    {
+      "source": "StateStore._load",
+      "target": "read_text"
+    },
+    {
+      "source": "StateStore._load",
+      "target": "rename"
+    },
+    {
+      "source": "StateStore._load",
+      "target": "with_suffix"
+    },
+    {
+      "source": "StateStore._load",
+      "target": "items"
+    },
+    {
+      "source": "StateStore._load",
+      "target": "int"
+    },
+    {
+      "source": "StateStore._load",
+      "target": "ChatState"
+    },
+    {
+      "source": "StateStore._load",
+      "target": "get"
+    },
+    {
+      "source": "StateStore._load",
+      "target": "isinstance"
+    },
+    {
+      "source": "StateStore._load",
+      "target": "append"
+    },
+    {
+      "source": "StateStore.flush",
+      "target": "str"
+    },
+    {
+      "source": "StateStore.flush",
+      "target": "list"
+    },
+    {
+      "source": "StateStore.flush",
+      "target": "items"
+    },
+    {
+      "source": "StateStore.flush",
+      "target": "mkdir"
+    },
+    {
+      "source": "StateStore.flush",
+      "target": "mkstemp"
+    },
+    {
+      "source": "StateStore.flush",
+      "target": "fdopen"
+    },
+    {
+      "source": "StateStore.flush",
+      "target": "dump"
+    },
+    {
+      "source": "StateStore.flush",
+      "target": "replace"
+    },
+    {
+      "source": "StateStore.flush",
+      "target": "unlink"
+    },
+    {
+      "source": "StateStore.append_turn",
+      "target": "append"
+    },
+    {
+      "source": "StateStore.append_turn",
+      "target": "len"
+    },
+    {
+      "source": "StateStore.append_turn",
+      "target": "popleft"
+    },
+    {
+      "source": "StateStore.append_turn",
+      "target": "StateStore.flush"
+    },
+    {
+      "source": "StateStore.reset",
+      "target": "ChatState"
+    },
+    {
+      "source": "StateStore.reset",
+      "target": "StateStore.flush"
+    },
+    {
+      "source": "StateStore.new_session",
+      "target": "strftime"
+    },
+    {
+      "source": "StateStore.new_session",
+      "target": "now"
+    },
+    {
+      "source": "StateStore.new_session",
+      "target": "clear"
+    },
+    {
+      "source": "StateStore.new_session",
+      "target": "StateStore.flush"
+    },
+    {
+      "source": "append_turn",
+      "target": "append"
+    },
+    {
+      "source": "append_turn",
+      "target": "len"
+    },
+    {
+      "source": "append_turn",
+      "target": "popleft"
+    },
+    {
+      "source": "append_turn",
+      "target": "flush"
+    },
+    {
+      "source": "new_session",
+      "target": "strftime"
+    },
+    {
+      "source": "new_session",
+      "target": "now"
+    },
+    {
+      "source": "new_session",
+      "target": "clear"
+    },
+    {
+      "source": "new_session",
+      "target": "flush"
+    },
+    {
+      "source": "_post_init",
+      "target": "create_task"
+    },
+    {
+      "source": "_post_init",
+      "target": "periodic_flush"
+    },
+    {
+      "source": "_post_init",
+      "target": "BotCommand"
+    },
+    {
+      "source": "_post_init",
+      "target": "set_my_commands"
+    },
+    {
+      "source": "periodic_flush",
+      "target": "sleep"
+    },
+    {
+      "source": "periodic_flush",
+      "target": "flush"
+    },
+    {
+      "source": "periodic_flush",
+      "target": "info"
+    },
+    {
+      "source": "stream_chat_completions",
+      "target": "rstrip"
+    },
+    {
+      "source": "stream_chat_completions",
+      "target": "model_dump"
+    },
+    {
+      "source": "stream_chat_completions",
+      "target": "get"
+    },
+    {
+      "source": "stream_chat_completions",
+      "target": "isinstance"
+    },
+    {
+      "source": "stream_chat_completions",
+      "target": "dumps"
+    },
+    {
+      "source": "stream_chat_completions",
+      "target": "append"
+    },
+    {
+      "source": "stream_chat_completions",
+      "target": "range"
+    },
+    {
+      "source": "stream_chat_completions",
+      "target": "stream"
+    },
+    {
+      "source": "stream_chat_completions",
+      "target": "aread"
+    },
+    {
+      "source": "stream_chat_completions",
+      "target": "warning"
+    },
+    {
+      "source": "stream_chat_completions",
+      "target": "sleep"
+    },
+    {
+      "source": "stream_chat_completions",
+      "target": "error"
+    },
+    {
+      "source": "stream_chat_completions",
+      "target": "decode"
+    },
+    {
+      "source": "stream_chat_completions",
+      "target": "raise_for_status"
+    },
+    {
+      "source": "stream_chat_completions",
+      "target": "aiter_lines"
+    },
+    {
+      "source": "stream_chat_completions",
+      "target": "startswith"
+    },
+    {
+      "source": "stream_chat_completions",
+      "target": "strip"
+    },
+    {
+      "source": "stream_chat_completions",
+      "target": "_finalized_tool_calls"
+    },
+    {
+      "source": "stream_chat_completions",
+      "target": "ChatChunk"
+    },
+    {
+      "source": "stream_chat_completions",
+      "target": "loads"
+    },
+    {
+      "source": "stream_chat_completions",
+      "target": "setdefault"
+    },
+    {
+      "source": "stream_chat_completions",
+      "target": "items"
+    },
+    {
+      "source": "_finalized_tool_calls",
+      "target": "sorted"
+    },
+    {
+      "source": "_finalized_tool_calls",
+      "target": "loads"
+    },
+    {
+      "source": "_finalized_tool_calls",
+      "target": "warning"
+    },
+    {
+      "source": "_finalized_tool_calls",
+      "target": "update"
+    },
+    {
+      "source": "_finalized_tool_calls",
+      "target": "append"
+    },
+    {
+      "source": "MiniMaxProvider.__init__",
+      "target": "ValueError"
+    },
+    {
+      "source": "MiniMaxProvider.__init__",
+      "target": "AsyncClient"
+    },
+    {
+      "source": "MiniMaxProvider.chat",
+      "target": "stream_chat_completions"
+    },
+    {
+      "source": "MiniMaxProvider.aclose",
+      "target": "aclose"
+    },
+    {
+      "source": "aclose",
+      "target": "aclose"
+    },
+    {
+      "source": "aclose",
+      "target": "list"
+    },
+    {
+      "source": "aclose",
+      "target": "items"
+    },
+    {
+      "source": "aclose",
+      "target": "get"
+    },
+    {
+      "source": "aclose",
+      "target": "clear"
+    },
+    {
+      "source": "chat",
+      "target": "stream_chat_completions"
+    },
+    {
+      "source": "OllamaProvider.__init__",
+      "target": "AsyncClient"
+    },
+    {
+      "source": "OllamaProvider.chat",
+      "target": "stream_chat_completions"
+    },
+    {
+      "source": "OllamaProvider.aclose",
+      "target": "aclose"
+    },
+    {
+      "source": "GeminiProvider.__init__",
+      "target": "ValueError"
+    },
+    {
+      "source": "GeminiProvider.__init__",
+      "target": "AsyncClient"
+    },
+    {
+      "source": "GeminiProvider.chat",
+      "target": "stream_chat_completions"
+    },
+    {
+      "source": "GeminiProvider.aclose",
+      "target": "aclose"
+    },
+    {
+      "source": "QwenCloudProvider.__init__",
+      "target": "ValueError"
+    },
+    {
+      "source": "QwenCloudProvider.__init__",
+      "target": "AsyncClient"
+    },
+    {
+      "source": "QwenCloudProvider.chat",
+      "target": "stream_chat_completions"
+    },
+    {
+      "source": "QwenCloudProvider.aclose",
+      "target": "aclose"
+    },
+    {
+      "source": "OpenRouterProvider.__init__",
+      "target": "ValueError"
+    },
+    {
+      "source": "OpenRouterProvider.__init__",
+      "target": "AsyncClient"
+    },
+    {
+      "source": "OpenRouterProvider.chat",
+      "target": "stream_chat_completions"
+    },
+    {
+      "source": "OpenRouterProvider.aclose",
+      "target": "aclose"
+    },
+    {
+      "source": "_check",
+      "target": "print"
+    },
+    {
+      "source": "_check",
+      "target": "SystemExit"
+    },
+    {
+      "source": "load_registry",
+      "target": "Path"
+    },
+    {
+      "source": "load_registry",
+      "target": "exists"
+    },
+    {
+      "source": "load_registry",
+      "target": "loads"
+    },
+    {
+      "source": "load_registry",
+      "target": "read_text"
+    },
+    {
+      "source": "load_registry",
+      "target": "ValueError"
+    },
+    {
+      "source": "load_registry",
+      "target": "isinstance"
+    },
+    {
+      "source": "load_registry",
+      "target": "get"
+    },
+    {
+      "source": "list_tools",
+      "target": "items"
+    },
+    {
+      "source": "list_tools",
+      "target": "get"
+    },
+    {
+      "source": "list_tools",
+      "target": "wait_for"
+    },
+    {
+      "source": "list_tools",
+      "target": "list_tools"
+    },
+    {
+      "source": "list_tools",
+      "target": "isinstance"
+    },
+    {
+      "source": "list_tools",
+      "target": "hasattr"
+    },
+    {
+      "source": "list_tools",
+      "target": "model_dump"
+    },
+    {
+      "source": "list_tools",
+      "target": "append"
+    },
+    {
+      "source": "list_tools",
+      "target": "warning"
+    },
+    {
+      "source": "list_tools",
+      "target": "_ensure_discovered"
+    },
+    {
+      "source": "mcp_tools_to_openai",
+      "target": "get"
+    },
+    {
+      "source": "mcp_tools_to_openai",
+      "target": "append"
+    },
+    {
+      "source": "mcp_tools_to_openai",
+      "target": "ToolSpec"
+    },
+    {
+      "source": "mcp_tools_to_openai",
+      "target": "isinstance"
+    },
+    {
+      "source": "_connect_one",
+      "target": "AsyncExitStack"
+    },
+    {
+      "source": "_connect_one",
+      "target": "copy"
+    },
+    {
+      "source": "_connect_one",
+      "target": "get"
+    },
+    {
+      "source": "_connect_one",
+      "target": "update"
+    },
+    {
+      "source": "_connect_one",
+      "target": "StdioServerParameters"
+    },
+    {
+      "source": "_connect_one",
+      "target": "wait_for"
+    },
+    {
+      "source": "_connect_one",
+      "target": "enter_async_context"
+    },
+    {
+      "source": "_connect_one",
+      "target": "stdio_client"
+    },
+    {
+      "source": "_connect_one",
+      "target": "ClientSession"
+    },
+    {
+      "source": "_connect_one",
+      "target": "initialize"
+    },
+    {
+      "source": "_connect_one",
+      "target": "sse_client"
+    },
+    {
+      "source": "_connect_one",
+      "target": "ValueError"
+    },
+    {
+      "source": "_connect_one",
+      "target": "aclose"
+    },
+    {
+      "source": "MCPClient.__init__",
+      "target": "Lock"
+    },
+    {
+      "source": "MCPClient.server_names",
+      "target": "list"
+    },
+    {
+      "source": "MCPClient.server_names",
+      "target": "keys"
+    },
+    {
+      "source": "MCPClient.server_names",
+      "target": "get"
+    },
+    {
+      "source": "MCPClient.start",
+      "target": "MCPClient._connect_one"
+    },
+    {
+      "source": "MCPClient.start",
+      "target": "info"
+    },
+    {
+      "source": "MCPClient.start",
+      "target": "warning"
+    },
+    {
+      "source": "MCPClient._connect_one",
+      "target": "AsyncExitStack"
+    },
+    {
+      "source": "MCPClient._connect_one",
+      "target": "copy"
+    },
+    {
+      "source": "MCPClient._connect_one",
+      "target": "get"
+    },
+    {
+      "source": "MCPClient._connect_one",
+      "target": "update"
+    },
+    {
+      "source": "MCPClient._connect_one",
+      "target": "StdioServerParameters"
+    },
+    {
+      "source": "MCPClient._connect_one",
+      "target": "wait_for"
+    },
+    {
+      "source": "MCPClient._connect_one",
+      "target": "enter_async_context"
+    },
+    {
+      "source": "MCPClient._connect_one",
+      "target": "stdio_client"
+    },
+    {
+      "source": "MCPClient._connect_one",
+      "target": "ClientSession"
+    },
+    {
+      "source": "MCPClient._connect_one",
+      "target": "initialize"
+    },
+    {
+      "source": "MCPClient._connect_one",
+      "target": "sse_client"
+    },
+    {
+      "source": "MCPClient._connect_one",
+      "target": "ValueError"
+    },
+    {
+      "source": "MCPClient._connect_one",
+      "target": "aclose"
+    },
+    {
+      "source": "MCPClient.list_tools",
+      "target": "items"
+    },
+    {
+      "source": "MCPClient.list_tools",
+      "target": "get"
+    },
+    {
+      "source": "MCPClient.list_tools",
+      "target": "wait_for"
+    },
+    {
+      "source": "MCPClient.list_tools",
+      "target": "list_tools"
+    },
+    {
+      "source": "MCPClient.list_tools",
+      "target": "isinstance"
+    },
+    {
+      "source": "MCPClient.list_tools",
+      "target": "hasattr"
+    },
+    {
+      "source": "MCPClient.list_tools",
+      "target": "model_dump"
+    },
+    {
+      "source": "MCPClient.list_tools",
+      "target": "append"
+    },
+    {
+      "source": "MCPClient.list_tools",
+      "target": "warning"
+    },
+    {
+      "source": "MCPClient.call_tool",
+      "target": "get"
+    },
+    {
+      "source": "MCPClient.call_tool",
+      "target": "wait_for"
+    },
+    {
+      "source": "MCPClient.call_tool",
+      "target": "call_tool"
+    },
+    {
+      "source": "MCPClient.call_tool",
+      "target": "hasattr"
+    },
+    {
+      "source": "MCPClient.call_tool",
+      "target": "append"
+    },
+    {
+      "source": "MCPClient.call_tool",
+      "target": "model_dump"
+    },
+    {
+      "source": "MCPClient.call_tool",
+      "target": "str"
+    },
+    {
+      "source": "MCPClient.call_tool",
+      "target": "getattr"
+    },
+    {
+      "source": "MCPClient.call_tool",
+      "target": "error"
+    },
+    {
+      "source": "call_tool",
+      "target": "get"
+    },
+    {
+      "source": "call_tool",
+      "target": "wait_for"
+    },
+    {
+      "source": "call_tool",
+      "target": "call_tool"
+    },
+    {
+      "source": "call_tool",
+      "target": "hasattr"
+    },
+    {
+      "source": "call_tool",
+      "target": "append"
+    },
+    {
+      "source": "call_tool",
+      "target": "model_dump"
+    },
+    {
+      "source": "call_tool",
+      "target": "str"
+    },
+    {
+      "source": "call_tool",
+      "target": "getattr"
+    },
+    {
+      "source": "call_tool",
+      "target": "error"
+    },
+    {
+      "source": "call_tool",
+      "target": "_ensure_discovered"
+    },
+    {
+      "source": "call_tool",
+      "target": "next"
+    },
+    {
+      "source": "call_tool",
+      "target": "_tool_error"
+    },
+    {
+      "source": "call_tool",
+      "target": "Path"
+    },
+    {
+      "source": "call_tool",
+      "target": "exists"
+    },
+    {
+      "source": "call_tool",
+      "target": "items"
+    },
+    {
+      "source": "call_tool",
+      "target": "isinstance"
+    },
+    {
+      "source": "call_tool",
+      "target": "extend"
+    },
+    {
+      "source": "call_tool",
+      "target": "create_subprocess_exec"
+    },
+    {
+      "source": "call_tool",
+      "target": "communicate"
+    },
+    {
+      "source": "call_tool",
+      "target": "strip"
+    },
+    {
+      "source": "call_tool",
+      "target": "decode"
+    },
+    {
+      "source": "call_tool",
+      "target": "loads"
+    },
+    {
+      "source": "call_tool",
+      "target": "dumps"
+    },
+    {
+      "source": "MCPClient.aclose",
+      "target": "list"
+    },
+    {
+      "source": "MCPClient.aclose",
+      "target": "items"
+    },
+    {
+      "source": "MCPClient.aclose",
+      "target": "get"
+    },
+    {
+      "source": "MCPClient.aclose",
+      "target": "aclose"
+    },
+    {
+      "source": "MCPClient.aclose",
+      "target": "clear"
+    },
+    {
+      "source": "server_names",
+      "target": "list"
+    },
+    {
+      "source": "server_names",
+      "target": "keys"
+    },
+    {
+      "source": "server_names",
+      "target": "get"
+    },
+    {
+      "source": "LocalSkillServer.__init__",
+      "target": "resolve"
+    },
+    {
+      "source": "LocalSkillServer.__init__",
+      "target": "Path"
+    },
+    {
+      "source": "LocalSkillServer.__init__",
+      "target": "sys_executable"
+    },
+    {
+      "source": "LocalSkillServer._ensure_discovered",
+      "target": "discover_skill_tools"
+    },
+    {
+      "source": "LocalSkillServer._ensure_discovered",
+      "target": "info"
+    },
+    {
+      "source": "LocalSkillServer._ensure_discovered",
+      "target": "len"
+    },
+    {
+      "source": "LocalSkillServer.list_tools",
+      "target": "LocalSkillServer._ensure_discovered"
+    },
+    {
+      "source": "LocalSkillServer.call_tool",
+      "target": "LocalSkillServer._ensure_discovered"
+    },
+    {
+      "source": "LocalSkillServer.call_tool",
+      "target": "next"
+    },
+    {
+      "source": "LocalSkillServer.call_tool",
+      "target": "_tool_error"
+    },
+    {
+      "source": "LocalSkillServer.call_tool",
+      "target": "Path"
+    },
+    {
+      "source": "LocalSkillServer.call_tool",
+      "target": "exists"
+    },
+    {
+      "source": "LocalSkillServer.call_tool",
+      "target": "items"
+    },
+    {
+      "source": "LocalSkillServer.call_tool",
+      "target": "isinstance"
+    },
+    {
+      "source": "LocalSkillServer.call_tool",
+      "target": "append"
+    },
+    {
+      "source": "LocalSkillServer.call_tool",
+      "target": "extend"
+    },
+    {
+      "source": "LocalSkillServer.call_tool",
+      "target": "str"
+    },
+    {
+      "source": "LocalSkillServer.call_tool",
+      "target": "create_subprocess_exec"
+    },
+    {
+      "source": "LocalSkillServer.call_tool",
+      "target": "wait_for"
+    },
+    {
+      "source": "LocalSkillServer.call_tool",
+      "target": "communicate"
+    },
+    {
+      "source": "LocalSkillServer.call_tool",
+      "target": "strip"
+    },
+    {
+      "source": "LocalSkillServer.call_tool",
+      "target": "decode"
+    },
+    {
+      "source": "LocalSkillServer.call_tool",
+      "target": "loads"
+    },
+    {
+      "source": "LocalSkillServer.call_tool",
+      "target": "dumps"
+    },
+    {
+      "source": "process_image",
+      "target": "get_settings"
+    },
+    {
+      "source": "process_image",
+      "target": "warning"
+    },
+    {
+      "source": "process_image",
+      "target": "startswith"
+    },
+    {
+      "source": "process_image",
+      "target": "open"
+    },
+    {
+      "source": "process_image",
+      "target": "BytesIO"
+    },
+    {
+      "source": "process_image",
+      "target": "bytes"
+    },
+    {
+      "source": "process_image",
+      "target": "thumbnail"
+    },
+    {
+      "source": "process_image",
+      "target": "debug"
+    },
+    {
+      "source": "process_image",
+      "target": "convert"
+    },
+    {
+      "source": "process_image",
+      "target": "save"
+    },
+    {
+      "source": "process_image",
+      "target": "decode"
+    },
+    {
+      "source": "process_image",
+      "target": "b64encode"
+    },
+    {
+      "source": "process_image",
+      "target": "getvalue"
+    },
+    {
+      "source": "process_image",
+      "target": "exception"
+    },
+    {
+      "source": "process_pdf",
+      "target": "get_settings"
+    },
+    {
+      "source": "process_pdf",
+      "target": "warning"
+    },
+    {
+      "source": "process_pdf",
+      "target": "open"
+    },
+    {
+      "source": "process_pdf",
+      "target": "BytesIO"
+    },
+    {
+      "source": "process_pdf",
+      "target": "bytes"
+    },
+    {
+      "source": "process_pdf",
+      "target": "extract_text"
+    },
+    {
+      "source": "process_pdf",
+      "target": "enumerate"
+    },
+    {
+      "source": "process_pdf",
+      "target": "join"
+    },
+    {
+      "source": "process_pdf",
+      "target": "debug"
+    },
+    {
+      "source": "process_pdf",
+      "target": "len"
+    },
+    {
+      "source": "process_pdf",
+      "target": "exception"
+    },
+    {
+      "source": "read_cpuinfo",
+      "target": "open"
+    },
+    {
+      "source": "read_cpuinfo",
+      "target": "split"
+    },
+    {
+      "source": "read_cpuinfo",
+      "target": "strip"
+    },
+    {
+      "source": "run_cmd",
+      "target": "run"
+    },
+    {
+      "source": "run_cmd",
+      "target": "strip"
+    },
+    {
+      "source": "get_cpu_temp",
+      "target": "hasattr"
+    },
+    {
+      "source": "get_cpu_temp",
+      "target": "sensors_temperatures"
+    },
+    {
+      "source": "get_cpu_temp",
+      "target": "items"
+    },
+    {
+      "source": "get_cpu_temp",
+      "target": "round"
+    },
+    {
+      "source": "get_cpu_temp",
+      "target": "run_cmd"
+    },
+    {
+      "source": "get_cpu_temp",
+      "target": "search"
+    },
+    {
+      "source": "get_cpu_temp",
+      "target": "float"
+    },
+    {
+      "source": "get_cpu_temp",
+      "target": "group"
+    },
+    {
+      "source": "get_network",
+      "target": "net_if_stats"
+    },
+    {
+      "source": "get_network",
+      "target": "net_if_addrs"
+    },
+    {
+      "source": "get_network",
+      "target": "net_io_counters"
+    },
+    {
+      "source": "get_network",
+      "target": "items"
+    },
+    {
+      "source": "get_network",
+      "target": "get"
+    },
+    {
+      "source": "get_network",
+      "target": "append"
+    },
+    {
+      "source": "get_top_processes",
+      "target": "process_iter"
+    },
+    {
+      "source": "get_top_processes",
+      "target": "cpu_percent"
+    },
+    {
+      "source": "get_top_processes",
+      "target": "sleep"
+    },
+    {
+      "source": "get_top_processes",
+      "target": "oneshot"
+    },
+    {
+      "source": "get_top_processes",
+      "target": "append"
+    },
+    {
+      "source": "get_top_processes",
+      "target": "round"
+    },
+    {
+      "source": "get_top_processes",
+      "target": "memory_percent"
+    },
+    {
+      "source": "get_top_processes",
+      "target": "status"
+    },
+    {
+      "source": "get_top_processes",
+      "target": "sorted"
+    },
+    {
+      "source": "get_cpu",
+      "target": "cpu_freq"
+    },
+    {
+      "source": "get_cpu",
+      "target": "get_cpu_model"
+    },
+    {
+      "source": "get_cpu",
+      "target": "cpu_count"
+    },
+    {
+      "source": "get_cpu",
+      "target": "round"
+    },
+    {
+      "source": "get_cpu",
+      "target": "cpu_percent"
+    },
+    {
+      "source": "get_cpu",
+      "target": "getloadavg"
+    },
+    {
+      "source": "get_cpu",
+      "target": "get_cpu_temp"
+    },
+    {
+      "source": "get_cpu_model",
+      "target": "processor"
+    },
+    {
+      "source": "get_cpu_model",
+      "target": "strip"
+    },
+    {
+      "source": "get_cpu_model",
+      "target": "lower"
+    },
+    {
+      "source": "get_cpu_model",
+      "target": "read_cpuinfo"
+    },
+    {
+      "source": "get_cpu_model",
+      "target": "get"
+    },
+    {
+      "source": "get_system",
+      "target": "fromtimestamp"
+    },
+    {
+      "source": "get_system",
+      "target": "boot_time"
+    },
+    {
+      "source": "get_system",
+      "target": "get_logged_users"
+    },
+    {
+      "source": "get_system",
+      "target": "system"
+    },
+    {
+      "source": "get_system",
+      "target": "release"
+    },
+    {
+      "source": "get_system",
+      "target": "version"
+    },
+    {
+      "source": "get_system",
+      "target": "node"
+    },
+    {
+      "source": "get_system",
+      "target": "machine"
+    },
+    {
+      "source": "get_system",
+      "target": "python_version"
+    },
+    {
+      "source": "get_system",
+      "target": "isoformat"
+    },
+    {
+      "source": "get_system",
+      "target": "int"
+    },
+    {
+      "source": "get_system",
+      "target": "time"
+    },
+    {
+      "source": "get_system",
+      "target": "round"
+    },
+    {
+      "source": "get_system",
+      "target": "getloadavg"
+    },
+    {
+      "source": "get_logged_users",
+      "target": "set"
+    },
+    {
+      "source": "get_logged_users",
+      "target": "users"
+    },
+    {
+      "source": "get_logged_users",
+      "target": "add"
+    },
+    {
+      "source": "get_logged_users",
+      "target": "run"
+    },
+    {
+      "source": "get_logged_users",
+      "target": "splitlines"
+    },
+    {
+      "source": "get_logged_users",
+      "target": "strip"
+    },
+    {
+      "source": "get_logged_users",
+      "target": "split"
+    },
+    {
+      "source": "get_logged_users",
+      "target": "get"
+    },
+    {
+      "source": "get_logged_users",
+      "target": "decode"
+    },
+    {
+      "source": "get_logged_users",
+      "target": "check_output"
+    },
+    {
+      "source": "get_logged_users",
+      "target": "len"
+    },
+    {
+      "source": "get_logged_users",
+      "target": "sorted"
+    },
+    {
+      "source": "get_logged_users",
+      "target": "list"
+    },
+    {
+      "source": "get_gpu_info",
+      "target": "run_cmd"
+    },
+    {
+      "source": "get_gpu_info",
+      "target": "splitlines"
+    },
+    {
+      "source": "get_gpu_info",
+      "target": "split"
+    },
+    {
+      "source": "get_gpu_info",
+      "target": "len"
+    },
+    {
+      "source": "get_gpu_info",
+      "target": "append"
+    },
+    {
+      "source": "get_gpu_info",
+      "target": "strip"
+    },
+    {
+      "source": "get_battery",
+      "target": "hasattr"
+    },
+    {
+      "source": "get_battery",
+      "target": "sensors_battery"
+    },
+    {
+      "source": "get_battery",
+      "target": "round"
+    },
+    {
+      "source": "get_disk",
+      "target": "disk_usage"
+    },
+    {
+      "source": "get_disk",
+      "target": "run_cmd"
+    },
+    {
+      "source": "get_disk",
+      "target": "round"
+    },
+    {
+      "source": "get_memory",
+      "target": "virtual_memory"
+    },
+    {
+      "source": "get_memory",
+      "target": "swap_memory"
+    },
+    {
+      "source": "get_memory",
+      "target": "round"
+    },
+    {
+      "source": "_starts_with_admin_prefix",
+      "target": "_strip_admin_prefix"
+    },
+    {
+      "source": "_starts_with_admin_prefix",
+      "target": "startswith"
+    },
+    {
+      "source": "_strip_admin_prefix",
+      "target": "lower"
+    },
+    {
+      "source": "_strip_admin_prefix",
+      "target": "strip"
+    },
+    {
+      "source": "_strip_admin_prefix",
+      "target": "startswith"
+    },
+    {
+      "source": "_strip_admin_prefix",
+      "target": "len"
+    },
+    {
+      "source": "_score_match",
+      "target": "lower"
+    },
+    {
+      "source": "_score_match",
+      "target": "get"
+    },
+    {
+      "source": "_score_match",
+      "target": "strip"
+    },
+    {
+      "source": "_score_match",
+      "target": "startswith"
+    },
+    {
+      "source": "_score_match",
+      "target": "_starts_with_admin_prefix"
+    },
+    {
+      "source": "_score_match",
+      "target": "min"
+    },
+    {
+      "source": "_safe_get",
+      "target": "len"
+    },
+    {
+      "source": "fetch_json",
+      "target": "Request"
+    },
+    {
+      "source": "fetch_json",
+      "target": "urlopen"
+    },
+    {
+      "source": "fetch_json",
+      "target": "loads"
+    },
+    {
+      "source": "fetch_json",
+      "target": "decode"
+    },
+    {
+      "source": "fetch_json",
+      "target": "read"
+    },
+    {
+      "source": "fetch_json",
+      "target": "RuntimeError"
+    },
+    {
+      "source": "geocode",
+      "target": "strip"
+    },
+    {
+      "source": "geocode",
+      "target": "RuntimeError"
+    },
+    {
+      "source": "geocode",
+      "target": "lower"
+    },
+    {
+      "source": "geocode",
+      "target": "max"
+    },
+    {
+      "source": "geocode",
+      "target": "len"
+    },
+    {
+      "source": "geocode",
+      "target": "urlencode"
+    },
+    {
+      "source": "geocode",
+      "target": "fetch_json"
+    },
+    {
+      "source": "geocode",
+      "target": "get"
+    },
+    {
+      "source": "geocode",
+      "target": "sort"
+    },
+    {
+      "source": "geocode",
+      "target": "_score_match"
+    },
+    {
+      "source": "fetch_weather",
+      "target": "urlencode"
+    },
+    {
+      "source": "fetch_weather",
+      "target": "fetch_json"
+    },
+    {
+      "source": "AgentIndexer.__init__",
+      "target": "getenv"
+    },
+    {
+      "source": "AgentIndexer.__init__",
+      "target": "OpenAI"
+    },
+    {
+      "source": "AgentIndexer.__init__",
+      "target": "join"
+    },
+    {
+      "source": "AgentIndexer.__init__",
+      "target": "getcwd"
+    },
+    {
+      "source": "AgentIndexer.__init__",
+      "target": "PersistentClient"
+    },
+    {
+      "source": "AgentIndexer.__init__",
+      "target": "get_or_create_collection"
+    },
+    {
+      "source": "AgentIndexer.__init__",
+      "target": "info"
+    },
+    {
+      "source": "AgentIndexer.analyze_code",
+      "target": "create"
+    },
+    {
+      "source": "AgentIndexer.analyze_code",
+      "target": "error"
+    },
+    {
+      "source": "AgentIndexer.process_all_symbols",
+      "target": "get"
+    },
+    {
+      "source": "AgentIndexer.process_all_symbols",
+      "target": "enumerate"
+    },
+    {
+      "source": "AgentIndexer.process_all_symbols",
+      "target": "info"
+    },
+    {
+      "source": "AgentIndexer.process_all_symbols",
+      "target": "AgentIndexer.analyze_code"
+    },
+    {
+      "source": "AgentIndexer.process_all_symbols",
+      "target": "print"
+    },
+    {
+      "source": "AgentIndexer.ask_about_code",
+      "target": "query"
+    },
+    {
+      "source": "AgentIndexer.ask_about_code",
+      "target": "join"
+    },
+    {
+      "source": "AgentIndexer.ask_about_code",
+      "target": "create"
+    },
+    {
+      "source": "AgentIndexer.ask_about_code",
+      "target": "error"
+    },
+    {
+      "source": "process_all_symbols",
+      "target": "get"
+    },
+    {
+      "source": "process_all_symbols",
+      "target": "enumerate"
+    },
+    {
+      "source": "process_all_symbols",
+      "target": "info"
+    },
+    {
+      "source": "process_all_symbols",
+      "target": "analyze_code"
+    },
+    {
+      "source": "process_all_symbols",
+      "target": "print"
+    },
+    {
+      "source": "analyze_code",
+      "target": "create"
+    },
+    {
+      "source": "analyze_code",
+      "target": "error"
+    },
+    {
+      "source": "ask_about_code",
+      "target": "query"
+    },
+    {
+      "source": "ask_about_code",
+      "target": "join"
+    },
+    {
+      "source": "ask_about_code",
+      "target": "create"
+    },
+    {
+      "source": "ask_about_code",
+      "target": "error"
+    },
+    {
+      "source": "execute",
+      "target": "startswith"
+    },
+    {
+      "source": "execute",
+      "target": "strip"
+    },
+    {
+      "source": "execute",
+      "target": "replace"
+    },
+    {
+      "source": "execute",
+      "target": "_original_search"
+    },
+    {
+      "source": "execute",
+      "target": "_ask_about_code"
+    },
+    {
+      "source": "execute",
+      "target": "str"
+    },
+    {
+      "source": "visit_FunctionDef",
+      "target": "_handle_function"
+    },
+    {
+      "source": "_handle_function",
+      "target": "_qualified_name"
+    },
+    {
+      "source": "_handle_function",
+      "target": "add_node"
+    },
+    {
+      "source": "_handle_function",
+      "target": "append"
+    },
+    {
+      "source": "_handle_function",
+      "target": "generic_visit"
+    },
+    {
+      "source": "_handle_function",
+      "target": "pop"
+    },
+    {
+      "source": "get_impact_analysis",
+      "target": "list"
+    },
+    {
+      "source": "get_impact_analysis",
+      "target": "predecessors"
+    },
+    {
+      "source": "get_impact_analysis",
+      "target": "descendants"
+    },
+    {
+      "source": "_CallGraphVisitor.visit_ClassDef",
+      "target": "append"
+    },
+    {
+      "source": "_CallGraphVisitor.visit_ClassDef",
+      "target": "_CallGraphVisitor.generic_visit"
+    },
+    {
+      "source": "_CallGraphVisitor.visit_ClassDef",
+      "target": "pop"
+    },
+    {
+      "source": "_CallGraphVisitor.visit_FunctionDef",
+      "target": "_CallGraphVisitor._handle_function"
+    },
+    {
+      "source": "_CallGraphVisitor._handle_function",
+      "target": "_CallGraphVisitor._qualified_name"
+    },
+    {
+      "source": "_CallGraphVisitor._handle_function",
+      "target": "add_node"
+    },
+    {
+      "source": "_CallGraphVisitor._handle_function",
+      "target": "append"
+    },
+    {
+      "source": "_CallGraphVisitor._handle_function",
+      "target": "_CallGraphVisitor.generic_visit"
+    },
+    {
+      "source": "_CallGraphVisitor._handle_function",
+      "target": "pop"
+    },
+    {
+      "source": "_CallGraphVisitor.visit_AsyncFunctionDef",
+      "target": "_CallGraphVisitor._handle_function"
+    },
+    {
+      "source": "_CallGraphVisitor.visit_Call",
+      "target": "_CallGraphVisitor._resolve_call_name"
+    },
+    {
+      "source": "_CallGraphVisitor.visit_Call",
+      "target": "add_edge"
+    },
+    {
+      "source": "_CallGraphVisitor.visit_Call",
+      "target": "_CallGraphVisitor.generic_visit"
+    },
+    {
+      "source": "_CallGraphVisitor._resolve_call_name",
+      "target": "isinstance"
+    },
+    {
+      "source": "visit_ClassDef",
+      "target": "append"
+    },
+    {
+      "source": "visit_ClassDef",
+      "target": "generic_visit"
+    },
+    {
+      "source": "visit_ClassDef",
+      "target": "pop"
+    },
+    {
+      "source": "visit_AsyncFunctionDef",
+      "target": "_handle_function"
+    },
+    {
+      "source": "visit_Call",
+      "target": "_resolve_call_name"
+    },
+    {
+      "source": "visit_Call",
+      "target": "add_edge"
+    },
+    {
+      "source": "visit_Call",
+      "target": "generic_visit"
+    },
+    {
+      "source": "_resolve_call_name",
+      "target": "isinstance"
+    },
+    {
+      "source": "GraphAnalyzer.__init__",
+      "target": "DiGraph"
+    },
+    {
+      "source": "GraphAnalyzer.analyze_code_structure",
+      "target": "parse"
+    },
+    {
+      "source": "GraphAnalyzer.analyze_code_structure",
+      "target": "print"
+    },
+    {
+      "source": "GraphAnalyzer.analyze_code_structure",
+      "target": "_CallGraphVisitor"
+    },
+    {
+      "source": "GraphAnalyzer.analyze_code_structure",
+      "target": "visit"
+    },
+    {
+      "source": "GraphAnalyzer.get_impact_analysis",
+      "target": "list"
+    },
+    {
+      "source": "GraphAnalyzer.get_impact_analysis",
+      "target": "predecessors"
+    },
+    {
+      "source": "GraphAnalyzer.get_impact_analysis",
+      "target": "descendants"
+    },
+    {
+      "source": "GraphAnalyzer.get_call_chain",
+      "target": "shortest_path"
+    },
+    {
+      "source": "GraphAnalyzer.export_graph",
+      "target": "node_link_data"
+    },
+    {
+      "source": "analyze_code_structure",
+      "target": "parse"
+    },
+    {
+      "source": "analyze_code_structure",
+      "target": "print"
+    },
+    {
+      "source": "analyze_code_structure",
+      "target": "_CallGraphVisitor"
+    },
+    {
+      "source": "analyze_code_structure",
+      "target": "visit"
+    },
+    {
+      "source": "get_call_chain",
+      "target": "shortest_path"
+    },
+    {
+      "source": "export_graph",
+      "target": "node_link_data"
+    },
+    {
+      "source": "get_all_code_from_chroma",
+      "target": "PersistentClient"
+    },
+    {
+      "source": "get_all_code_from_chroma",
+      "target": "RuntimeError"
+    },
+    {
+      "source": "get_all_code_from_chroma",
+      "target": "get_collection"
+    },
+    {
+      "source": "get_all_code_from_chroma",
+      "target": "get"
+    },
+    {
+      "source": "get_all_code_from_chroma",
+      "target": "zip"
+    },
+    {
+      "source": "get_all_code_from_chroma",
+      "target": "print"
+    },
+    {
+      "source": "get_all_code_from_chroma",
+      "target": "append"
+    },
+    {
+      "source": "build_graph",
+      "target": "len"
+    },
+    {
+      "source": "build_graph",
+      "target": "enumerate"
+    },
+    {
+      "source": "build_graph",
+      "target": "analyze_code_structure"
+    },
+    {
+      "source": "build_graph",
+      "target": "print"
+    },
+    {
+      "source": "ApprovalManager.add_task",
+      "target": "str"
+    },
+    {
+      "source": "ApprovalManager.add_task",
+      "target": "uuid4"
+    },
+    {
+      "source": "ApprovalManager.get_task",
+      "target": "pop"
+    },
+    {
+      "source": "add_task",
+      "target": "str"
+    },
+    {
+      "source": "add_task",
+      "target": "uuid4"
+    },
+    {
+      "source": "get_task",
+      "target": "pop"
+    },
+    {
+      "source": "UnifiedTools.list_all",
+      "target": "extend"
+    },
+    {
+      "source": "UnifiedTools.list_all",
+      "target": "list_tools"
+    },
+    {
+      "source": "UnifiedTools.list_all",
+      "target": "warning"
+    },
+    {
+      "source": "UnifiedTools.list_all",
+      "target": "_ensure_discovered"
+    },
+    {
+      "source": "UnifiedTools.list_all",
+      "target": "append"
+    },
+    {
+      "source": "UnifiedTools.call",
+      "target": "add_task"
+    },
+    {
+      "source": "UnifiedTools.call",
+      "target": "info"
+    },
+    {
+      "source": "UnifiedTools.call",
+      "target": "call_tool"
+    },
+    {
+      "source": "UnifiedTools.call",
+      "target": "_err"
+    },
+    {
+      "source": "UnifiedTools.call",
+      "target": "hasattr"
+    },
+    {
+      "source": "UnifiedTools.call",
+      "target": "get"
+    },
+    {
+      "source": "UnifiedTools.call",
+      "target": "list_tools"
+    },
+    {
+      "source": "UnifiedTools.call",
+      "target": "sorted"
+    },
+    {
+      "source": "UnifiedTools.call",
+      "target": "list"
+    },
+    {
+      "source": "call",
+      "target": "add_task"
+    },
+    {
+      "source": "call",
+      "target": "info"
+    },
+    {
+      "source": "call",
+      "target": "call_tool"
+    },
+    {
+      "source": "call",
+      "target": "_err"
+    },
+    {
+      "source": "call",
+      "target": "hasattr"
+    },
+    {
+      "source": "call",
+      "target": "get"
+    },
+    {
+      "source": "call",
+      "target": "list_tools"
+    },
+    {
+      "source": "call",
+      "target": "sorted"
+    },
+    {
+      "source": "call",
+      "target": "list"
+    },
+    {
+      "source": "list_all",
+      "target": "extend"
+    },
+    {
+      "source": "list_all",
+      "target": "list_tools"
+    },
+    {
+      "source": "list_all",
+      "target": "warning"
+    },
+    {
+      "source": "list_all",
+      "target": "_ensure_discovered"
+    },
+    {
+      "source": "list_all",
+      "target": "append"
+    }
+  ]
+}
