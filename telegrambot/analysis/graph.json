@@ -197,165 +197,15 @@
       "id": "_parse_chat_ids"
     },
     {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/dispatcher.py",
-      "type": "function",
-      "id": "__init__"
-    },
-    {
-      "id": "abspath"
-    },
-    {
-      "id": "getcwd"
-    },
-    {
-      "id": "join"
-    },
-    {
-      "id": "PersistentClient"
-    },
-    {
-      "id": "get_or_create_collection"
-    },
-    {
-      "id": "Language"
-    },
-    {
-      "id": "language"
-    },
-    {
-      "id": "Parser"
-    },
-    {
-      "id": "Query"
-    },
-    {
-      "id": "QueryCursor"
-    },
-    {
-      "id": "Lock"
-    },
-    {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/ai_indexer.py",
-      "type": "function",
-      "id": "CodebaseManager.__init__"
-    },
-    {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/ai_indexer.py",
-      "type": "function",
-      "id": "CodebaseManager._normalize_path"
-    },
-    {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/ai_indexer.py",
-      "type": "function",
-      "id": "CodebaseManager._index_file"
-    },
-    {
-      "id": "getsize"
-    },
-    {
-      "id": "read"
-    },
-    {
-      "id": "parse"
-    },
-    {
-      "id": "bytes"
-    },
-    {
-      "id": "captures"
-    },
-    {
-      "id": "delete"
-    },
-    {
-      "id": "basename"
-    },
-    {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/ai_indexer.py",
-      "type": "function",
-      "id": "CodebaseManager._remove_file"
-    },
-    {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/ai_indexer.py",
-      "type": "function",
-      "id": "CodebaseManager.get_context"
-    },
-    {
-      "id": "query"
-    },
-    {
-      "id": "zip"
-    },
-    {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/ai_indexer.py",
-      "type": "function",
-      "id": "CodebaseManager._is_ignored"
-    },
-    {
-      "id": "normpath"
-    },
-    {
-      "id": "any"
-    },
-    {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/ai_indexer.py",
-      "type": "function",
-      "id": "CodebaseManager.start_watcher"
-    },
-    {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/ai_indexer.py",
-      "type": "function",
-      "id": "Handler.on_modified"
-    },
-    {
-      "id": "endswith"
-    },
-    {
-      "id": "_is_ignored"
-    },
-    {
-      "id": "_index_file"
-    },
-    {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/ai_indexer.py",
-      "type": "function",
-      "id": "Handler.on_created"
-    },
-    {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/ai_indexer.py",
-      "type": "function",
-      "id": "Handler.on_deleted"
-    },
-    {
-      "id": "_remove_file"
-    },
-    {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/ai_indexer.py",
-      "type": "function",
-      "id": "Handler.on_moved"
-    },
-    {
-      "id": "getattr"
-    },
-    {
-      "id": "walk"
-    },
-    {
-      "id": "Observer"
-    },
-    {
-      "id": "schedule"
-    },
-    {
-      "id": "Handler"
-    },
-    {
       "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/middlewares.py",
       "type": "function",
       "id": "PerUserRateLimiter.__init__"
     },
     {
       "id": "defaultdict"
+    },
+    {
+      "id": "Lock"
     },
     {
       "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/middlewares.py",
@@ -371,12 +221,17 @@
     {
       "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/middlewares.py",
       "type": "function",
-      "id": "allow"
+      "id": "is_chat_allowed"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/agent_indexer.py",
+      "type": "function",
+      "id": "__init__"
     },
     {
       "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/middlewares.py",
       "type": "function",
-      "id": "is_chat_allowed"
+      "id": "allow"
     },
     {
       "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/states.py",
@@ -409,21 +264,6 @@
       "id": "flush"
     },
     {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/states.py",
-      "type": "function",
-      "id": "StateStore.__init__"
-    },
-    {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/states.py",
-      "type": "function",
-      "id": "StateStore._load"
-    },
-    {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/states.py",
-      "type": "function",
-      "id": "StateStore.flush"
-    },
-    {
       "id": "list"
     },
     {
@@ -437,6 +277,21 @@
     },
     {
       "id": "replace"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/states.py",
+      "type": "function",
+      "id": "StateStore.__init__"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/states.py",
+      "type": "function",
+      "id": "StateStore._load"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/states.py",
+      "type": "function",
+      "id": "StateStore.flush"
     },
     {
       "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/states.py",
@@ -546,6 +401,28 @@
       "id": "create_task"
     },
     {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/bot/handlers/approval_callback.py",
+      "type": "function",
+      "id": "handle_approval_callback"
+    },
+    {
+      "id": "answer"
+    },
+    {
+      "id": "startswith"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/approval_manager.py",
+      "type": "function",
+      "id": "execute_task"
+    },
+    {
+      "id": "edit_message_text"
+    },
+    {
+      "id": "remove_task"
+    },
+    {
       "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/llm/openai_compat.py",
       "type": "function",
       "id": "stream_chat_completions"
@@ -587,9 +464,6 @@
     },
     {
       "id": "aiter_lines"
-    },
-    {
-      "id": "startswith"
     },
     {
       "id": "ChatChunk"
@@ -809,6 +683,9 @@
       "id": "call_tool"
     },
     {
+      "id": "getattr"
+    },
+    {
       "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/client.py",
       "type": "function",
       "id": "MCPClient.aclose"
@@ -863,12 +740,91 @@
       "id": "communicate"
     },
     {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/approval_manager.py",
+      "type": "function",
+      "id": "ApprovalManager.__init__"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/approval_manager.py",
+      "type": "function",
+      "id": "ApprovalManager.add_task"
+    },
+    {
+      "id": "uuid4"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/approval_manager.py",
+      "type": "function",
+      "id": "ApprovalManager.get_task"
+    },
+    {
+      "id": "pop"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/approval_manager.py",
+      "type": "function",
+      "id": "ApprovalManager.execute_task"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/dispatcher.py",
+      "type": "function",
+      "id": "call_real"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/approval_manager.py",
+      "type": "function",
+      "id": "get_task"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/approval_manager.py",
+      "type": "function",
+      "id": "add_task"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/dispatcher.py",
+      "type": "function",
+      "id": "list_all"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/dispatcher.py",
+      "type": "function",
+      "id": "UnifiedTools.__init__"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/dispatcher.py",
+      "type": "function",
+      "id": "UnifiedTools.list_all"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/dispatcher.py",
+      "type": "function",
+      "id": "UnifiedTools.call"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/dispatcher.py",
+      "type": "function",
+      "id": "UnifiedTools.call_real"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/dispatcher.py",
+      "type": "function",
+      "id": "_err"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/dispatcher.py",
+      "type": "function",
+      "id": "call"
+    },
+    {
       "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/utils/images.py",
       "type": "function",
       "id": "process_image"
     },
     {
       "id": "BytesIO"
+    },
+    {
+      "id": "bytes"
     },
     {
       "id": "thumbnail"
@@ -903,14 +859,12 @@
       "id": "enumerate"
     },
     {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/checkresources/checkresources.py",
-      "type": "function",
-      "id": "read_cpuinfo"
+      "id": "join"
     },
     {
       "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/checkresources/checkresources.py",
       "type": "function",
-      "id": "run_cmd"
+      "id": "read_cpuinfo"
     },
     {
       "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/checkresources/checkresources.py",
@@ -922,6 +876,11 @@
     },
     {
       "id": "round"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/checkresources/checkresources.py",
+      "type": "function",
+      "id": "run_cmd"
     },
     {
       "id": "search"
@@ -1023,18 +982,18 @@
       "id": "time"
     },
     {
+      "id": "processor"
+    },
+    {
+      "id": "lower"
+    },
+    {
       "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/checkresources/checkresources.py",
       "type": "function",
       "id": "get_gpu_info"
     },
     {
       "id": "splitlines"
-    },
-    {
-      "id": "processor"
-    },
-    {
-      "id": "lower"
     },
     {
       "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/checkresources/checkresources.py",
@@ -1072,20 +1031,20 @@
     {
       "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/weather_openmeteo/weather_openmeteo.py",
       "type": "function",
+      "id": "_score_match"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/weather_openmeteo/weather_openmeteo.py",
+      "type": "function",
       "id": "_starts_with_admin_prefix"
+    },
+    {
+      "id": "min"
     },
     {
       "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/weather_openmeteo/weather_openmeteo.py",
       "type": "function",
       "id": "_strip_admin_prefix"
-    },
-    {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/weather_openmeteo/weather_openmeteo.py",
-      "type": "function",
-      "id": "_score_match"
-    },
-    {
-      "id": "min"
     },
     {
       "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/weather_openmeteo/weather_openmeteo.py",
@@ -1102,6 +1061,9 @@
     },
     {
       "id": "urlopen"
+    },
+    {
+      "id": "read"
     },
     {
       "id": "RuntimeError"
@@ -1124,50 +1086,6 @@
       "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/weather_openmeteo/weather_openmeteo.py",
       "type": "function",
       "id": "fetch_weather"
-    },
-    {
-      "id": "getenv"
-    },
-    {
-      "id": "OpenAI"
-    },
-    {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/agent_indexer.py",
-      "type": "function",
-      "id": "AgentIndexer.__init__"
-    },
-    {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/agent_indexer.py",
-      "type": "function",
-      "id": "AgentIndexer.analyze_code"
-    },
-    {
-      "id": "create"
-    },
-    {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/agent_indexer.py",
-      "type": "function",
-      "id": "AgentIndexer.process_all_symbols"
-    },
-    {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/agent_indexer.py",
-      "type": "function",
-      "id": "AgentIndexer.ask_about_code"
-    },
-    {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/agent_indexer.py",
-      "type": "function",
-      "id": "process_all_symbols"
-    },
-    {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/agent_indexer.py",
-      "type": "function",
-      "id": "analyze_code"
-    },
-    {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/agent_indexer.py",
-      "type": "function",
-      "id": "ask_about_code"
     },
     {
       "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/skills/code_search/code_search.py",
@@ -1200,9 +1118,6 @@
     },
     {
       "id": "generic_visit"
-    },
-    {
-      "id": "pop"
     },
     {
       "id": "DiGraph"
@@ -1295,6 +1210,9 @@
       "id": "GraphAnalyzer.analyze_code_structure"
     },
     {
+      "id": "parse"
+    },
+    {
       "id": "_CallGraphVisitor"
     },
     {
@@ -1342,7 +1260,18 @@
       "id": "get_all_code_from_chroma"
     },
     {
+      "id": "PersistentClient"
+    },
+    {
       "id": "get_collection"
+    },
+    {
+      "id": "zip"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/run_graph_analyzer.py",
+      "type": "function",
+      "id": "build_graph"
     },
     {
       "id": "ArgumentParser"
@@ -1357,73 +1286,178 @@
       "id": "GraphAnalyzer"
     },
     {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/run_graph_analyzer.py",
-      "type": "function",
-      "id": "build_graph"
-    },
-    {
       "id": "number_of_nodes"
     },
     {
       "id": "number_of_edges"
     },
     {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/approval_manager.py",
-      "type": "function",
-      "id": "ApprovalManager.__init__"
+      "id": "abspath"
     },
     {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/approval_manager.py",
-      "type": "function",
-      "id": "ApprovalManager.add_task"
+      "id": "getcwd"
     },
     {
-      "id": "uuid4"
+      "id": "get_or_create_collection"
     },
     {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/approval_manager.py",
-      "type": "function",
-      "id": "ApprovalManager.get_task"
+      "id": "Language"
     },
     {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/approval_manager.py",
-      "type": "function",
-      "id": "add_task"
+      "id": "language"
     },
     {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/approval_manager.py",
-      "type": "function",
-      "id": "get_task"
+      "id": "Parser"
     },
     {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/dispatcher.py",
-      "type": "function",
-      "id": "UnifiedTools.__init__"
+      "id": "Query"
     },
     {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/dispatcher.py",
-      "type": "function",
-      "id": "UnifiedTools.list_all"
+      "id": "QueryCursor"
     },
     {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/dispatcher.py",
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/ai_indexer.py",
       "type": "function",
-      "id": "UnifiedTools.call"
+      "id": "CodebaseManager.__init__"
     },
     {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/dispatcher.py",
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/ai_indexer.py",
       "type": "function",
-      "id": "_err"
+      "id": "CodebaseManager._normalize_path"
     },
     {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/dispatcher.py",
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/ai_indexer.py",
       "type": "function",
-      "id": "call"
+      "id": "CodebaseManager._index_file"
     },
     {
-      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/mcp_agent/dispatcher.py",
+      "id": "getsize"
+    },
+    {
+      "id": "captures"
+    },
+    {
+      "id": "delete"
+    },
+    {
+      "id": "basename"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/ai_indexer.py",
       "type": "function",
-      "id": "list_all"
+      "id": "CodebaseManager._remove_file"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/ai_indexer.py",
+      "type": "function",
+      "id": "CodebaseManager.get_context"
+    },
+    {
+      "id": "query"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/ai_indexer.py",
+      "type": "function",
+      "id": "CodebaseManager._is_ignored"
+    },
+    {
+      "id": "normpath"
+    },
+    {
+      "id": "any"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/ai_indexer.py",
+      "type": "function",
+      "id": "CodebaseManager.start_watcher"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/ai_indexer.py",
+      "type": "function",
+      "id": "Handler.on_modified"
+    },
+    {
+      "id": "endswith"
+    },
+    {
+      "id": "_is_ignored"
+    },
+    {
+      "id": "_index_file"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/ai_indexer.py",
+      "type": "function",
+      "id": "Handler.on_created"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/ai_indexer.py",
+      "type": "function",
+      "id": "Handler.on_deleted"
+    },
+    {
+      "id": "_remove_file"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/ai_indexer.py",
+      "type": "function",
+      "id": "Handler.on_moved"
+    },
+    {
+      "id": "walk"
+    },
+    {
+      "id": "Observer"
+    },
+    {
+      "id": "schedule"
+    },
+    {
+      "id": "Handler"
+    },
+    {
+      "id": "getenv"
+    },
+    {
+      "id": "OpenAI"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/agent_indexer.py",
+      "type": "function",
+      "id": "AgentIndexer.__init__"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/agent_indexer.py",
+      "type": "function",
+      "id": "AgentIndexer.analyze_code"
+    },
+    {
+      "id": "create"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/agent_indexer.py",
+      "type": "function",
+      "id": "AgentIndexer.process_all_symbols"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/agent_indexer.py",
+      "type": "function",
+      "id": "AgentIndexer.ask_about_code"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/agent_indexer.py",
+      "type": "function",
+      "id": "analyze_code"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/agent_indexer.py",
+      "type": "function",
+      "id": "process_all_symbols"
+    },
+    {
+      "file": "/home/dell/Desktop/workspace/simplefastapi/telegrambot/analysis/agent_indexer.py",
+      "type": "function",
+      "id": "ask_about_code"
     }
   ],
   "edges": [
@@ -2012,56 +2046,36 @@
       "target": "ValueError"
     },
     {
-      "source": "__init__",
-      "target": "abspath"
+      "source": "PerUserRateLimiter.__init__",
+      "target": "defaultdict"
     },
     {
-      "source": "__init__",
-      "target": "getcwd"
-    },
-    {
-      "source": "__init__",
-      "target": "join"
-    },
-    {
-      "source": "__init__",
-      "target": "PersistentClient"
-    },
-    {
-      "source": "__init__",
-      "target": "get_or_create_collection"
-    },
-    {
-      "source": "__init__",
-      "target": "Language"
-    },
-    {
-      "source": "__init__",
-      "target": "language"
-    },
-    {
-      "source": "__init__",
-      "target": "Parser"
-    },
-    {
-      "source": "__init__",
-      "target": "Query"
-    },
-    {
-      "source": "__init__",
-      "target": "QueryCursor"
-    },
-    {
-      "source": "__init__",
+      "source": "PerUserRateLimiter.__init__",
       "target": "Lock"
     },
     {
-      "source": "__init__",
-      "target": "info"
+      "source": "PerUserRateLimiter.allow",
+      "target": "monotonic"
+    },
+    {
+      "source": "PerUserRateLimiter.allow",
+      "target": "popleft"
+    },
+    {
+      "source": "PerUserRateLimiter.allow",
+      "target": "len"
+    },
+    {
+      "source": "PerUserRateLimiter.allow",
+      "target": "append"
     },
     {
       "source": "__init__",
       "target": "defaultdict"
+    },
+    {
+      "source": "__init__",
+      "target": "Lock"
     },
     {
       "source": "__init__",
@@ -2089,299 +2103,59 @@
     },
     {
       "source": "__init__",
+      "target": "DiGraph"
+    },
+    {
+      "source": "__init__",
+      "target": "abspath"
+    },
+    {
+      "source": "__init__",
+      "target": "getcwd"
+    },
+    {
+      "source": "__init__",
+      "target": "join"
+    },
+    {
+      "source": "__init__",
+      "target": "PersistentClient"
+    },
+    {
+      "source": "__init__",
+      "target": "get_or_create_collection"
+    },
+    {
+      "source": "__init__",
+      "target": "Language"
+    },
+    {
+      "source": "__init__",
+      "target": "language"
+    },
+    {
+      "source": "__init__",
+      "target": "Parser"
+    },
+    {
+      "source": "__init__",
+      "target": "Query"
+    },
+    {
+      "source": "__init__",
+      "target": "QueryCursor"
+    },
+    {
+      "source": "__init__",
+      "target": "info"
+    },
+    {
+      "source": "__init__",
       "target": "getenv"
     },
     {
       "source": "__init__",
       "target": "OpenAI"
-    },
-    {
-      "source": "__init__",
-      "target": "DiGraph"
-    },
-    {
-      "source": "CodebaseManager.__init__",
-      "target": "abspath"
-    },
-    {
-      "source": "CodebaseManager.__init__",
-      "target": "getcwd"
-    },
-    {
-      "source": "CodebaseManager.__init__",
-      "target": "join"
-    },
-    {
-      "source": "CodebaseManager.__init__",
-      "target": "PersistentClient"
-    },
-    {
-      "source": "CodebaseManager.__init__",
-      "target": "get_or_create_collection"
-    },
-    {
-      "source": "CodebaseManager.__init__",
-      "target": "Language"
-    },
-    {
-      "source": "CodebaseManager.__init__",
-      "target": "language"
-    },
-    {
-      "source": "CodebaseManager.__init__",
-      "target": "Parser"
-    },
-    {
-      "source": "CodebaseManager.__init__",
-      "target": "Query"
-    },
-    {
-      "source": "CodebaseManager.__init__",
-      "target": "QueryCursor"
-    },
-    {
-      "source": "CodebaseManager.__init__",
-      "target": "Lock"
-    },
-    {
-      "source": "CodebaseManager.__init__",
-      "target": "info"
-    },
-    {
-      "source": "CodebaseManager._normalize_path",
-      "target": "abspath"
-    },
-    {
-      "source": "CodebaseManager._index_file",
-      "target": "CodebaseManager._normalize_path"
-    },
-    {
-      "source": "CodebaseManager._index_file",
-      "target": "exists"
-    },
-    {
-      "source": "CodebaseManager._index_file",
-      "target": "getsize"
-    },
-    {
-      "source": "CodebaseManager._index_file",
-      "target": "warning"
-    },
-    {
-      "source": "CodebaseManager._index_file",
-      "target": "open"
-    },
-    {
-      "source": "CodebaseManager._index_file",
-      "target": "read"
-    },
-    {
-      "source": "CodebaseManager._index_file",
-      "target": "parse"
-    },
-    {
-      "source": "CodebaseManager._index_file",
-      "target": "bytes"
-    },
-    {
-      "source": "CodebaseManager._index_file",
-      "target": "captures"
-    },
-    {
-      "source": "CodebaseManager._index_file",
-      "target": "get"
-    },
-    {
-      "source": "CodebaseManager._index_file",
-      "target": "append"
-    },
-    {
-      "source": "CodebaseManager._index_file",
-      "target": "delete"
-    },
-    {
-      "source": "CodebaseManager._index_file",
-      "target": "add"
-    },
-    {
-      "source": "CodebaseManager._index_file",
-      "target": "info"
-    },
-    {
-      "source": "CodebaseManager._index_file",
-      "target": "len"
-    },
-    {
-      "source": "CodebaseManager._index_file",
-      "target": "basename"
-    },
-    {
-      "source": "CodebaseManager._index_file",
-      "target": "error"
-    },
-    {
-      "source": "CodebaseManager._remove_file",
-      "target": "CodebaseManager._normalize_path"
-    },
-    {
-      "source": "CodebaseManager._remove_file",
-      "target": "delete"
-    },
-    {
-      "source": "CodebaseManager._remove_file",
-      "target": "info"
-    },
-    {
-      "source": "CodebaseManager._remove_file",
-      "target": "basename"
-    },
-    {
-      "source": "CodebaseManager._remove_file",
-      "target": "error"
-    },
-    {
-      "source": "CodebaseManager.get_context",
-      "target": "CodebaseManager._normalize_path"
-    },
-    {
-      "source": "CodebaseManager.get_context",
-      "target": "query"
-    },
-    {
-      "source": "CodebaseManager.get_context",
-      "target": "get"
-    },
-    {
-      "source": "CodebaseManager.get_context",
-      "target": "zip"
-    },
-    {
-      "source": "CodebaseManager._is_ignored",
-      "target": "split"
-    },
-    {
-      "source": "CodebaseManager._is_ignored",
-      "target": "normpath"
-    },
-    {
-      "source": "CodebaseManager._is_ignored",
-      "target": "any"
-    },
-    {
-      "source": "CodebaseManager.start_watcher",
-      "target": "walk"
-    },
-    {
-      "source": "CodebaseManager.start_watcher",
-      "target": "endswith"
-    },
-    {
-      "source": "CodebaseManager.start_watcher",
-      "target": "CodebaseManager._index_file"
-    },
-    {
-      "source": "CodebaseManager.start_watcher",
-      "target": "join"
-    },
-    {
-      "source": "CodebaseManager.start_watcher",
-      "target": "Observer"
-    },
-    {
-      "source": "CodebaseManager.start_watcher",
-      "target": "schedule"
-    },
-    {
-      "source": "CodebaseManager.start_watcher",
-      "target": "Handler"
-    },
-    {
-      "source": "CodebaseManager.start_watcher",
-      "target": "start"
-    },
-    {
-      "source": "CodebaseManager.start_watcher",
-      "target": "info"
-    },
-    {
-      "source": "Handler.on_modified",
-      "target": "endswith"
-    },
-    {
-      "source": "Handler.on_modified",
-      "target": "_is_ignored"
-    },
-    {
-      "source": "Handler.on_modified",
-      "target": "_index_file"
-    },
-    {
-      "source": "Handler.on_created",
-      "target": "endswith"
-    },
-    {
-      "source": "Handler.on_created",
-      "target": "_is_ignored"
-    },
-    {
-      "source": "Handler.on_created",
-      "target": "_index_file"
-    },
-    {
-      "source": "Handler.on_deleted",
-      "target": "endswith"
-    },
-    {
-      "source": "Handler.on_deleted",
-      "target": "_is_ignored"
-    },
-    {
-      "source": "Handler.on_deleted",
-      "target": "_remove_file"
-    },
-    {
-      "source": "Handler.on_moved",
-      "target": "endswith"
-    },
-    {
-      "source": "Handler.on_moved",
-      "target": "_is_ignored"
-    },
-    {
-      "source": "Handler.on_moved",
-      "target": "_remove_file"
-    },
-    {
-      "source": "Handler.on_moved",
-      "target": "getattr"
-    },
-    {
-      "source": "Handler.on_moved",
-      "target": "_index_file"
-    },
-    {
-      "source": "PerUserRateLimiter.__init__",
-      "target": "defaultdict"
-    },
-    {
-      "source": "PerUserRateLimiter.__init__",
-      "target": "Lock"
-    },
-    {
-      "source": "PerUserRateLimiter.allow",
-      "target": "monotonic"
-    },
-    {
-      "source": "PerUserRateLimiter.allow",
-      "target": "popleft"
-    },
-    {
-      "source": "PerUserRateLimiter.allow",
-      "target": "len"
-    },
-    {
-      "source": "PerUserRateLimiter.allow",
-      "target": "append"
     },
     {
       "source": "allow",
@@ -2678,6 +2452,42 @@
     {
       "source": "periodic_flush",
       "target": "info"
+    },
+    {
+      "source": "handle_approval_callback",
+      "target": "answer"
+    },
+    {
+      "source": "handle_approval_callback",
+      "target": "startswith"
+    },
+    {
+      "source": "handle_approval_callback",
+      "target": "split"
+    },
+    {
+      "source": "handle_approval_callback",
+      "target": "get"
+    },
+    {
+      "source": "handle_approval_callback",
+      "target": "execute_task"
+    },
+    {
+      "source": "handle_approval_callback",
+      "target": "edit_message_text"
+    },
+    {
+      "source": "handle_approval_callback",
+      "target": "remove_task"
+    },
+    {
+      "source": "execute_task",
+      "target": "get_task"
+    },
+    {
+      "source": "execute_task",
+      "target": "call_real"
     },
     {
       "source": "stream_chat_completions",
@@ -3404,6 +3214,158 @@
       "target": "dumps"
     },
     {
+      "source": "ApprovalManager.add_task",
+      "target": "str"
+    },
+    {
+      "source": "ApprovalManager.add_task",
+      "target": "uuid4"
+    },
+    {
+      "source": "ApprovalManager.get_task",
+      "target": "pop"
+    },
+    {
+      "source": "ApprovalManager.execute_task",
+      "target": "ApprovalManager.get_task"
+    },
+    {
+      "source": "ApprovalManager.execute_task",
+      "target": "call_real"
+    },
+    {
+      "source": "call_real",
+      "target": "info"
+    },
+    {
+      "source": "call_real",
+      "target": "call_tool"
+    },
+    {
+      "source": "call_real",
+      "target": "_err"
+    },
+    {
+      "source": "call_real",
+      "target": "hasattr"
+    },
+    {
+      "source": "call_real",
+      "target": "get"
+    },
+    {
+      "source": "call_real",
+      "target": "list_tools"
+    },
+    {
+      "source": "call_real",
+      "target": "sorted"
+    },
+    {
+      "source": "call_real",
+      "target": "list"
+    },
+    {
+      "source": "get_task",
+      "target": "pop"
+    },
+    {
+      "source": "add_task",
+      "target": "str"
+    },
+    {
+      "source": "add_task",
+      "target": "uuid4"
+    },
+    {
+      "source": "list_all",
+      "target": "extend"
+    },
+    {
+      "source": "list_all",
+      "target": "list_tools"
+    },
+    {
+      "source": "list_all",
+      "target": "warning"
+    },
+    {
+      "source": "list_all",
+      "target": "_ensure_discovered"
+    },
+    {
+      "source": "list_all",
+      "target": "append"
+    },
+    {
+      "source": "UnifiedTools.list_all",
+      "target": "extend"
+    },
+    {
+      "source": "UnifiedTools.list_all",
+      "target": "list_tools"
+    },
+    {
+      "source": "UnifiedTools.list_all",
+      "target": "warning"
+    },
+    {
+      "source": "UnifiedTools.list_all",
+      "target": "_ensure_discovered"
+    },
+    {
+      "source": "UnifiedTools.list_all",
+      "target": "append"
+    },
+    {
+      "source": "UnifiedTools.call",
+      "target": "add_task"
+    },
+    {
+      "source": "UnifiedTools.call",
+      "target": "UnifiedTools.call_real"
+    },
+    {
+      "source": "UnifiedTools.call_real",
+      "target": "info"
+    },
+    {
+      "source": "UnifiedTools.call_real",
+      "target": "call_tool"
+    },
+    {
+      "source": "UnifiedTools.call_real",
+      "target": "_err"
+    },
+    {
+      "source": "UnifiedTools.call_real",
+      "target": "hasattr"
+    },
+    {
+      "source": "UnifiedTools.call_real",
+      "target": "get"
+    },
+    {
+      "source": "UnifiedTools.call_real",
+      "target": "list_tools"
+    },
+    {
+      "source": "UnifiedTools.call_real",
+      "target": "sorted"
+    },
+    {
+      "source": "UnifiedTools.call_real",
+      "target": "list"
+    },
+    {
+      "source": "call",
+      "target": "add_task"
+    },
+    {
+      "source": "call",
+      "target": "call_real"
+    },
+    {
       "source": "process_image",
       "target": "get_settings"
     },
@@ -3516,14 +3478,6 @@
       "target": "strip"
     },
     {
-      "source": "run_cmd",
-      "target": "run"
-    },
-    {
-      "source": "run_cmd",
-      "target": "strip"
-    },
-    {
       "source": "get_cpu_temp",
       "target": "hasattr"
     },
@@ -3554,6 +3508,14 @@
     {
       "source": "get_cpu_temp",
       "target": "group"
+    },
+    {
+      "source": "run_cmd",
+      "target": "run"
+    },
+    {
+      "source": "run_cmd",
+      "target": "strip"
     },
     {
       "source": "get_network",
@@ -3832,30 +3794,6 @@
       "target": "round"
     },
     {
-      "source": "_starts_with_admin_prefix",
-      "target": "_strip_admin_prefix"
-    },
-    {
-      "source": "_starts_with_admin_prefix",
-      "target": "startswith"
-    },
-    {
-      "source": "_strip_admin_prefix",
-      "target": "lower"
-    },
-    {
-      "source": "_strip_admin_prefix",
-      "target": "strip"
-    },
-    {
-      "source": "_strip_admin_prefix",
-      "target": "startswith"
-    },
-    {
-      "source": "_strip_admin_prefix",
-      "target": "len"
-    },
-    {
       "source": "_score_match",
       "target": "lower"
     },
@@ -3878,6 +3816,30 @@
     {
       "source": "_score_match",
       "target": "min"
+    },
+    {
+      "source": "_starts_with_admin_prefix",
+      "target": "_strip_admin_prefix"
+    },
+    {
+      "source": "_starts_with_admin_prefix",
+      "target": "startswith"
+    },
+    {
+      "source": "_strip_admin_prefix",
+      "target": "lower"
+    },
+    {
+      "source": "_strip_admin_prefix",
+      "target": "strip"
+    },
+    {
+      "source": "_strip_admin_prefix",
+      "target": "startswith"
+    },
+    {
+      "source": "_strip_admin_prefix",
+      "target": "len"
     },
     {
       "source": "_safe_get",
@@ -3954,122 +3916,6 @@
     {
       "source": "fetch_weather",
       "target": "fetch_json"
-    },
-    {
-      "source": "AgentIndexer.__init__",
-      "target": "getenv"
-    },
-    {
-      "source": "AgentIndexer.__init__",
-      "target": "OpenAI"
-    },
-    {
-      "source": "AgentIndexer.__init__",
-      "target": "join"
-    },
-    {
-      "source": "AgentIndexer.__init__",
-      "target": "getcwd"
-    },
-    {
-      "source": "AgentIndexer.__init__",
-      "target": "PersistentClient"
-    },
-    {
-      "source": "AgentIndexer.__init__",
-      "target": "get_or_create_collection"
-    },
-    {
-      "source": "AgentIndexer.__init__",
-      "target": "info"
-    },
-    {
-      "source": "AgentIndexer.analyze_code",
-      "target": "create"
-    },
-    {
-      "source": "AgentIndexer.analyze_code",
-      "target": "error"
-    },
-    {
-      "source": "AgentIndexer.process_all_symbols",
-      "target": "get"
-    },
-    {
-      "source": "AgentIndexer.process_all_symbols",
-      "target": "enumerate"
-    },
-    {
-      "source": "AgentIndexer.process_all_symbols",
-      "target": "info"
-    },
-    {
-      "source": "AgentIndexer.process_all_symbols",
-      "target": "AgentIndexer.analyze_code"
-    },
-    {
-      "source": "AgentIndexer.process_all_symbols",
-      "target": "print"
-    },
-    {
-      "source": "AgentIndexer.ask_about_code",
-      "target": "query"
-    },
-    {
-      "source": "AgentIndexer.ask_about_code",
-      "target": "join"
-    },
-    {
-      "source": "AgentIndexer.ask_about_code",
-      "target": "create"
-    },
-    {
-      "source": "AgentIndexer.ask_about_code",
-      "target": "error"
-    },
-    {
-      "source": "process_all_symbols",
-      "target": "get"
-    },
-    {
-      "source": "process_all_symbols",
-      "target": "enumerate"
-    },
-    {
-      "source": "process_all_symbols",
-      "target": "info"
-    },
-    {
-      "source": "process_all_symbols",
-      "target": "analyze_code"
-    },
-    {
-      "source": "process_all_symbols",
-      "target": "print"
-    },
-    {
-      "source": "analyze_code",
-      "target": "create"
-    },
-    {
-      "source": "analyze_code",
-      "target": "error"
-    },
-    {
-      "source": "ask_about_code",
-      "target": "query"
-    },
-    {
-      "source": "ask_about_code",
-      "target": "join"
-    },
-    {
-      "source": "ask_about_code",
-      "target": "create"
-    },
-    {
-      "source": "ask_about_code",
-      "target": "error"
     },
     {
       "source": "execute",
@@ -4328,140 +4174,380 @@
       "target": "print"
     },
     {
-      "source": "ApprovalManager.add_task",
-      "target": "str"
+      "source": "CodebaseManager.__init__",
+      "target": "abspath"
     },
     {
-      "source": "ApprovalManager.add_task",
-      "target": "uuid4"
+      "source": "CodebaseManager.__init__",
+      "target": "getcwd"
     },
     {
-      "source": "ApprovalManager.get_task",
-      "target": "pop"
+      "source": "CodebaseManager.__init__",
+      "target": "join"
     },
     {
-      "source": "add_task",
-      "target": "str"
+      "source": "CodebaseManager.__init__",
+      "target": "PersistentClient"
     },
     {
-      "source": "add_task",
-      "target": "uuid4"
+      "source": "CodebaseManager.__init__",
+      "target": "get_or_create_collection"
     },
     {
-      "source": "get_task",
-      "target": "pop"
+      "source": "CodebaseManager.__init__",
+      "target": "Language"
     },
     {
-      "source": "UnifiedTools.list_all",
-      "target": "extend"
+      "source": "CodebaseManager.__init__",
+      "target": "language"
     },
     {
-      "source": "UnifiedTools.list_all",
-      "target": "list_tools"
+      "source": "CodebaseManager.__init__",
+      "target": "Parser"
     },
     {
-      "source": "UnifiedTools.list_all",
-      "target": "warning"
+      "source": "CodebaseManager.__init__",
+      "target": "Query"
     },
     {
-      "source": "UnifiedTools.list_all",
-      "target": "_ensure_discovered"
+      "source": "CodebaseManager.__init__",
+      "target": "QueryCursor"
     },
     {
-      "source": "UnifiedTools.list_all",
-      "target": "append"
+      "source": "CodebaseManager.__init__",
+      "target": "Lock"
     },
     {
-      "source": "UnifiedTools.call",
-      "target": "add_task"
-    },
-    {
-      "source": "UnifiedTools.call",
+      "source": "CodebaseManager.__init__",
       "target": "info"
     },
     {
-      "source": "UnifiedTools.call",
-      "target": "call_tool"
+      "source": "CodebaseManager._normalize_path",
+      "target": "abspath"
     },
     {
-      "source": "UnifiedTools.call",
-      "target": "_err"
+      "source": "CodebaseManager._index_file",
+      "target": "CodebaseManager._normalize_path"
     },
     {
-      "source": "UnifiedTools.call",
-      "target": "hasattr"
+      "source": "CodebaseManager._index_file",
+      "target": "exists"
     },
     {
-      "source": "UnifiedTools.call",
-      "target": "get"
+      "source": "CodebaseManager._index_file",
+      "target": "getsize"
     },
     {
-      "source": "UnifiedTools.call",
-      "target": "list_tools"
-    },
-    {
-      "source": "UnifiedTools.call",
-      "target": "sorted"
-    },
-    {
-      "source": "UnifiedTools.call",
-      "target": "list"
-    },
-    {
-      "source": "call",
-      "target": "add_task"
-    },
-    {
-      "source": "call",
-      "target": "info"
-    },
-    {
-      "source": "call",
-      "target": "call_tool"
-    },
-    {
-      "source": "call",
-      "target": "_err"
-    },
-    {
-      "source": "call",
-      "target": "hasattr"
-    },
-    {
-      "source": "call",
-      "target": "get"
-    },
-    {
-      "source": "call",
-      "target": "list_tools"
-    },
-    {
-      "source": "call",
-      "target": "sorted"
-    },
-    {
-      "source": "call",
-      "target": "list"
-    },
-    {
-      "source": "list_all",
-      "target": "extend"
-    },
-    {
-      "source": "list_all",
-      "target": "list_tools"
-    },
-    {
-      "source": "list_all",
+      "source": "CodebaseManager._index_file",
       "target": "warning"
     },
     {
-      "source": "list_all",
-      "target": "_ensure_discovered"
+      "source": "CodebaseManager._index_file",
+      "target": "open"
     },
     {
-      "source": "list_all",
+      "source": "CodebaseManager._index_file",
+      "target": "read"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "parse"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "bytes"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "captures"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "get"
+    },
+    {
+      "source": "CodebaseManager._index_file",
       "target": "append"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "delete"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "add"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "info"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "len"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "basename"
+    },
+    {
+      "source": "CodebaseManager._index_file",
+      "target": "error"
+    },
+    {
+      "source": "CodebaseManager._remove_file",
+      "target": "CodebaseManager._normalize_path"
+    },
+    {
+      "source": "CodebaseManager._remove_file",
+      "target": "delete"
+    },
+    {
+      "source": "CodebaseManager._remove_file",
+      "target": "info"
+    },
+    {
+      "source": "CodebaseManager._remove_file",
+      "target": "basename"
+    },
+    {
+      "source": "CodebaseManager._remove_file",
+      "target": "error"
+    },
+    {
+      "source": "CodebaseManager.get_context",
+      "target": "CodebaseManager._normalize_path"
+    },
+    {
+      "source": "CodebaseManager.get_context",
+      "target": "query"
+    },
+    {
+      "source": "CodebaseManager.get_context",
+      "target": "get"
+    },
+    {
+      "source": "CodebaseManager.get_context",
+      "target": "zip"
+    },
+    {
+      "source": "CodebaseManager._is_ignored",
+      "target": "split"
+    },
+    {
+      "source": "CodebaseManager._is_ignored",
+      "target": "normpath"
+    },
+    {
+      "source": "CodebaseManager._is_ignored",
+      "target": "any"
+    },
+    {
+      "source": "CodebaseManager.start_watcher",
+      "target": "walk"
+    },
+    {
+      "source": "CodebaseManager.start_watcher",
+      "target": "endswith"
+    },
+    {
+      "source": "CodebaseManager.start_watcher",
+      "target": "CodebaseManager._index_file"
+    },
+    {
+      "source": "CodebaseManager.start_watcher",
+      "target": "join"
+    },
+    {
+      "source": "CodebaseManager.start_watcher",
+      "target": "Observer"
+    },
+    {
+      "source": "CodebaseManager.start_watcher",
+      "target": "schedule"
+    },
+    {
+      "source": "CodebaseManager.start_watcher",
+      "target": "Handler"
+    },
+    {
+      "source": "CodebaseManager.start_watcher",
+      "target": "start"
+    },
+    {
+      "source": "CodebaseManager.start_watcher",
+      "target": "info"
+    },
+    {
+      "source": "Handler.on_modified",
+      "target": "endswith"
+    },
+    {
+      "source": "Handler.on_modified",
+      "target": "_is_ignored"
+    },
+    {
+      "source": "Handler.on_modified",
+      "target": "_index_file"
+    },
+    {
+      "source": "Handler.on_created",
+      "target": "endswith"
+    },
+    {
+      "source": "Handler.on_created",
+      "target": "_is_ignored"
+    },
+    {
+      "source": "Handler.on_created",
+      "target": "_index_file"
+    },
+    {
+      "source": "Handler.on_deleted",
+      "target": "endswith"
+    },
+    {
+      "source": "Handler.on_deleted",
+      "target": "_is_ignored"
+    },
+    {
+      "source": "Handler.on_deleted",
+      "target": "_remove_file"
+    },
+    {
+      "source": "Handler.on_moved",
+      "target": "endswith"
+    },
+    {
+      "source": "Handler.on_moved",
+      "target": "_is_ignored"
+    },
+    {
+      "source": "Handler.on_moved",
+      "target": "_remove_file"
+    },
+    {
+      "source": "Handler.on_moved",
+      "target": "getattr"
+    },
+    {
+      "source": "Handler.on_moved",
+      "target": "_index_file"
+    },
+    {
+      "source": "AgentIndexer.__init__",
+      "target": "getenv"
+    },
+    {
+      "source": "AgentIndexer.__init__",
+      "target": "OpenAI"
+    },
+    {
+      "source": "AgentIndexer.__init__",
+      "target": "join"
+    },
+    {
+      "source": "AgentIndexer.__init__",
+      "target": "getcwd"
+    },
+    {
+      "source": "AgentIndexer.__init__",
+      "target": "PersistentClient"
+    },
+    {
+      "source": "AgentIndexer.__init__",
+      "target": "get_or_create_collection"
+    },
+    {
+      "source": "AgentIndexer.__init__",
+      "target": "info"
+    },
+    {
+      "source": "AgentIndexer.analyze_code",
+      "target": "create"
+    },
+    {
+      "source": "AgentIndexer.analyze_code",
+      "target": "error"
+    },
+    {
+      "source": "AgentIndexer.process_all_symbols",
+      "target": "get"
+    },
+    {
+      "source": "AgentIndexer.process_all_symbols",
+      "target": "enumerate"
+    },
+    {
+      "source": "AgentIndexer.process_all_symbols",
+      "target": "info"
+    },
+    {
+      "source": "AgentIndexer.process_all_symbols",
+      "target": "AgentIndexer.analyze_code"
+    },
+    {
+      "source": "AgentIndexer.process_all_symbols",
+      "target": "print"
+    },
+    {
+      "source": "AgentIndexer.ask_about_code",
+      "target": "query"
+    },
+    {
+      "source": "AgentIndexer.ask_about_code",
+      "target": "join"
+    },
+    {
+      "source": "AgentIndexer.ask_about_code",
+      "target": "create"
+    },
+    {
+      "source": "AgentIndexer.ask_about_code",
+      "target": "error"
+    },
+    {
+      "source": "analyze_code",
+      "target": "create"
+    },
+    {
+      "source": "analyze_code",
+      "target": "error"
+    },
+    {
+      "source": "process_all_symbols",
+      "target": "get"
+    },
+    {
+      "source": "process_all_symbols",
+      "target": "enumerate"
+    },
+    {
+      "source": "process_all_symbols",
+      "target": "info"
+    },
+    {
+      "source": "process_all_symbols",
+      "target": "analyze_code"
+    },
+    {
+      "source": "process_all_symbols",
+      "target": "print"
+    },
+    {
+      "source": "ask_about_code",
+      "target": "query"
+    },
+    {
+      "source": "ask_about_code",
+      "target": "join"
+    },
+    {
+      "source": "ask_about_code",
+      "target": "create"
+    },
+    {
+      "source": "ask_about_code",
+      "target": "error"
     }
   ]
 }

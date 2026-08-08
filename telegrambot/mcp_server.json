@@ -17,8 +17,8 @@
       "env": {}
     },
     "filesystem": {
-      "command": "bun",
-      "args": ["x", "@modelcontextprotocol/server-filesystem", "./"]
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "./"]
     },
     "bash": {
       "command": "bun",

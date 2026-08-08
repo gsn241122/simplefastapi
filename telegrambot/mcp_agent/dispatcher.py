@@ -23,7 +23,24 @@ from loguru import logger
 
 from mcp_agent.client import MCPClient
 from mcp_agent.local_tools import LocalSkillServer
+from mcp_agent.approval_manager import approval_manager
 
+SENSITIVE_TOOLS = {
+    # Bash & Shell
+    "bash_run", "run_shell_command", 
+    
+    # Filesystem (Destructive/Modifying)
+    "delete_file", "write_file", "edit_file", "move_file", "create_directory",
+    
+    # App Management
+    "stop_instance", "unregister_instance", "start_all", "stop_all", "force_stop_instance",
+    
+    # Database/Code
+    "execute_sql", "chroma_delete_collection", "chroma_delete_documents",
+    
+    # Android & Git
+    "adb_install", "adb_push", "adb_shell", "git_reset"
+}
 
 class UnifiedTools:
     """Single facade for remote MCP tools + local skill tools."""
@@ -63,6 +80,15 @@ class UnifiedTools:
         return out
 
     async def call(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        if name in SENSITIVE_TOOLS:
+            task_id = approval_manager.add_task(name, arguments)
+            return {
+                "content": [{"type": "text", "text": f"PENDING_APPROVAL:{task_id}:{name}"}],
+                "isError": False,
+            }
+        return await self.call_real(name, arguments)
+
+    async def call_real(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         """Dispatch a tool call to either remote or local server."""
         # Try local first if it owns this tool
         if name in self._local_tools_index:
@@ -85,7 +111,7 @@ class UnifiedTools:
         if server is None:
             return _err(
                 f"Tool {name!r} not found. Available: "
-                f"{sorted(list(self._local_tools_index) + list(self._remote_tools_index))[:10]}..."
+                f"{sorted(list(self._local_tools_index) + list(self._remote_tools_index))[:20]}..."
             )
         return await self.mcp_client.call_tool(server, name, arguments or {})
 

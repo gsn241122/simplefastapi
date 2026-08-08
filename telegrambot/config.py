@@ -66,7 +66,7 @@ class Settings(BaseSettings):
 
     # --- LLM behavior ---
     max_input_chars: int = Field(default=4000, description="Max user input characters before truncation")
-    max_context_turns: int = Field(default=10, description="Sliding window of conversation turns kept in memory")
+    max_context_turns: int = Field(default=20, description="Sliding window of conversation turns kept in memory")
     request_timeout_sec: float = Field(default=60.0, description="HTTP timeout for LLM API calls (seconds)")
 
     # --- Rate limiting ---

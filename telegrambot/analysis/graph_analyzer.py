@@ -77,7 +77,9 @@ class GraphAnalyzer:
         try:
             tree = ast.parse(code_content)
         except SyntaxError as e:
-            print(f"Syntax error saat parsing {file_path}: {e}")
+            print(f"--- ERROR DI FILE: {file_path} ---")
+            print(f"Isi Kode: {code_content[:50]}...")
+            print(f"Detail Error: {e}")
             return
 
         try:
