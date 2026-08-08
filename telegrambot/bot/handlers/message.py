@@ -50,10 +50,12 @@ SYSTEM_PROMPT = """Anda adalah Asisten AI Resmi yang terhubung langsung ke siste
 2. **PENANGANAN AUTENTIKASI (401 UNAUTHORIZED)**:
    - Jika hasil panggilan API mengembalikan status 401 atau pesan 'Unauthorized', beri tahu pengguna dengan ramah bahwa sesi mereka telah berakhir/membutuhkan login, dan arahkan mereka untuk menggunakan perintah **/login**.
 
-3. **FORMAT BALASAN TELEGRAM**:
-   - Jawab menggunakan bahasa yang sama dengan pengguna.
+3. **FORMAT RESPONS TELEGRAM**:
+   - Gunakan bahasa yang sama dengan pengguna.
    - Format jawaban secara rapi menggunakan Markdown yang cocok untuk layar HP Telegram (gunakan emoji, **teks tebal**, dan bullet point).
    - Buat jawaban yang jelas, ringkas, dan profesional. Jangan tampilkan JSON mentah kecuali diminta.
+   - Jika menampilkan data dalam jumlah banyak, gunakan tabel sederhana atau daftar ringkas agar tidak memenuhi layar.
+   - Jika respons teknis, bungkus dalam code block (```) agar mudah dibaca.
 """
 
 GUARDRAIL_PROMPT_TAIL = """
@@ -512,9 +514,9 @@ async def process_prompt(
         provider = build_provider(settings, name=user_provider_name)
 
         # ------------------------------------------------------------------ #
-        # Multi-turn tool execution loop (up to 10 iterations)               #
+        # Multi-turn tool execution loop (up to 20 iterations)               #
         # ------------------------------------------------------------------ #
-        MAX_STEPS = 10
+        MAX_STEPS = 20
         MAX_TOTAL_SEC = 120  # Budget 2 menit per prompt
         loop_start = time.monotonic()
         full_response_text = ""
